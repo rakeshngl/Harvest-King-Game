@@ -1,0 +1,16 @@
+{
+  "name": "annadata",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node start.mjs",
+    "server": "node server/index.js",
+    "frontend": "vite --host 0.0.0.0 --port 5173",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0 --port 5173"
+  },
+  "devDependencies": {
+    "vite": "^5.4.8"
+  }
+}
