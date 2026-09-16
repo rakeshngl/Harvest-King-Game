@@ -64,7 +64,7 @@ export function createGame(playerCount = 2, names = []) {
   const prices = {}
   Object.values(CROPS).forEach((c) => { prices[c.id] = c.price })
 
-  return {
+  const state = {
     players,
     farms,
     infra: {},
@@ -78,7 +78,8 @@ export function createGame(playerCount = 2, names = []) {
     mandi: shuffle(MANDI_CARDS),
     kisanI: 0,
     mandiI: 0,
-    log: ['Village Hall opens. May your granaries fill.'],
+    log: [],
+    logId: 0,
     phase: 'roll',
     lastDice: [1, 1],
     doubles: 0,
@@ -87,6 +88,8 @@ export function createGame(playerCount = 2, names = []) {
     started: true,
     labourUsed: false
   }
+  log(state, 'Village Hall opens. May your granaries fill.', 'info')
+  return state
 }
 
 export function seasonOf(state) {
@@ -128,8 +131,9 @@ export function groupOwned(state, pid, group) {
   return ids.every((id) => state.farms[id].owner === pid)
 }
 
-function log(state, msg) {
-  state.log.unshift(msg)
+function log(state, msg, kind = 'info', meta = null) {
+  state.logId += 1
+  state.log.unshift({ id: state.logId, kind, text: msg, meta })
   if (state.log.length > 80) state.log.pop()
 }
 
@@ -138,7 +142,7 @@ function pay(state, player, amount, reason) {
   if (a <= 0) return true
   if (player.cash >= a) {
     player.cash -= a
-    log(state, `${player.name} pays Rs ${a}${reason ? ' — ' + reason : ''}.`)
+    log(state, `${player.name} pays Rs ${a}${reason ? ' — ' + reason : ''}.`, 'loss', { amount: a, pid: player.id })
     return true
   }
   return false
@@ -148,7 +152,7 @@ function gain(state, player, amount, reason) {
   const a = Math.round(amount)
   if (a <= 0) return
   player.cash += a
-  log(state, `${player.name} receives Rs ${a}${reason ? ' — ' + reason : ''}.`)
+  log(state, `${player.name} receives Rs ${a}${reason ? ' — ' + reason : ''}.`, 'gain', { amount: a, pid: player.id })
 }
 
 function drawCard(state, kind) {
@@ -176,7 +180,7 @@ export function applyMove(state, dice) {
     advanceSeasonMaybe(state)
   }
   const tile = TILES[p.pos]
-  log(state, `${p.name} rolls ${dice[0]}+${dice[1]} and reaches ${tile.name}.`)
+  log(state, `${p.name} rolls ${dice[0]}+${dice[1]} and reaches ${tile.name}.`, 'roll', { pid: p.id, tileId: tile.id, dice: [dice[0], dice[1]] })
   resolveTile(state, p, tile, total)
   checkWin(state)
   return state
@@ -194,7 +198,7 @@ function tickLeases(state, p) {
           f.crop = null
           f.prepared = false
         }
-        log(state, `A lease held by ${p.name} expired.`)
+        log(state, `A lease held by ${p.name} expired.`, 'info', { pid: p.id })
       }
     }
   })
@@ -210,14 +214,14 @@ function advanceSeasonMaybe(state) {
     const drift = 1 + (Math.random() * 0.2 - 0.1)
     state.prices[cid] = Math.round(base * state.marketMod * drift)
   })
-  log(state, `${seasonOf(state).name} season. Weather: ${w.name}. ${w.text}`)
+  log(state, `${seasonOf(state).name} season. Weather: ${w.name}. ${w.text}`, 'season')
   state.players.forEach((pl) => {
     if (pl.knowHow > 0) pl.knowHow -= 1
     if (pl.enam > 0) pl.enam -= 1
     if (pl.debt > 0) {
       const interest = Math.round(pl.debt * INTEREST)
       pl.debt += interest
-      log(state, `${pl.name} accrues Rs ${interest} rural bank interest.`)
+      log(state, `${pl.name} accrues Rs ${interest} rural bank interest.`, 'loss', { amount: interest, pid: pl.id })
     }
   })
   if (state.seasonIndex >= MAX_SEASONS) finishByNet(state)
@@ -263,7 +267,7 @@ function resolveTile(state, p, tile, diceTotal) {
       const f = farmsOf(state, p.id).find((x) => x.stage === 'idle' && !x.mortgaged)
       if (f) {
         state.farms[f.id].fertility = clamp(state.farms[f.id].fertility + 0.25, 0.5, 2)
-        log(state, `Mela demo plot improved fertility at ${f.tile.name}.`)
+        log(state, `Mela demo plot improved fertility at ${f.tile.name}.`, 'gain', { pid: p.id })
       }
     }
     if (farmsOf(state, p.id).length) {
@@ -359,7 +363,7 @@ function transfer(state, from, to, amount, reason) {
   if (from.cash >= a) {
     from.cash -= a
     to.cash += a
-    log(state, `${from.name} pays ${to.name} Rs ${a} for ${reason}.`)
+    log(state, `${from.name} pays ${to.name} Rs ${a} for ${reason}.`, 'loss', { amount: a, pid: from.id })
     return
   }
   forcePay(state, from, a, reason)
@@ -373,13 +377,13 @@ function transfer(state, from, to, amount, reason) {
 export function forcePay(state, player, amount, reason) {
   if (player.cash >= amount) {
     player.cash -= Math.round(amount)
-    log(state, `${player.name} pays Rs ${Math.round(amount)} — ${reason}.`)
+    log(state, `${player.name} pays Rs ${Math.round(amount)} — ${reason}.`, 'loss', { amount: Math.round(amount), pid: player.id })
     return true
   }
   autoRaise(state, player, amount)
   if (player.cash >= amount) {
     player.cash -= Math.round(amount)
-    log(state, `${player.name} pays Rs ${Math.round(amount)} — ${reason}.`)
+    log(state, `${player.name} pays Rs ${Math.round(amount)} — ${reason}.`, 'loss', { amount: Math.round(amount), pid: player.id })
     return true
   }
   bankrupt(state, player, reason)
@@ -392,7 +396,7 @@ function autoRaise(state, player, need) {
     if (f.owner === player.id && !f.mortgaged && f.stage === 'idle') {
       f.mortgaged = true
       player.cash += Math.round(TILES[id].price * 0.5)
-      log(state, `${player.name} mortgages ${TILES[id].name}.`)
+      log(state, `${player.name} mortgages ${TILES[id].name}.`, 'loss', { pid: player.id })
     }
   })
 }
@@ -411,17 +415,17 @@ function bankrupt(state, player, reason) {
   Object.keys(state.utilities).forEach((k) => {
     if (state.utilities[k] === player.id) delete state.utilities[k]
   })
-  log(state, `${player.name} is insolvent (${reason}). Lands revert to Village Hall.`)
+  log(state, `${player.name} is insolvent (${reason}). Lands revert to Village Hall.`, 'loss', { pid: player.id })
   const alive = state.players.filter((p) => !p.bankrupt)
   if (alive.length === 1) {
     state.winner = alive[0].id
     state.phase = 'over'
-    log(state, `${alive[0].name} is the Harvest King of the board.`)
+    log(state, `${alive[0].name} is the Harvest King of the board.`, 'gain', { pid: alive[0].id })
   }
 }
 
 function applyCard(state, p, card) {
-  log(state, `${card.title}: ${card.text}`)
+  log(state, `${card.title}: ${card.text}`, 'card', { pid: p.id })
   switch (card.fn) {
     case 'gain':
       gain(state, p, card.amount, card.title)
@@ -449,7 +453,7 @@ function applyCard(state, p, card) {
       if (fee === 0) break
       if (p.cash >= fee) {
         p.cash -= fee
-        log(state, `${p.name} sprays pesticide for Rs ${fee}.`)
+        log(state, `${p.name} sprays pesticide for Rs ${fee}.`, 'loss', { amount: fee, pid: p.id })
       } else {
         seeded.forEach((f) => wipeCrop(state, f.id, 'pests'))
       }
@@ -520,7 +524,7 @@ function applyCard(state, p, card) {
     case 'labour':
       if (p.cash >= card.amount) {
         p.cash -= card.amount
-        log(state, `${p.name} hires extra labour.`)
+        log(state, `${p.name} hires extra labour.`, 'loss', { amount: card.amount, pid: p.id })
       } else {
         p.skipHarvestBonus = true
       }
@@ -552,7 +556,7 @@ function applyCard(state, p, card) {
       break
     case 'debtCut':
       p.debt = Math.max(0, p.debt - card.amount)
-      log(state, `${p.name} debt reduced to Rs ${p.debt}.`)
+      log(state, `${p.name} debt reduced to Rs ${p.debt}.`, 'gain', { amount: card.amount, pid: p.id })
       break
     default:
       break
@@ -566,7 +570,7 @@ function wipeCrop(state, tileId, why) {
   f.growLeft = 0
   f.prepared = false
   f.lastPnl = -200
-  log(state, `Crop lost at ${TILES[tileId].name} due to ${why}.`)
+  log(state, `Crop lost at ${TILES[tileId].name} due to ${why}.`, 'loss', { tileId })
 }
 
 export function buyFarm(state, tileId) {
@@ -577,7 +581,7 @@ export function buyFarm(state, tileId) {
   p.cash -= t.price
   f.owner = p.id
   f.leasee = null
-  log(state, `${p.name} purchases ${t.name} for Rs ${t.price}.`)
+  log(state, `${p.name} purchases ${t.name} for Rs ${t.price}.`, 'loss', { amount: t.price, pid: p.id, tileId })
   state.pending = { kind: 'farmWork', tileId }
   state.phase = 'action'
   return true
@@ -591,7 +595,7 @@ export function leaseFarm(state, tileId) {
   p.cash -= t.lease
   f.leasee = p.id
   f.leaseTurns = 3
-  log(state, `${p.name} leases ${t.name} for Rs ${t.lease} (3 circuits).`)
+  log(state, `${p.name} leases ${t.name} for Rs ${t.lease} (3 circuits).`, 'loss', { amount: t.lease, pid: p.id, tileId })
   state.pending = { kind: 'farmWork', tileId }
   state.phase = 'action'
   return true
@@ -603,7 +607,7 @@ export function buyInfra(state, tileId, map) {
   if (state[map][tileId] != null || p.cash < t.price) return false
   p.cash -= t.price
   state[map][tileId] = p.id
-  log(state, `${p.name} acquires ${t.name} for Rs ${t.price}.`)
+  log(state, `${p.name} acquires ${t.name} for Rs ${t.price}.`, 'loss', { amount: t.price, pid: p.id, tileId })
   state.phase = 'end'
   state.pending = null
   return true
@@ -628,7 +632,7 @@ export function prepareLand(state, tileId) {
   f.prepared = true
   f.stage = 'prepared'
   f.fertility = clamp(f.fertility + 0.1, 0.5, 2.2)
-  log(state, `${p.name} prepares ${t.name}${cost ? ' for Rs ' + cost : ' (Soil Health Card)'}.`)
+  log(state, `${p.name} prepares ${t.name}${cost ? ' for Rs ' + cost : ' (Soil Health Card)'}.`, cost ? 'loss' : 'gain', { amount: cost, pid: p.id, tileId })
   state.pending = { kind: 'farmWork', tileId }
   return true
 }
@@ -649,7 +653,7 @@ export function seedLand(state, tileId, cropId) {
   f.stage = 'seeded'
   f.growLeft = crop.grow
   if (off) f.fertility = clamp(f.fertility - 0.15, 0.4, 2)
-  log(state, `${p.name} sows ${crop.name} at ${t.name} for Rs ${cost}${off ? ' (off-season surcharge)' : ''}.`)
+  log(state, `${p.name} sows ${crop.name} at ${t.name} for Rs ${cost}${off ? ' (off-season surcharge)' : ''}.`, 'loss', { amount: cost, pid: p.id, tileId })
   state.phase = 'end'
   state.pending = null
   return true
@@ -664,7 +668,7 @@ export function irrigate(state, tileId) {
   if (p.cash < cost) return false
   p.cash -= cost
   f.irrigated = true
-  log(state, `${p.name} irrigates ${TILES[tileId].name} for Rs ${cost}.`)
+  log(state, `${p.name} irrigates ${TILES[tileId].name} for Rs ${cost}.`, 'loss', { amount: cost, pid: p.id, tileId })
   return true
 }
 
@@ -676,7 +680,7 @@ export function insure(state, tileId) {
   if (p.cash < cost) return false
   p.cash -= cost
   f.insured = true
-  log(state, `${p.name} insures ${TILES[tileId].name} under crop insurance.`)
+  log(state, `${p.name} insures ${TILES[tileId].name} under crop insurance.`, 'loss', { amount: cost, pid: p.id, tileId })
   return true
 }
 
@@ -689,7 +693,7 @@ export function tendCrop(state, tileId) {
   if (p.cash < cost) return false
   p.cash -= cost
   f.fertility = clamp(f.fertility + 0.12, 0.5, 2.2)
-  log(state, `${p.name} weeds and tends ${CROPS[f.crop].name} at ${t.name} for Rs ${cost}.`)
+  log(state, `${p.name} weeds and tends ${CROPS[f.crop].name} at ${t.name} for Rs ${cost}.`, 'loss', { amount: cost, pid: p.id, tileId })
   state.phase = 'end'
   state.pending = null
   return true
@@ -719,7 +723,7 @@ export function harvest(state, tileId) {
   if (w.id === 'hail' && (t.soil === 'hill' || t.group === 'orchard') && Math.random() < 0.35) {
     y *= 0.4
     disaster = true
-    log(state, `Hail shredded part of the ${t.name} harvest.`)
+    log(state, `Hail shredded part of the ${t.name} harvest.`, 'loss', { tileId })
   }
   if (w.id === 'flood' && t.soil === 'alluvial' && crop.water < 0.7) {
     y *= 0.7
@@ -728,12 +732,12 @@ export function harvest(state, tileId) {
   if (Math.random() < 0.16) {
     disaster = true
     if (f.insured) {
-      log(state, `Pests hit ${t.name}; crop insurance covers the loss.`)
+      log(state, `Pests hit ${t.name}; crop insurance covers the loss.`, 'gain', { amount: 800, pid: p.id, tileId })
       y *= 0.9
       p.cash += 800
     } else {
       y *= 0.45
-      log(state, `Pests and blight cut the ${t.name} harvest.`)
+      log(state, `Pests and blight cut the ${t.name} harvest.`, 'loss', { tileId })
     }
   }
   y = Math.max(0, y)
@@ -746,11 +750,11 @@ export function harvest(state, tileId) {
   const ownsCold = state.infra[15] === p.id
   if (!ownsCold && Math.random() < 0.12) {
     y *= 0.75
-    log(state, `Spoilage without cold storage at ${t.name}.`)
+    log(state, `Spoilage without cold storage at ${t.name}.`, 'loss', { tileId })
   }
   if (disaster && f.insured) {
     p.cash += 400
-    log(state, `Insurance top-up Rs 400 at ${t.name}.`)
+    log(state, `Insurance top-up Rs 400 at ${t.name}.`, 'gain', { amount: 400, pid: p.id, tileId })
   }
   let revenue = Math.round(y * price)
   const costBasis = crop.seed + t.prepare
@@ -762,7 +766,7 @@ export function harvest(state, tileId) {
   f.lastYield = Math.round(y * 10) / 10
   f.lastPnl = pnl
   p.cash += revenue
-  log(state, `${p.name} harvests ${crop.name} at ${t.name}: ${f.lastYield} qtl @ Rs ${Math.round(price)} = Rs ${revenue} (${pnl >= 0 ? 'profit' : 'loss'} Rs ${Math.abs(pnl)}).`)
+  log(state, `${p.name} harvests ${crop.name} at ${t.name}: ${f.lastYield} qtl @ Rs ${Math.round(price)} = Rs ${revenue} (${pnl >= 0 ? 'profit' : 'loss'} Rs ${Math.abs(pnl)}).`, pnl >= 0 ? 'gain' : 'loss', { amount: revenue, pnl, pid: p.id, tileId })
   f.stage = 'idle'
   f.crop = null
   f.prepared = false
@@ -782,7 +786,7 @@ export function sellToFci(state) {
   const p = currentPlayer(state)
   const ripe = farmsOf(state, p.id).filter((f) => f.stage === 'ripe' || (f.stage === 'seeded' && f.growLeft <= 0))
   if (!ripe.length) {
-    log(state, `${p.name} has no ready harvest for the food warehouse.`)
+    log(state, `${p.name} has no ready harvest for the food warehouse.`, 'info', { pid: p.id })
     state.phase = 'end'
     state.pending = null
     return false
@@ -796,7 +800,7 @@ export function sellToFci(state) {
     p.cash += revenue
     f.lastYield = qty
     f.lastPnl = revenue - crop.seed
-    log(state, `Warehouse lifts ${crop.name} from ${f.tile.name} at support price Rs ${msp} x ${qty} = Rs ${revenue}.`)
+    log(state, `Warehouse lifts ${crop.name} from ${f.tile.name} at support price Rs ${msp} x ${qty} = Rs ${revenue}.`, 'gain', { amount: revenue, pid: p.id, tileId: f.id })
     f.stage = 'idle'
     f.crop = null
     f.prepared = false
@@ -811,7 +815,7 @@ export function takeLoan(state) {
   if (p.debt >= LOAN_CAP) return false
   p.debt += LOAN_STEP
   p.cash += LOAN_STEP
-  log(state, `${p.name} takes a rural bank crop loan of Rs ${LOAN_STEP}. Debt Rs ${p.debt}.`)
+  log(state, `${p.name} takes a rural bank crop loan of Rs ${LOAN_STEP}. Debt Rs ${p.debt}.`, 'gain', { amount: LOAN_STEP, pid: p.id })
   return true
 }
 
@@ -821,7 +825,7 @@ export function repayLoan(state, amount) {
   if (a <= 0) return false
   p.cash -= a
   p.debt -= a
-  log(state, `${p.name} repays Rs ${a}. Remaining debt Rs ${p.debt}.`)
+  log(state, `${p.name} repays Rs ${a}. Remaining debt Rs ${p.debt}.`, 'loss', { amount: a, pid: p.id })
   return true
 }
 
@@ -869,7 +873,7 @@ function growCrops(state, p) {
       f.growLeft -= 1
       if (f.growLeft <= 0) {
         f.stage = 'ripe'
-        log(state, `${CROPS[f.crop].name} is ripe at ${TILES[id].name}.`)
+        log(state, `${CROPS[f.crop].name} is ripe at ${TILES[id].name}.`, 'grow', { pid: p.id, tileId: Number(id) })
       }
     }
   })
@@ -881,7 +885,7 @@ function checkWin(state) {
     if (!p.bankrupt && netWorth(state, p) >= WIN_NET) {
       state.winner = p.id
       state.phase = 'over'
-      log(state, `${p.name} becomes Harvest King with net worth Rs ${netWorth(state, p)}.`)
+      log(state, `${p.name} becomes Harvest King with net worth Rs ${netWorth(state, p)}.`, 'gain', { pid: p.id })
     }
   })
 }
@@ -900,7 +904,7 @@ function finishByNet(state) {
   if (best != null) {
     state.winner = best
     state.phase = 'over'
-    log(state, `Seasons end. ${state.players[best].name} is Harvest King with Rs ${bestV}.`)
+    log(state, `Seasons end. ${state.players[best].name} is Harvest King with Rs ${bestV}.`, 'gain', { pid: best })
   }
 }
 
@@ -913,7 +917,7 @@ export function unmortgage(state, tileId) {
   if (p.cash < cost) return false
   p.cash -= cost
   f.mortgaged = false
-  log(state, `${p.name} redeems ${t.name} for Rs ${cost}.`)
+  log(state, `${p.name} redeems ${t.name} for Rs ${cost}.`, 'loss', { amount: cost, pid: p.id, tileId })
   return true
 }
 

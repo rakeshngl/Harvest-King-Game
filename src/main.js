@@ -37,9 +37,46 @@ let seq = 0
 let lastRollSeq = 0
 let pollOn = false
 let notice = ''
+let seenLogId = 0
+let landing = null
 
 function rs(n) {
   return 'Rs ' + Math.round(n).toLocaleString('en-IN')
+}
+
+function logIdOf(e) {
+  return typeof e === 'string' ? 0 : (e.id || 0)
+}
+
+function syncLog() {
+  seenLogId = (state && state.log ? state.log : []).reduce((m, e) => Math.max(m, logIdOf(e)), 0)
+}
+
+function captureLanding(prevCash) {
+  if (!state) return
+  const fresh = (state.log || []).filter((e) => typeof e !== 'string' && e.id > seenLogId)
+  if (!fresh.length) return
+  seenLogId = fresh.reduce((m, e) => Math.max(m, logIdOf(e)), seenLogId)
+  const roll = fresh.find((e) => e.kind === 'roll')
+  if (!roll) return
+  const meta = roll.meta || {}
+  const pid = meta.pid != null ? meta.pid : state.turn
+  const player = state.players[pid]
+  const tileId = meta.tileId != null ? meta.tileId : (player ? player.pos : 0)
+  const before = prevCash && prevCash[pid] != null ? prevCash[pid] : null
+  const after = player ? player.cash : null
+  landing = {
+    pid,
+    tileId,
+    entries: fresh.slice().reverse(),
+    delta: before != null && after != null ? after - before : null
+  }
+}
+
+function diaryRow(e) {
+  const kind = typeof e === 'string' ? 'info' : (e.kind || 'info')
+  const text = typeof e === 'string' ? e : e.text
+  return `<div class="log-line ${kind}"><span class="dot"></span><span class="txt">${text}</span></div>`
 }
 
 function online() {
@@ -68,6 +105,8 @@ function leaveSession() {
   inspectId = null
   rolling = false
   screen = 'lobby'
+  seenLogId = 0
+  landing = null
   saveSession(null)
 }
 
@@ -79,6 +118,7 @@ function applySnap(snap, opts = {}) {
   if (snap.started && snap.state) {
     const diceChanged = !opts.fromSelfRoll && snap.rollSeq > lastRollSeq
     lastRollSeq = snap.rollSeq
+    const prevCash = state ? state.players.map((p) => p.cash) : null
     state = snap.state
     screen = 'game'
     if (diceChanged && snap.lastDice) {
@@ -86,13 +126,17 @@ function applySnap(snap, opts = {}) {
       render()
       animateDice(snap.lastDice[0], snap.lastDice[1], () => {
         rolling = false
+        captureLanding(prevCash)
         render()
       })
       return
     }
+    if (opts.capture) captureLanding(prevCash)
+    else syncLog()
   } else {
     state = null
     screen = 'waiting'
+    syncLog()
   }
   render()
 }
@@ -203,6 +247,8 @@ function bindLobby() {
     inspectId = null
     screen = 'game'
     notice = ''
+    landing = null
+    syncLog()
     render()
   })
   document.getElementById('create').addEventListener('click', async () => {
@@ -305,7 +351,7 @@ async function netAct(action) {
       render()
       animateDice(snap.rolled[0], snap.rolled[1], () => {
         rolling = false
-        applySnap(snap, { fromSelfRoll: true })
+        applySnap(snap, { fromSelfRoll: true, capture: true })
       })
       return true
     }
@@ -384,7 +430,7 @@ function gameHtml() {
       </div>
       <div class="panel">
         <h3>Farm diary</h3>
-        <div class="log">${state.log.slice(0, 12).map((l) => `<div>${l}</div>`).join('')}</div>
+        <div class="log">${state.log.slice(0, 12).map(diaryRow).join('')}</div>
       </div>
     </div>
   </div>
@@ -486,10 +532,42 @@ function modalHtml() {
         </div>
       </div>`
   }
+  if (landing) return landingModal()
   if (inspectId != null) return inspectModal(inspectId)
   if (!isMyTurn()) return ''
   if (state.phase === 'action' && state.pending) return actionModal(state.pending)
   return ''
+}
+
+function landingModal() {
+  const player = state.players[landing.pid] || currentPlayer(state)
+  const tile = TILES[landing.tileId]
+  const delta = landing.delta
+  const netCls = delta == null || delta === 0 ? 'flat' : delta > 0 ? 'gain' : 'loss'
+  const netTxt = delta == null
+    ? 'Settled'
+    : delta === 0
+      ? 'No cash change'
+      : (delta > 0 ? '+' : '-') + rs(Math.abs(delta))
+  const sub = tile ? (tile.region || tile.sub || (tile.group ? GROUPS[tile.group].name : '')) : ''
+  return `
+    <div class="modal-back">
+      <div class="modal landing">
+        <div class="land-tag" style="color:${player.color}">
+          <span class="pin" style="--pc:${player.color}"></span>${player.name} lands on
+        </div>
+        <div class="land-head">
+          <div class="land-icon" style="border-color:${player.color}">${tile ? iconHtml(tile.icon) : ''}</div>
+          <div>
+            <h2>${tile ? tile.name : 'the board'}</h2>
+            <p class="land-sub">${sub}</p>
+          </div>
+        </div>
+        <div class="land-events">${landing.entries.map(diaryRow).join('')}</div>
+        <div class="land-net ${netCls}">${netTxt}</div>
+        <div class="actions"><button class="primary" id="landok">Continue</button></div>
+      </div>
+    </div>`
 }
 
 function actionModal(pending) {
@@ -613,6 +691,13 @@ function bindGame() {
   const end = document.getElementById('endturn')
   const again = document.getElementById('again')
   const leave = document.getElementById('leavegame')
+  const landok = document.getElementById('landok')
+  if (landok) {
+    landok.addEventListener('click', () => {
+      landing = null
+      render()
+    })
+  }
   if (again) {
     again.addEventListener('click', () => {
       leaveSession()
@@ -633,9 +718,11 @@ function bindGame() {
       rolling = true
       roll.disabled = true
       const dice = rollDice()
+      const prevCash = state.players.map((p) => p.cash)
       animateDice(dice[0], dice[1], () => {
         applyMove(state, dice)
         rolling = false
+        captureLanding(prevCash)
         render()
       })
     })

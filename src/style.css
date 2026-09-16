@@ -576,11 +576,49 @@ html, body {
   gap: 4px;
 }
 
-.log div {
+.log-line {
+  display: flex;
+  gap: 6px;
   padding: 4px 6px;
   background: #fff;
-  border-left: 3px solid var(--green);
+  border-left: 3px solid #c5b491;
+  line-height: 1.35;
 }
+
+.log-line .txt { flex: 1 1 auto; }
+
+.log-line .dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  margin-top: 4px;
+  border-radius: 50%;
+  background: #c5b491;
+}
+
+.log-line.gain { border-left-color: #138808; }
+.log-line.gain .dot { background: #138808; }
+.log-line.gain .txt { color: #0b5e05; }
+
+.log-line.loss { border-left-color: #c62828; background: #fff7f7; }
+.log-line.loss .dot { background: #c62828; }
+.log-line.loss .txt { color: #a01c1c; }
+
+.log-line.roll { border-left-color: var(--navy); background: #f3f5ff; }
+.log-line.roll .dot { background: var(--navy); }
+.log-line.roll .txt { color: var(--navy); font-weight: 700; }
+
+.log-line.card { border-left-color: var(--saffron); background: #fff6ec; }
+.log-line.card .dot { background: var(--saffron); }
+.log-line.card .txt { color: #8a4b00; font-weight: 600; }
+
+.log-line.season { border-left-color: var(--gold); background: #fffaeb; }
+.log-line.season .dot { background: var(--gold); }
+.log-line.season .txt { color: #6b5200; }
+
+.log-line.grow { border-left-color: #2e7d32; }
+.log-line.grow .dot { background: #2e7d32; }
+.log-line.grow .txt { color: #1f5c23; }
 
 .prices {
   display: grid;
@@ -649,6 +687,82 @@ html, body {
 .seed-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .farm-meta { font-size: 13px; background: #fff; padding: 8px; margin-bottom: 10px; }
+
+.modal.landing {
+  width: min(470px, 100%);
+  border-color: var(--navy);
+  background: linear-gradient(180deg, #fffdf8 0%, var(--white) 100%);
+  animation: land-pop 0.22s ease-out;
+}
+
+@keyframes land-pop {
+  from { transform: translateY(10px) scale(0.97); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.land-tag {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.land-tag .pin {
+  width: 12px;
+  height: 12px;
+}
+
+.land-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: #fff;
+  border: 2px solid #e6d9bf;
+}
+
+.land-head h2 { margin-bottom: 2px; font-size: 22px; }
+.land-sub { margin: 0; font-size: 12px; color: #6b5a3e; }
+
+.land-icon {
+  width: 54px;
+  height: 54px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: 3px solid var(--navy);
+  border-radius: 50%;
+  background: #fffaf0;
+}
+
+.land-icon svg { width: 30px; height: 30px; }
+
+.land-events {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 12px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.land-net {
+  text-align: center;
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  padding: 8px;
+  margin-bottom: 14px;
+}
+
+.land-net.gain { background: #e6f5e4; color: #0b5e05; border: 2px solid #138808; }
+.land-net.loss { background: #fdecec; color: #a01c1c; border: 2px solid #c62828; }
+.land-net.flat { background: #f1ede4; color: #6b5a3e; border: 2px solid #cbbb9d; }
 
 .win {
   text-align: center;

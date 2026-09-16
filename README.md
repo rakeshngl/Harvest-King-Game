@@ -13,6 +13,8 @@ There is no jail. Instead, the board is loaded with agricultural complications: 
 - **Three-dimensional animated dice** rendered with CSS 3D transforms.
 - **Player tokens as colored location pins** in the Indian flag palette.
 - **Icon-driven board**: every tile carries an SVG icon (millet, cotton, paddy, tractor, canal, godown, bank, and more).
+- **Landing pop-up**: when a player lands on a tile, a styled modal shows the tile, its icon, every event it triggered, and the net cash change.
+- **Color-coded farm diary**: gains render green, losses red, with distinct accents for dice rolls, cards, seasons, and crop milestones.
 - **Living economy**: crop prices drift each season, cards shift the market, and infrastructure investments improve your yields and margins.
 - **Deterministic rules engine** shared by local and online play, so the same game logic runs everywhere.
 
@@ -152,6 +154,49 @@ A player wins immediately by reaching a **net worth of Rs 75,000**. Net worth co
 
 If no one reaches that threshold, the game ends after **18 seasons** and the richest living player is crowned Harvest King. Becoming the last solvent farmer also wins.
 
+## Landing Pop-up and Farm Diary
+
+Every dice roll in the UI is followed by a **landing pop-up** and a **farm diary** entry, so players always understand what just happened and why their cash changed.
+
+### Landing pop-up
+
+When a player lands on a tile, a modal appears showing:
+
+- The player's color pin and name, in the form "Green lands on".
+- The tile icon in a circular badge, plus the tile name and its region or description.
+- The **full list of events** the landing triggered, in order (for example, a card drawn and then the payment it caused).
+- A **net cash badge** for that landing: green with `+Rs ...` for a net gain, red with `-Rs ...` for a net loss, or a neutral "No cash change" when nothing moved.
+
+The pop-up is dismissed with a **Continue** button. It is displayed before any follow-up action modal (such as buying land), so the player sees the outcome first and then chooses what to do.
+
+### Color-coded diary
+
+The **Farm diary** panel keeps the last 12 entries and colors each one by its outcome:
+
+| Kind | Color | Meaning |
+| --- | --- | --- |
+| `gain` | Green | Money or value received (prizes, harvest revenue, subsidies, insurance) |
+| `loss` | Red | Money paid out (tax, seed and preparation costs, rent, interest, damage) |
+| `roll` | Navy | The dice roll and the tile reached |
+| `card` | Saffron | A Farmer Card or Market Prices card drawn |
+| `season` | Gold | A new season, its weather, and market drift |
+| `grow` | Dark green | A crop reaching ripeness |
+| `info` | Neutral | Everything else |
+
+### Structured log entries
+
+To support this, `src/engine.js` writes log entries as objects rather than plain strings:
+
+```js
+{ id: 42, kind: 'gain', text: 'Green receives Rs 677 — Farm Fair prize.', meta: { amount: 677, pid: 0 } }
+```
+
+- `id` is a monotonically increasing counter (`state.logId`) used by the client to detect new entries.
+- `kind` drives the color and icon styling.
+- `meta` carries machine-readable data (`amount`, `pid`, `tileId`, `dice`, `pnl`) used for the net-change badge and to group the events belonging to a single landing.
+
+Because entries are created inside the shared rules engine, the pop-up and colored diary work identically in local pass-and-play and online play; in online games every client sees the same landing announcement.
+
 ## Tech Stack
 
 - **Frontend**: vanilla ES modules, no framework. Custom CSS (checkerboard board, grid layout, 3D dice), inline SVG icons.
@@ -173,8 +218,8 @@ The only dependency is Vite (dev dependency). The server runs on the Node standa
 ├── server/
 │   └── index.js        # Session rooms, REST API, action validation, long-poll
 └── src/
-    ├── main.js         # UI, lobby, board rendering, online sync
-    ├── engine.js       # Game rules, farming cycle, cards, seasons, win logic
+    ├── main.js         # UI, lobby, board rendering, landing pop-up, colored diary, online sync
+    ├── engine.js       # Game rules, farming cycle, cards, seasons, structured log, win logic
     ├── data.js         # Tiles, crops, groups, cards, weather, constants
     ├── net.js          # Client fetch wrappers for the session API
     ├── dice.js         # CSS 3D dice rendering and animation
