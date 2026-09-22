@@ -37,8 +37,10 @@ export function createFarmState() {
   }
 }
 
-export function createGame(playerCount = 2, names = []) {
+export function createGame(playerCount = 2, names = [], opts = {}) {
   const n = clamp(playerCount, 2, 4)
+  const cpu = opts.cpu || []
+  const persona = opts.persona || []
   const players = Array.from({ length: n }, (_, i) => ({
     id: i,
     name: names[i] || PLAYER_PALETTE[i].name,
@@ -53,7 +55,9 @@ export function createGame(playerCount = 2, names = []) {
     knowHow: 0,
     enam: 0,
     infra: [],
-    utilities: []
+    utilities: [],
+    cpu: !!cpu[i],
+    persona: persona[i] || null
   }))
 
   const farms = {}
@@ -178,6 +182,7 @@ export function applyMove(state, dice) {
     gain(state, p, PASS_GO, 'Village Hall harvest dues')
     tickLeases(state, p)
     advanceSeasonMaybe(state)
+    if (state.phase === 'over') return state
   }
   const tile = TILES[p.pos]
   log(state, `${p.name} rolls ${dice[0]}+${dice[1]} and reaches ${tile.name}.`, 'roll', { pid: p.id, tileId: tile.id, dice: [dice[0], dice[1]] })
@@ -421,6 +426,9 @@ function bankrupt(state, player, reason) {
     state.winner = alive[0].id
     state.phase = 'over'
     log(state, `${alive[0].name} is the Harvest King of the board.`, 'gain', { pid: alive[0].id })
+  } else if (alive.length === 0) {
+    finishByNet(state)
+    if (state.phase !== 'over') state.phase = 'over'
   }
 }
 
@@ -836,10 +844,26 @@ export function declineAction(state) {
 
 export function nextTurn(state) {
   if (state.phase === 'over') return state
+  const alive = state.players.filter((p) => !p.bankrupt)
+  if (alive.length <= 1) {
+    if (alive.length === 1) {
+      state.winner = alive[0].id
+      state.phase = 'over'
+      log(state, `${alive[0].name} is the Harvest King of the board.`, 'gain', { pid: alive[0].id })
+    } else {
+      finishByNet(state)
+      if (state.phase !== 'over') state.phase = 'over'
+    }
+    return state
+  }
   const n = state.players.length
   for (let i = 0; i < n; i++) {
     state.turn = (state.turn + 1) % n
     if (!state.players[state.turn].bankrupt) break
+  }
+  if (state.players[state.turn].bankrupt) {
+    finishByNet(state)
+    return state
   }
   growCrops(state, state.players[state.turn])
   state.phase = 'roll'

@@ -8,11 +8,12 @@ There is no jail. Instead, the board is loaded with agricultural complications: 
 
 ## Highlights
 
-- **Online multiplayer rooms** with a 4-letter join code (2 to 4 players), synced through a lightweight long-poll REST API.
-- **Local pass-and-play** mode for a single device.
+- **Online multiplayer rooms** with a 4-letter join code (2 to 4 players), synced through a lightweight long-poll REST API. Online rooms are human-only.
+- **Local pass-and-play** on a single device, plus **vs computer** with scripted heuristic rivals.
 - **Three-dimensional animated dice** rendered with CSS 3D transforms.
-- **Player tokens as colored location pins** in the Indian flag palette.
-- **Icon-driven board**: every tile carries an SVG icon (millet, cotton, paddy, tractor, canal, godown, bank, and more).
+- **Player tokens as bouncing letter coins**, colored per farmer, with a turn bob animation.
+- **Monopoly-style board**: short labels, color belts, and solid fills on specials (cards, tax, market, corners).
+- **Icon-driven tiles**: every square carries an SVG icon (millet, cotton, paddy, tractor, canal, godown, bank, and more).
 - **Landing pop-up**: when a player lands on a tile, a styled modal shows the tile, its icon, every event it triggered, and the net cash change.
 - **Color-coded farm diary**: gains render green, losses red, with distinct accents for dice rolls, cards, seasons, and crop milestones.
 - **Living economy**: crop prices drift each season, cards shift the market, and infrastructure investments improve your yields and margins.
@@ -162,7 +163,7 @@ Every dice roll in the UI is followed by a **landing pop-up** and a **farm diary
 
 When a player lands on a tile, a modal appears showing:
 
-- The player's color pin and name, in the form "Green lands on".
+- The player's coin color and name, in the form "Green lands on".
 - The tile icon in a circular badge, plus the tile name and its region or description.
 - The **full list of events** the landing triggered, in order (for example, a card drawn and then the payment it caused).
 - A **net cash badge** for that landing: green with `+Rs ...` for a net gain, red with `-Rs ...` for a net loss, or a neutral "No cash change" when nothing moved.
@@ -195,7 +196,24 @@ To support this, `src/engine.js` writes log entries as objects rather than plain
 - `kind` drives the color and icon styling.
 - `meta` carries machine-readable data (`amount`, `pid`, `tileId`, `dice`, `pnl`) used for the net-change badge and to group the events belonging to a single landing.
 
-Because entries are created inside the shared rules engine, the pop-up and colored diary work identically in local pass-and-play and online play; in online games every client sees the same landing announcement.
+Because entries are created inside the shared rules engine, the pop-up and colored diary work identically in local pass-and-play, vs computer, and online play. In vs computer, a rival's landing pop-up waits for **Continue** before the computer acts. In online games every client sees the same landing announcement.
+
+## Vs Computer
+
+Local **vs computer** seats you as farmer 0 against one to three scripted rivals. Online rooms stay human-only.
+
+Rivals are **heuristic farmers**, not an LLM. They use the same legal actions as a human (`roll`, buy/lease, prepare, sow, harvest, irrigate, insure, tend, warehouse, loans, extra labour, end turn). The engine remains the referee; `src/ai.js` only chooses among legal moves.
+
+| Persona | Table name | Habit |
+| --- | --- | --- |
+| Thrifty | Malwa | Leases more than it buys, prefers millets and a cash buffer |
+| Landlord | Kaveri | Buys land and hunts full regional belts |
+| Gambler | Idukki | Chases spices, orchards, and market swings |
+| Banker | Narmada | Buys canal and cold store, uses crop loans |
+
+Difficulty (`easy` / `normal` / `hard`) changes the cash reserve the AI tries to keep, how often it misses a good move, and how often it takes a speculative crop. Easy rivals skip more; hard rivals almost never miss and keep a larger buffer.
+
+The sidebar labels the current rival, shows a short status line for each computer action, and still presents the 3D dice plus landing pop-up so CPU turns stay visible.
 
 ## Tech Stack
 
@@ -218,13 +236,14 @@ The only dependency is Vite (dev dependency). The server runs on the Node standa
 ├── server/
 │   └── index.js        # Session rooms, REST API, action validation, long-poll
 └── src/
-    ├── main.js         # UI, lobby, board rendering, landing pop-up, colored diary, online sync
+    ├── main.js         # UI, lobby, board, vs computer loop, landing pop-up, diary, online sync
     ├── engine.js       # Game rules, farming cycle, cards, seasons, structured log, win logic
+    ├── ai.js           # Heuristic farmer: personas, difficulty, chooseAction
     ├── data.js         # Tiles, crops, groups, cards, weather, constants
     ├── net.js          # Client fetch wrappers for the session API
     ├── dice.js         # CSS 3D dice rendering and animation
     ├── icons.js        # Inline SVG tile icons
-    └── style.css       # Layout, board, sidebar, dice, modals
+    └── style.css       # Layout, board, special fills, coin tokens, sidebar, dice, modals
 ```
 
 ## Getting Started
@@ -273,11 +292,18 @@ npm run preview
 4. Players act in turn order. Only the player whose turn it is can roll and act; everyone else watches the shared state update in near real time.
 5. Closing and reopening the tab keeps your seat via a token stored in `sessionStorage`.
 
+### Local play
+
+- **Pass-and-play**: 2 to 4 named farmers on one device; every seat is human.
+- **Vs computer**: enter your name, pick 1 to 3 rivals and a difficulty, then **Play vs computer**. You always sit first.
+
 ## Architecture Notes
 
 ### Shared rules engine
 
 `src/engine.js` is imported by both the browser UI and the Node server. Online play is authoritative on the server: the server owns the room state, validates every action, and broadcasts snapshots. This means an online client cannot invent moves, and the same rules apply to local play.
+
+Vs computer never talks to the room API. `src/ai.js` calls the same move helpers the human UI uses (`applyMove`, `buyFarm`, `seedLand`, and so on). `createGame` stores `cpu` and `persona` on each player so the lobby and sidebar can label rivals.
 
 ### Long-poll sync
 
@@ -333,7 +359,7 @@ All defined in `src/data.js` and used by the engine:
 
 ## Design Palette
 
-The interface follows the Indian national flag palette, defined in `src/data.js`:
+Player tokens still use the Indian flag palette from `src/data.js`. The board itself uses high-contrast fills so short labels stay readable: farms are white with a colored belt; specials are solid (GO orange, Fair green, Warehouse blue, Bank amber, Farmer Card magenta, Market teal, Tax red, infra slate, canal/well sky).
 
 | Token | Hex | Use |
 | --- | --- | --- |
@@ -342,14 +368,15 @@ The interface follows the Indian national flag palette, defined in `src/data.js`
 | Green | `#138808` | Secondary accent, player two |
 | Navy | `#000080` | Text and structure, player three |
 | Gold | `#C9A227` | Player four, ornamentation |
-| Earth / Soil | `#5C3A1E` / `#8B5A2B` | Board and field tones |
+| Earth / Soil | `#5C3A1E` / `#8B5A2B` | Field tones |
 
 ## Notes and Limitations
 
 - Room state lives in server memory only. Restarting the backend clears all active rooms.
 - There is no authentication or persistence; tokens identify seats within a room.
 - Designed for casual session play, not for high concurrency.
-- All in-game text is in English.
+- All in-game text is in English. Internal tile ids (`kisan`, `mandi`, `nabard`) stay in code only.
+- Vs computer is local-only in v1; online rooms do not host CPU seats.
 
 ## License
 

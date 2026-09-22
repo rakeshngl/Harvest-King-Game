@@ -11,6 +11,7 @@ import {
   createRoom, joinRoom, startRoom, sendAction, waitSnapshot,
   loadSession, saveSession
 } from './net.js'
+import { PERSONAS, CPU_NAMES, chooseAction, describeAction } from './ai.js'
 
 const app = document.getElementById('app')
 
@@ -39,6 +40,13 @@ let pollOn = false
 let notice = ''
 let seenLogId = 0
 let landing = null
+let cpuBusy = false
+let cpuNote = ''
+let cpuGuard = 0
+let cpuGen = 0
+let humanSeat = 0
+let cpuDifficulty = 'normal'
+let draftName = ''
 
 function rs(n) {
   return 'Rs ' + Math.round(n).toLocaleString('en-IN')
@@ -84,15 +92,29 @@ function online() {
 }
 
 function mySeat() {
-  return online() ? session.you : (state ? state.turn : 0)
+  if (online()) return session.you
+  if (!state) return 0
+  if (state.players.some((p) => p.cpu)) return humanSeat
+  return state.turn
+}
+
+function isCpuTurn() {
+  if (!state || online()) return false
+  if (state.phase === 'over') return false
+  const p = state.players[state.turn]
+  return !!(p && p.cpu && !p.bankrupt)
 }
 
 function isMyTurn() {
   if (!state) return false
   if (state.phase === 'over') return false
   if (state.players[state.turn]?.bankrupt) return false
-  if (!online()) return true
-  return session.you === state.turn
+  if (landing) return false
+  if (online()) return session.you === state.turn
+  if (state.players.some((p) => p.cpu)) {
+    return !state.players[state.turn].cpu && state.turn === humanSeat
+  }
+  return true
 }
 
 function leaveSession() {
@@ -107,6 +129,11 @@ function leaveSession() {
   screen = 'lobby'
   seenLogId = 0
   landing = null
+  cpuBusy = false
+  cpuNote = ''
+  cpuGuard = 0
+  cpuGen += 1
+  humanSeat = 0
   saveSession(null)
 }
 
@@ -168,6 +195,111 @@ async function pollLoop() {
   }
 }
 
+function scheduleCpu() {
+  if (online() || cpuBusy || rolling || !state) return
+  if (screen !== 'game' || state.phase === 'over') return
+  if (landing) return
+  if (state.players[state.turn]?.bankrupt) {
+    nextTurn(state)
+    render()
+    return
+  }
+  if (!isCpuTurn()) return
+  cpuBusy = true
+  const gen = cpuGen
+  setTimeout(() => {
+    if (gen !== cpuGen) return
+    cpuStep()
+  }, 720)
+}
+
+function cpuStep() {
+  if (!state || online() || screen !== 'game' || state.phase === 'over') {
+    cpuBusy = false
+    return
+  }
+  if (landing || rolling) {
+    cpuBusy = false
+    return
+  }
+  if (!isCpuTurn()) {
+    cpuBusy = false
+    return
+  }
+  inspectId = null
+  cpuGuard += 1
+  if (cpuGuard > 24) {
+    cpuNote = (currentPlayer(state)?.name || 'Computer') + ' ends the turn.'
+    if (state.phase === 'action') declineAction(state)
+    if (state.phase === 'end' || state.phase === 'roll') nextTurn(state)
+    cpuGuard = 0
+    cpuBusy = false
+    render()
+    return
+  }
+  const action = chooseAction(state, cpuDifficulty)
+  cpuNote = describeAction(state, action)
+  applyCpuAction(action)
+}
+
+function applyCpuAction(action) {
+  const pending = state.pending
+  const tileId = action.tileId != null ? action.tileId : (pending && pending.tileId)
+  const map = pending && pending.map
+  if (action.type === 'roll') {
+    cpuGuard = 0
+    rolling = true
+    const dice = rollDice()
+    const prevCash = state.players.map((p) => p.cash)
+    render()
+    const gen = cpuGen
+    animateDice(dice[0], dice[1], () => {
+      if (gen !== cpuGen || !state) return
+      applyMove(state, dice)
+      rolling = false
+      cpuBusy = false
+      captureLanding(prevCash)
+      render()
+    })
+    return
+  }
+  let ok = true
+  if (action.type === 'buy') ok = tileId != null && buyFarm(state, tileId)
+  else if (action.type === 'lease') ok = tileId != null && leaseFarm(state, tileId)
+  else if (action.type === 'buyinfra') ok = !!(map && tileId != null && buyInfra(state, tileId, map))
+  else if (action.type === 'prepare') ok = tileId != null && prepareLand(state, tileId)
+  else if (action.type === 'seed') ok = tileId != null && !!action.crop && seedLand(state, tileId, action.crop)
+  else if (action.type === 'harvest') ok = tileId != null && harvest(state, tileId)
+  else if (action.type === 'tend') ok = tileId != null && tendCrop(state, tileId)
+  else if (action.type === 'irrigate') ok = tileId != null && irrigate(state, tileId)
+  else if (action.type === 'insure') ok = tileId != null && insure(state, tileId)
+  else if (action.type === 'unmortgage') ok = tileId != null && unmortgage(state, tileId)
+  else if (action.type === 'fci') ok = sellToFci(state)
+  else if (action.type === 'loan') {
+    takeLoan(state)
+    declineAction(state)
+  } else if (action.type === 'repay') {
+    repayLoan(state, LOAN_STEP)
+    declineAction(state)
+  } else if (action.type === 'work') {
+    ok = openFarmWork(state, action.tileId)
+    if (!ok && state.phase === 'end') nextTurn(state)
+    else if (!ok) declineAction(state)
+  } else if (action.type === 'skip') declineAction(state)
+  else if (action.type === 'endTurn') {
+    nextTurn(state)
+    cpuNote = ''
+    cpuGuard = 0
+  } else if (state.phase === 'action') declineAction(state)
+  else if (state.phase === 'end') nextTurn(state)
+
+  if (!ok && action.type !== 'work' && action.type !== 'fci' && state.phase === 'action') {
+    declineAction(state)
+  }
+  cpuBusy = false
+  render()
+}
+
 function render() {
   if (screen === 'lobby' && !state) {
     app.innerHTML = lobbyHtml()
@@ -182,42 +314,118 @@ function render() {
   app.innerHTML = gameHtml()
   bindGame()
   if (state) setDiceFace(state.lastDice[0], state.lastDice[1])
+  scheduleCpu()
 }
 
 function lobbyHtml() {
   return `
   <div class="lobby">
-    <div class="lobby-card">
-      <div class="en">Play online · 2 to 4 farmers</div>
-      <h1>Harvest King</h1>
-      <p class="lead">Create a game session and share the code. Friends join from any browser. Host starts once at least two farmers are seated. Max four.</p>
+    <header class="lobby-hero">
+      <img src="/hero.webp" alt="Harvest King — Indian Farming Board Game" />
+      <div class="hero-fade"></div>
+    </header>
+    <main class="lobby-table">
       ${notice ? `<p class="notice">${notice}</p>` : ''}
-      <label class="en" style="margin-bottom:8px">Your name</label>
-      <div class="names">
-        <input id="myname" maxlength="16" placeholder="Farmer name" />
+      <div class="farmer-bar">
+        <div>
+          <div class="en">Take a seat</div>
+          <p>Choose a farmer name, then pick how you want to play.</p>
+        </div>
+        <input id="myname" maxlength="16" placeholder="Your farmer name" value="${draftName}" required />
       </div>
-      <div class="actions" style="margin-bottom:18px">
-        <button class="primary" id="create">Create session</button>
+      <div class="mode-grid">
+        <article class="mode-card mode-online">
+          <div class="mode-kicker">Online table</div>
+          <h2>Play with friends</h2>
+          <p>Create a room, share a 4-letter code, and farm together from any browser. Two to four seats. Host starts the match.</p>
+          <button class="primary" id="create">Create session</button>
+          <div class="mode-split">or join with a code</div>
+          <div class="names">
+            <input id="joincode" maxlength="6" placeholder="ABCD" />
+            <button class="primary" id="join">Join</button>
+          </div>
+        </article>
+        <article class="mode-card mode-cpu">
+          <div class="mode-kicker">Solo campaign</div>
+          <h2>Vs computer</h2>
+          <p>You farm. Scripted rivals — Thrifty, Landlord, Gambler, Banker — buy, sow and harvest on their own turns.</p>
+          <div class="count-row" id="cpucounts">
+            ${[2, 3, 4].map((n) => `<button class="count-btn${n === 2 ? ' on' : ''}" data-cpu="${n}">${n === 2 ? '1 rival' : (n - 1) + ' rivals'}</button>`).join('')}
+          </div>
+          <div class="count-row" id="cpudiff">
+            ${['easy', 'normal', 'hard'].map((d) => `<button class="count-btn${d === 'normal' ? ' on' : ''}" data-diff="${d}">${d[0].toUpperCase() + d.slice(1)}</button>`).join('')}
+          </div>
+          <button class="primary" id="vscpu">Play vs computer</button>
+        </article>
+        <article class="mode-card mode-local">
+          <div class="mode-kicker">One device</div>
+          <h2>Pass and play</h2>
+          <p>Hand the tablet around the table. Name every farmer, then take turns on the same screen.</p>
+          <div class="count-row" id="counts">
+            ${[2, 3, 4].map((n) => `<button class="count-btn${n === 2 ? ' on' : ''}" data-n="${n}">${n} farmers</button>`).join('')}
+          </div>
+          <div class="names" id="names">${nameInputs(2)}</div>
+          <button class="primary" id="start">Pass-and-play</button>
+        </article>
       </div>
-      <div class="en" style="margin-bottom:8px">Have a code?</div>
-      <div class="names">
-        <input id="joincode" maxlength="6" placeholder="ABCD" style="text-transform:uppercase;letter-spacing:.2em;font-weight:800" />
-        <button class="work-btn gold" id="join">Join session</button>
-      </div>
-      <hr class="rule-line" />
-      <div class="en" style="margin-bottom:8px">Same device</div>
-      <div class="count-row" id="counts">
-        ${[2, 3, 4].map((n) => `<button class="count-btn${n === 2 ? ' on' : ''}" data-n="${n}">${n}</button>`).join('')}
-      </div>
-      <div class="names" id="names">${nameInputs(2)}</div>
-      <button class="ghost" id="start">Pass-and-play</button>
-      <ul class="rules">
-        <li>Land must be purchased or leased before any work.</li>
-        <li>Prepare the plot, then sow a crop suited to the belt.</li>
-        <li>Harvest can profit or lose — weather, pests and market prices decide.</li>
-        <li>Online play: only the farmer whose turn it is can roll and act.</li>
-      </ul>
-    </div>
+      <section class="guide">
+        <header class="guide-head">
+          <div class="en">Village handbook</div>
+          <h2>How to become Harvest King</h2>
+          <p>A farming cycle on a 40-tile board. Two to four farmers. First to Rs 75,000 net worth — or the richest after 18 seasons — takes the crown.</p>
+        </header>
+        <div class="guide-grid">
+          <article class="guide-card">
+            <div class="guide-num">01</div>
+            <h3>Claim the land</h3>
+            <p>Buy or lease a plot before any work. Lease lasts three circuits and is cheaper. Owning a full regional belt doubles rent and lifts harvest yield.</p>
+          </article>
+          <article class="guide-card">
+            <div class="guide-num">02</div>
+            <h3>Prepare, then sow</h3>
+            <p>Idle fields must be prepared. Then sow a crop the belt supports. Off-season seed costs 35% extra and dents fertility. Match monsoon, winter, or summer.</p>
+          </article>
+          <article class="guide-card">
+            <div class="guide-num">03</div>
+            <h3>Grow and harvest</h3>
+            <p>Crops ripen over turns. Weather, pests, irrigation and market prices decide profit or loss. Irrigate, insure or tend before you cut the crop.</p>
+          </article>
+          <article class="guide-card">
+            <div class="guide-num">04</div>
+            <h3>One labour a turn</h3>
+            <p>After you land, you may work one owned field — prepare, sow, tend or harvest — then end the turn. Village Hall and the Farm Fair can grant extra labour.</p>
+          </article>
+          <article class="guide-card">
+            <div class="guide-num">05</div>
+            <h3>Read every landing</h3>
+            <p>Dice, cards, tax and cash changes appear in a pop-up, then the Farm diary. Vs computer waits on Continue so you see the rival's tile before they act.</p>
+          </article>
+          <article class="guide-card">
+            <div class="guide-num">06</div>
+            <h3>Table manners</h3>
+            <p>Online: only the farmer whose turn it is can roll and act. Pass-and-play shares one screen. Vs computer rivals use the same legal moves as you.</p>
+          </article>
+        </div>
+        <div class="guide-strip">
+          <div>
+            <h4>Seasons</h4>
+            <p>Monsoon, Winter, Summer. Eighteen seasons, then the richest farmer wins.</p>
+          </div>
+          <div>
+            <h4>Weather</h4>
+            <p>Fair skies, monsoon, drought, flood or hail. Water-loving crops need canals or a good rain.</p>
+          </div>
+          <div>
+            <h4>Rural bank</h4>
+            <p>Crop loans in Rs 3,000 steps, cap Rs 9,000, 12% interest each new season.</p>
+          </div>
+          <div>
+            <h4>Infrastructure</h4>
+            <p>Tractor, cold store, seed bank, market yard, canal and borewell lift yield or cut costs.</p>
+          </div>
+        </div>
+      </section>
+    </main>
   </div>`
 }
 
@@ -228,10 +436,50 @@ function nameInputs(n) {
   }).join('')
 }
 
+function startLocalGame(n, list, opts = {}) {
+  session = null
+  saveSession(null)
+  humanSeat = 0
+  cpuBusy = false
+  cpuNote = ''
+  cpuGuard = 0
+  cpuGen += 1
+  inspectId = null
+  landing = null
+  notice = ''
+  state = createGame(n, list, opts)
+  screen = 'game'
+  syncLog()
+  render()
+}
+
+function requireFarmerName() {
+  const el = document.getElementById('myname')
+  const name = (el ? el.value : draftName).trim()
+  draftName = name
+  if (name) {
+    notice = ''
+    return name
+  }
+  notice = 'Choose a farmer name, then pick how you want to play.'
+  render()
+  const again = document.getElementById('myname')
+  if (again) again.focus()
+  return ''
+}
+
 function bindLobby() {
   let n = 2
+  let cpuN = 2
+  let diff = 'normal'
   const counts = document.getElementById('counts')
   const names = document.getElementById('names')
+  const myname = document.getElementById('myname')
+  if (myname) {
+    myname.addEventListener('input', () => {
+      draftName = myname.value
+    })
+  }
   counts.addEventListener('click', (e) => {
     const b = e.target.closest('[data-n]')
     if (!b) return
@@ -239,20 +487,48 @@ function bindLobby() {
     counts.querySelectorAll('.count-btn').forEach((x) => x.classList.toggle('on', x === b))
     names.innerHTML = nameInputs(n)
   })
+  const cpuCounts = document.getElementById('cpucounts')
+  cpuCounts.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-cpu]')
+    if (!b) return
+    cpuN = Number(b.dataset.cpu)
+    cpuCounts.querySelectorAll('.count-btn').forEach((x) => x.classList.toggle('on', x === b))
+  })
+  const cpuDiff = document.getElementById('cpudiff')
+  cpuDiff.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-diff]')
+    if (!b) return
+    diff = b.dataset.diff
+    cpuDiff.querySelectorAll('.count-btn').forEach((x) => x.classList.toggle('on', x === b))
+  })
+  document.getElementById('vscpu').addEventListener('click', () => {
+    const you = requireFarmerName()
+    if (!you) return
+    cpuDifficulty = diff
+    const list = [you]
+    const flags = [false]
+    const persona = [null]
+    for (let i = 1; i < cpuN; i++) {
+      const per = PERSONAS[(i - 1) % PERSONAS.length]
+      list.push(CPU_NAMES[per.id] || per.name)
+      flags.push(true)
+      persona.push(per.id)
+    }
+    startLocalGame(cpuN, list, { cpu: flags, persona })
+  })
   document.getElementById('start').addEventListener('click', () => {
-    const list = [...names.querySelectorAll('input')].map((i, idx) => i.value.trim() || PLAYER_PALETTE[idx].name)
-    session = null
-    saveSession(null)
-    state = createGame(n, list)
-    inspectId = null
-    screen = 'game'
-    notice = ''
-    landing = null
-    syncLog()
-    render()
+    const you = requireFarmerName()
+    if (!you) return
+    const list = [...names.querySelectorAll('input')].map((i, idx) => {
+      const typed = i.value.trim()
+      if (idx === 0) return you
+      return typed || PLAYER_PALETTE[idx].name
+    })
+    startLocalGame(n, list)
   })
   document.getElementById('create').addEventListener('click', async () => {
-    const name = document.getElementById('myname').value.trim() || PLAYER_PALETTE[0].name
+    const name = requireFarmerName()
+    if (!name) return
     try {
       notice = ''
       const snap = await createRoom(name)
@@ -266,7 +542,8 @@ function bindLobby() {
     }
   })
   document.getElementById('join').addEventListener('click', async () => {
-    const name = document.getElementById('myname').value.trim() || 'Farmer'
+    const name = requireFarmerName()
+    if (!name) return
     const code = document.getElementById('joincode').value.trim()
     try {
       notice = ''
@@ -383,7 +660,7 @@ function gameHtml() {
           <span class="chip g">${state.weather.name}</span>
           <span class="chip n">Season ${state.seasonIndex + 1}/${MAX_SEASONS}</span>
           <span class="chip">Market x${state.marketMod.toFixed(2)}</span>
-          ${online() ? `<span class="chip">You: ${me ? me.name : ''}</span>` : ''}
+          ${online() ? `<span class="chip">You: ${me ? me.name : ''}</span>` : (state.players.some((x) => x.cpu) ? '<span class="chip">You vs computer</span>' : '')}
         </div>
       </div>
       <div class="board-stage">
@@ -410,15 +687,16 @@ function gameHtml() {
         ${fieldsPanel()}
       </div>
       <div class="panel dice-panel">
-        <h3>${state.phase === 'over' ? 'Game over' : (mine ? p.name + ' — your turn' : p.name + ' to act')}</h3>
+        <h3>${state.phase === 'over' ? 'Game over' : (mine ? p.name + ' — your turn' : p.name + (p.cpu ? ' (computer)' : '') + ' to act')}</h3>
         ${diceHtml()}
-        <button class="roll-btn" id="roll" ${!mine || state.phase !== 'roll' || rolling ? 'disabled' : ''}>${mine ? 'Roll the dice' : 'Waiting'}</button>
+        <button class="roll-btn" id="roll" ${!mine || state.phase !== 'roll' || rolling ? 'disabled' : ''}>${mine ? 'Roll the dice' : (p.cpu ? 'Computer rolling' : 'Waiting')}</button>
         <button class="ghost" id="endturn" ${!mine || state.phase !== 'end' ? 'disabled' : ''}>End turn</button>
         ${mine && state.phase === 'end' && !state.labourUsed && farmsOf(state, mySeat()).length
           ? '<div class="tsub" style="font-size:12px;text-align:center">Extra labour: work one owned field before ending.</div>'
           : ''}
+        ${cpuNote ? `<p class="cpu-note">${cpuNote}</p>` : ''}
         ${notice ? `<p class="notice">${notice}</p>` : ''}
-        ${online() ? '<button class="ghost" id="leavegame">Leave session</button>' : ''}
+        <button class="ghost" id="leavegame">${online() ? 'Leave session' : 'Leave table'}</button>
       </div>
       <div class="panel">
         <h3>Market prices</h3>
@@ -453,21 +731,42 @@ function fieldsPanel() {
 function playerCard(p) {
   const nw = netWorth(state, p)
   const on = state.turn === p.id && state.phase !== 'over'
-  const you = online() && p.id === session.you
+  const you = (online() && p.id === session.you) || (!online() && state.players.some((x) => x.cpu) && p.id === humanSeat)
+  const persona = p.persona ? PERSONAS.find((x) => x.id === p.persona) : null
+  const tag = p.cpu ? (persona ? persona.name : 'CPU') : (you ? 'you' : '')
   return `
     <div class="player-card${on ? ' turn' : ''}${p.bankrupt ? ' out' : ''}">
       <div class="swatch" style="background:${p.color}"></div>
       <div>
-        <div class="pname">${p.name}${you ? ' · you' : ''}${state.winner === p.id ? ' · Harvest King' : ''}</div>
+        <div class="pname">${p.name}${tag ? ' · ' + tag : ''}${state.winner === p.id ? ' · Harvest King' : ''}</div>
         <div class="pcash">${rs(p.cash)} · debt ${rs(p.debt)}</div>
       </div>
       <div class="pnet">${rs(nw)}</div>
     </div>`
 }
 
+function tileTheme(t) {
+  const group = t.group ? GROUPS[t.group] : null
+  if (group) {
+    return { band: group.color, wash: '#FFFFFF', ink: '#0F172A' }
+  }
+  const m = {
+    start: { band: '#FB923C', wash: '#EA580C', ink: '#FFFFFF' },
+    mela: { band: '#4ADE80', wash: '#15803D', ink: '#FFFFFF' },
+    fci: { band: '#93C5FD', wash: '#1D4ED8', ink: '#FFFFFF' },
+    nabard: { band: '#FCD34D', wash: '#B45309', ink: '#FFFFFF' },
+    kisan: { band: '#F9A8D4', wash: '#BE185D', ink: '#FFFFFF' },
+    mandi: { band: '#5EEAD4', wash: '#0F766E', ink: '#FFFFFF' },
+    tax: { band: '#FCA5A5', wash: '#B91C1C', ink: '#FFFFFF' },
+    infra: { band: '#CBD5E1', wash: '#334155', ink: '#FFFFFF' },
+    utility: { band: '#7DD3FC', wash: '#0369A1', ink: '#FFFFFF' }
+  }
+  return m[t.type] || { band: '#94A3B8', wash: '#FFFFFF', ink: '#0F172A' }
+}
+
 function tileHtml(t) {
   const pos = PLACE[t.id]
-  const group = t.group ? GROUPS[t.group] : null
+  const theme = tileTheme(t)
   const farm = t.type === 'farm' ? state.farms[t.id] : null
   const ownerId = farm
     ? farm.owner
@@ -475,7 +774,11 @@ function tileHtml(t) {
   const owner = ownerId != null ? state.players[ownerId] : null
   const pins = state.players
     .filter((p) => !p.bankrupt && p.pos === t.id)
-    .map((p) => `<div class="pin" style="--pc:${p.color}" title="${p.name}"></div>`)
+    .map((p) => {
+      const on = state.turn === p.id && state.phase !== 'over'
+      const letter = (p.name || '?').trim().charAt(0).toUpperCase()
+      return `<div class="coin${on ? ' active' : ''}" style="--pc:${p.color}" title="${p.name}">${letter}</div>`
+    })
     .join('')
   const stage = farm && farm.stage !== 'idle'
     ? `<div class="stage-dot ${farm.stage}" title="${farm.stage}${farm.crop ? ' ' + CROPS[farm.crop].name : ''}"></div>`
@@ -485,38 +788,24 @@ function tileHtml(t) {
     : (farm && farm.leasee != null
       ? `<div class="owner-bar" style="background:${state.players[farm.leasee].color};opacity:.55"></div>`
       : '')
-  const band = group
-    ? `<div class="band" style="background:${group.color}"></div>`
-    : `<div class="band" style="background:${cornerColor(t.type)}"></div>`
   const price = t.price ? `<div class="tprice">${rs(t.price)}</div>` : ''
-  const cls = t.id % 10 === 0 ? 'tile corner' : 'tile'
+  const cls = [
+    'tile',
+    t.id % 10 === 0 ? 'corner' : '',
+    'kind-' + t.type,
+    farm && farm.stage !== 'idle' ? 'has-crop' : ''
+  ].filter(Boolean).join(' ')
   return `
-    <div class="${cls}" data-tile="${t.id}" style="grid-column:${pos.c};grid-row:${pos.r}">
-      ${band}
+    <div class="${cls}" data-tile="${t.id}" title="${t.name}${t.region ? ' · ' + t.region : ''}" style="grid-column:${pos.c};grid-row:${pos.r};--band:${theme.band};--wash:${theme.wash};--ink:${theme.ink}">
+      <div class="band">${iconHtml(t.icon)}</div>
       <div class="body">
-        ${iconHtml(t.icon)}
-        <div class="tname">${t.name}</div>
-        <div class="tsub">${t.region || t.sub || ''}</div>
+        <div class="tname">${t.short || t.name}</div>
+        <div class="tsub">${t.region || ''}</div>
         ${price}
       </div>
       ${ownerBar}${stage}
       <div class="pins">${pins}</div>
     </div>`
-}
-
-function cornerColor(type) {
-  const m = {
-    start: '#FF9933',
-    mela: '#138808',
-    fci: '#000080',
-    nabard: '#C9A227',
-    kisan: '#FF9933',
-    mandi: '#138808',
-    tax: '#000080',
-    infra: '#C9A227',
-    utility: '#000080'
-  }
-  return m[type] || '#d7c4a3'
 }
 
 function modalHtml() {
