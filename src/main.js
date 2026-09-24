@@ -9,7 +9,7 @@ import {
 } from './engine.js'
 import {
   createRoom, joinRoom, startRoom, sendAction, waitSnapshot,
-  loadSession, saveSession
+  loadSession, saveSession, pingPresence
 } from './net.js'
 import { PERSONAS, CPU_NAMES, chooseAction, describeAction } from './ai.js'
 
@@ -47,6 +47,73 @@ let cpuGen = 0
 let humanSeat = 0
 let cpuDifficulty = 'normal'
 let draftName = ''
+let diaryPage = 0
+const DIARY_PAGE = 20
+let hallStats = { visits: 0, online: 0, playing: 0 }
+let visitorId = ''
+let presenceOn = false
+
+function visitorKey() {
+  try {
+    let id = localStorage.getItem('hk-visitor')
+    if (!id) {
+      id = (crypto.randomUUID && crypto.randomUUID()) || (Date.now() + '-' + Math.random().toString(16).slice(2))
+      localStorage.setItem('hk-visitor', id)
+    }
+    return id
+  } catch {
+    return 'anon-' + Date.now()
+  }
+}
+
+function fmtCount(n) {
+  return Number(n || 0).toLocaleString('en-IN')
+}
+
+function statsHtml() {
+  return `
+    <div class="hall-stats">
+      <div class="stat">
+        <b>${fmtCount(hallStats.visits)}</b>
+        <span>Visited so far</span>
+      </div>
+      <div class="stat">
+        <b>${fmtCount(hallStats.online)}</b>
+        <span>Presently online</span>
+      </div>
+      <div class="stat">
+        <b>${fmtCount(hallStats.playing)}</b>
+        <span>Playing now</span>
+      </div>
+    </div>`
+}
+
+async function pulsePresence() {
+  if (!visitorId) visitorId = visitorKey()
+  const playing = screen === 'game' || screen === 'waiting'
+  try {
+    hallStats = await pingPresence(visitorId, playing)
+    paintHallStats()
+  } catch {
+    /* ignore */
+  }
+}
+
+function paintHallStats() {
+  const root = document.querySelector('.hall-stats')
+  if (!root) return
+  const nums = root.querySelectorAll('b')
+  if (nums[0]) nums[0].textContent = fmtCount(hallStats.visits)
+  if (nums[1]) nums[1].textContent = fmtCount(hallStats.online)
+  if (nums[2]) nums[2].textContent = fmtCount(hallStats.playing)
+}
+
+function startPresence() {
+  if (presenceOn) return
+  presenceOn = true
+  pulsePresence()
+  setInterval(pulsePresence, 12000)
+}
 
 function rs(n) {
   return 'Rs ' + Math.round(n).toLocaleString('en-IN')
@@ -79,12 +146,45 @@ function captureLanding(prevCash) {
     entries: fresh.slice().reverse(),
     delta: before != null && after != null ? after - before : null
   }
+  diaryPage = 0
 }
 
 function diaryRow(e) {
   const kind = typeof e === 'string' ? 'info' : (e.kind || 'info')
   const text = typeof e === 'string' ? e : e.text
   return `<div class="log-line ${kind}"><span class="dot"></span><span class="txt">${text}</span></div>`
+}
+
+function diaryPages() {
+  const total = (state && state.log ? state.log.length : 0)
+  return Math.max(1, Math.ceil(total / DIARY_PAGE))
+}
+
+function clampDiaryPage() {
+  const pages = diaryPages()
+  if (diaryPage > pages - 1) diaryPage = pages - 1
+  if (diaryPage < 0) diaryPage = 0
+}
+
+function diaryPanel() {
+  const log = state.log || []
+  clampDiaryPage()
+  const pages = diaryPages()
+  const start = diaryPage * DIARY_PAGE
+  const slice = log.slice(start, start + DIARY_PAGE)
+  const from = log.length ? start + 1 : 0
+  const to = Math.min(start + slice.length, log.length)
+  return `
+    <div class="panel diary-panel">
+      <h3>Farm diary</h3>
+      <div class="diary-meta">${log.length ? from + '–' + to + ' of ' + log.length : 'No events yet'}</div>
+      <div class="log">${slice.length ? slice.map(diaryRow).join('') : '<p class="pcash">The village hall has not opened its books.</p>'}</div>
+      <div class="diary-pager">
+        <button class="ghost" id="diaryprev" ${diaryPage <= 0 ? 'disabled' : ''}>Newer</button>
+        <span>Page ${diaryPage + 1} / ${pages}</span>
+        <button class="ghost" id="diarynext" ${diaryPage >= pages - 1 ? 'disabled' : ''}>Older</button>
+      </div>
+    </div>`
 }
 
 function online() {
@@ -128,6 +228,7 @@ function leaveSession() {
   rolling = false
   screen = 'lobby'
   seenLogId = 0
+  diaryPage = 0
   landing = null
   cpuBusy = false
   cpuNote = ''
@@ -326,6 +427,7 @@ function lobbyHtml() {
     </header>
     <main class="lobby-table">
       ${notice ? `<p class="notice">${notice}</p>` : ''}
+      ${statsHtml()}
       <div class="farmer-bar">
         <div>
           <div class="en">Take a seat</div>
@@ -446,6 +548,7 @@ function startLocalGame(n, list, opts = {}) {
   cpuGen += 1
   inspectId = null
   landing = null
+  diaryPage = 0
   notice = ''
   state = createGame(n, list, opts)
   screen = 'game'
@@ -706,10 +809,7 @@ function gameHtml() {
           ).join('')}
         </div>
       </div>
-      <div class="panel">
-        <h3>Farm diary</h3>
-        <div class="log">${state.log.slice(0, 12).map(diaryRow).join('')}</div>
-      </div>
+      ${diaryPanel()}
     </div>
   </div>
   ${modalHtml()}`
@@ -1024,6 +1124,22 @@ function bindGame() {
       render()
     })
   }
+  const diaryPrev = document.getElementById('diaryprev')
+  const diaryNext = document.getElementById('diarynext')
+  if (diaryPrev) {
+    diaryPrev.addEventListener('click', () => {
+      if (diaryPage <= 0) return
+      diaryPage -= 1
+      render()
+    })
+  }
+  if (diaryNext) {
+    diaryNext.addEventListener('click', () => {
+      if (diaryPage >= diaryPages() - 1) return
+      diaryPage += 1
+      render()
+    })
+  }
   document.querySelectorAll('[data-tile]').forEach((el) => {
     el.addEventListener('click', () => inspectTile(Number(el.dataset.tile)))
   })
@@ -1137,6 +1253,7 @@ async function boot() {
       const snap = await waitSnapshot(session, 0)
       applySnap(snap)
       pollLoop()
+      startPresence()
       return
     } catch {
       leaveSession()
@@ -1147,9 +1264,11 @@ async function boot() {
     render()
     const input = document.getElementById('joincode')
     if (input) input.value = joinCode
+    startPresence()
     return
   }
   render()
+  startPresence()
 }
 
 boot()

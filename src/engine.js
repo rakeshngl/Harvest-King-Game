@@ -138,7 +138,6 @@ export function groupOwned(state, pid, group) {
 function log(state, msg, kind = 'info', meta = null) {
   state.logId += 1
   state.log.unshift({ id: state.logId, kind, text: msg, meta })
-  if (state.log.length > 80) state.log.pop()
 }
 
 function pay(state, player, amount, reason) {

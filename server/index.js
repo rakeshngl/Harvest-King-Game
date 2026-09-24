@@ -1,5 +1,7 @@
 import http from 'node:http'
 import crypto from 'node:crypto'
+import fs from 'node:fs'
+import path from 'node:path'
 import {
   createGame, applyMove, rollDice, buyFarm, leaseFarm, buyInfra, prepareLand,
   seedLand, irrigate, insure, harvest, tendCrop, sellToFci, takeLoan, repayLoan,
@@ -10,6 +12,66 @@ import { LOAN_STEP } from '../src/data.js'
 const PORT = 3001
 const rooms = new Map()
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+const ONLINE_MS = 25000
+const STATS_FILE = path.join(process.cwd(), 'data', 'stats.json')
+const presence = new Map()
+
+function loadStats() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(STATS_FILE, 'utf8'))
+    return {
+      visits: Number(raw.visits) || 0,
+      ids: Array.isArray(raw.ids) ? raw.ids.slice(0, 20000) : []
+    }
+  } catch {
+    return { visits: 0, ids: [] }
+  }
+}
+
+const statsStore = loadStats()
+const knownVisitors = new Set(statsStore.ids)
+
+function saveStats() {
+  try {
+    fs.mkdirSync(path.dirname(STATS_FILE), { recursive: true })
+    fs.writeFileSync(STATS_FILE, JSON.stringify({
+      visits: statsStore.visits,
+      ids: [...knownVisitors].slice(-20000)
+    }))
+  } catch {
+    /* ignore */
+  }
+}
+
+function prunePresence(now = Date.now()) {
+  presence.forEach((p, id) => {
+    if (now - p.seen > ONLINE_MS) presence.delete(id)
+  })
+}
+
+function publicStats() {
+  prunePresence()
+  let online = 0
+  let playing = 0
+  presence.forEach((p) => {
+    online += 1
+    if (p.playing) playing += 1
+  })
+  return { visits: statsStore.visits, online, playing }
+}
+
+function touchPresence(visitor, playing) {
+  const id = String(visitor || '').slice(0, 64)
+  if (!id) return publicStats()
+  const now = Date.now()
+  presence.set(id, { seen: now, playing: !!playing })
+  if (!knownVisitors.has(id)) {
+    knownVisitors.add(id)
+    statsStore.visits += 1
+    saveStats()
+  }
+  return publicStats()
+}
 
 function code() {
   let c = ''
@@ -178,6 +240,17 @@ const server = http.createServer(async (req, res) => {
   try {
     if (req.method === 'GET' && path === '/api/health') {
       json(res, 200, { ok: true })
+      return
+    }
+
+    if (req.method === 'GET' && path === '/api/stats') {
+      json(res, 200, publicStats())
+      return
+    }
+
+    if (req.method === 'POST' && path === '/api/presence') {
+      const body = await readBody(req)
+      json(res, 200, touchPresence(body.visitor, body.playing))
       return
     }
 

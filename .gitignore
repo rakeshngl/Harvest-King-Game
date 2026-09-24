@@ -104,6 +104,9 @@
 *.log
 **/logs/
 
+# Local hall stats
+data/stats.json
+
 # Environment and secrets
 **/.env
 **/.env.local

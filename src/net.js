@@ -40,6 +40,24 @@ export function sendAction(sess, action) {
   return post('/api/action', { code: sess.code, token: sess.token, action })
 }
 
+export async function fetchStats() {
+  const res = await fetch('/api/stats')
+  const data = await res.json().catch(() => null)
+  if (!res.ok || !data) return { visits: 0, online: 0, playing: 0 }
+  return data
+}
+
+export async function pingPresence(visitor, playing) {
+  const res = await fetch('/api/presence', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ visitor, playing: !!playing })
+  })
+  const data = await res.json().catch(() => null)
+  if (!res.ok || !data) return { visits: 0, online: 0, playing: 0 }
+  return data
+}
+
 export async function waitSnapshot(sess, seq) {
   const q = new URLSearchParams({ code: sess.code, token: sess.token, seq: String(seq) })
   const res = await fetch(`/api/session?${q}`)
