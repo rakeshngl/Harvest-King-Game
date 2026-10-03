@@ -9,7 +9,7 @@ import {
 } from '../src/engine.js'
 import { LOAN_STEP } from '../src/data.js'
 
-const PORT = 3001
+const PORT = Number(process.env.PORT) || 3001
 const rooms = new Map()
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 const ONLINE_MS = 25000
