@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Harvest King — Future Development Roadmap</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Mukta:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --saffron: #FF9933;
+      --saffron-deep: #E07812;
+      --white: #FFF8F0;
+      --green: #138808;
+      --green-deep: #0B5E05;
+      --navy: #000080;
+      --navy-soft: #1A237E;
+      --gold: #C9A227;
+      --earth: #5C3A1E;
+      --soil: #8B5A2B;
+      --ink: #0F172A;
+      --paper: #FFF8F0;
+      --line: #E8D5B5;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: Mukta, sans-serif;
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #FFE7C2 0%, transparent 55%),
+        radial-gradient(900px 500px at 110% 0%, #D9F5D4 0%, transparent 50%),
+        var(--paper);
+      color: var(--ink);
+      line-height: 1.55;
+    }
+
+    header {
+      background: linear-gradient(135deg, #0B5E05 0%, #000080 55%, #5C3A1E 100%);
+      color: #FFF8F0;
+      padding: 56px 24px 48px;
+      border-bottom: 8px solid var(--saffron);
+    }
+
+    .wrap {
+      max-width: 980px;
+      margin: 0 auto;
+    }
+
+    .kicker {
+      font-family: Cinzel, serif;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-size: 12px;
+      color: var(--gold);
+      margin-bottom: 10px;
+    }
+
+    h1 {
+      font-family: Cinzel, serif;
+      font-size: clamp(28px, 5vw, 46px);
+      font-weight: 700;
+      line-height: 1.15;
+    }
+
+    header p {
+      max-width: 640px;
+      margin-top: 14px;
+      color: #F5E6C8;
+      font-size: 18px;
+    }
+
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: rgba(255, 248, 240, 0.94);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--line);
+    }
+
+    nav .wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      padding: 10px 24px;
+    }
+
+    nav a {
+      color: var(--navy);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+      padding: 4px 0;
+    }
+
+    nav a:hover { color: var(--saffron-deep); }
+
+    main { padding: 28px 24px 80px; }
+
+    section {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 28px 28px 20px;
+      margin: 22px 0;
+      box-shadow: 0 10px 28px rgba(92, 58, 30, 0.06);
+    }
+
+    h2 {
+      font-family: Cinzel, serif;
+      font-size: 22px;
+      color: var(--navy);
+      margin-bottom: 8px;
+    }
+
+    .belt {
+      height: 6px;
+      width: 72px;
+      border-radius: 99px;
+      margin: 0 0 16px;
+      background: var(--saffron);
+    }
+
+    .ops .belt { background: var(--green); }
+    .multi .belt { background: var(--navy); }
+    .meta .belt { background: var(--gold); }
+    .ai .belt { background: #0D9488; }
+    .rules .belt { background: #7C3AED; }
+    .content .belt { background: #E07A3D; }
+    .ux .belt { background: #16A34A; }
+    .econ .belt { background: #EAB308; }
+    .tech .belt { background: #1A237E; }
+    .dist .belt { background: #FB7185; }
+    .seq .belt { background: var(--earth); }
+
+    p.lead {
+      color: #334155;
+      margin-bottom: 14px;
+    }
+
+    ul {
+      list-style: none;
+      display: grid;
+      gap: 8px;
+    }
+
+    li {
+      position: relative;
+      padding: 8px 12px 8px 28px;
+      background: #FFF8F0;
+      border-radius: 8px;
+    }
+
+    li::before {
+      content: "";
+      position: absolute;
+      left: 12px;
+      top: 16px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--saffron);
+    }
+
+    ol.seq-list {
+      padding-left: 22px;
+      display: grid;
+      gap: 8px;
+    }
+
+    ol.seq-list li {
+      padding-left: 12px;
+      list-style: decimal;
+    }
+
+    ol.seq-list li::before { display: none; }
+
+    footer {
+      text-align: center;
+      padding: 24px;
+      color: #64748B;
+      font-size: 14px;
+    }
+
+    @media (max-width: 640px) {
+      section { padding: 20px 16px 14px; }
+      header { padding: 40px 18px 32px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <div class="kicker">Harvest King</div>
+      <h1>Future Development Roadmap</h1>
+      <p>Every possibility grounded in the current game: a 40-tile farming cycle, in-memory rooms, local vs computer, English-only UI, and a Vite + Node split.</p>
+    </div>
+  </header>
+
+  <nav>
+    <div class="wrap">
+      <a href="#ops">Ops</a>
+      <a href="#multi">Multiplayer</a>
+      <a href="#meta">Accounts</a>
+      <a href="#ai">AI</a>
+      <a href="#rules">Rules</a>
+      <a href="#content">Content</a>
+      <a href="#ux">UX</a>
+      <a href="#econ">Balance</a>
+      <a href="#tech">Tech</a>
+      <a href="#dist">Distribution</a>
+      <a href="#seq">Sequence</a>
+    </div>
+  </nav>
+
+  <main class="wrap">
+    <section class="ops" id="ops">
+      <h2>Now — ops after Vercel + Coolify</h2>
+      <div class="belt"></div>
+      <p class="lead">Keep online rooms alive across deploys and reconnects. Highest leverage after the split host.</p>
+      <ul>
+        <li>Room persistence (Redis or SQLite) so Coolify restarts do not wipe games</li>
+        <li>Reconnect by room code + seat token beyond sessionStorage (localStorage, or a join-again flow)</li>
+        <li>Host kick / transfer host if seat 0 disconnects</li>
+        <li>Spectator mode</li>
+        <li>Private rooms + optional password</li>
+        <li>Public lobby list (open rooms waiting for players)</li>
+        <li>Turn timer / auto-skip AFK</li>
+        <li>Server-side CPU seats (vs computer is local-only in v1)</li>
+        <li>Graceful drain: this instance is restarting, finish turn</li>
+        <li>Multiple replicas only if rooms are sticky or use a shared store (today: 1 replica only)</li>
+        <li>Structured logs, error tracking, deeper /api/health checks</li>
+        <li>Add a LICENSE</li>
+      </ul>
+    </section>
+
+    <section class="multi" id="multi">
+      <h2>Multiplayer transport</h2>
+      <div class="belt"></div>
+      <ul>
+        <li>WebSockets (or SSE) instead of 20-second long-poll</li>
+        <li>Action replay / late-join mid-game</li>
+        <li>Fast-forward missed dice + landing pop-ups</li>
+        <li>Keep the engine authoritative; clients must not invent moves</li>
+        <li>Rate-limit create/join to stop room spam</li>
+      </ul>
+    </section>
+
+    <section class="meta" id="meta">
+      <h2>Accounts and meta</h2>
+      <div class="belt"></div>
+      <ul>
+        <li>Optional login (Google / email magic link)</li>
+        <li>Named farmer profiles, avatar and coin color unlocks</li>
+        <li>Match history, personal stats (harvests, insolvencies, king wins)</li>
+        <li>Leaderboards: fastest king, highest net worth, season win rate</li>
+        <li>Friends / recent players / rematch</li>
+        <li>Daily challenge seed (same board RNG for everyone)</li>
+      </ul>
+    </section>
+
+    <section class="ai" id="ai">
+      <h2>Vs computer / AI</h2>
+      <div class="belt"></div>
+      <ul>
+        <li>Online mixed tables: 1 human + 1 to 3 CPUs</li>
+        <li>More personas (co-op farmer, organic, exporter, contract farmer)</li>
+        <li>Difficulty that also changes yield/price luck, not only miss chance</li>
+        <li>AI explain panel: leased Barmer because cash buffer</li>
+        <li>Puzzle mode: win in 3 seasons from this save</li>
+        <li>Replay a recorded match vs the same AI seed</li>
+      </ul>
+    </section>
+
+    <section class="rules" id="rules">
+      <h2>Core rules you could add</h2>
+      <div class="belt"></div>
+      <ul>
+        <li>Player trading: land, standing crop, cash, debt</li>
+        <li>Auctions when someone declines to buy</li>
+        <li>Player-chosen mortgage / fire-sale (mortgage is automatic today)</li>
+        <li>Crop contracts (forward sale at a fixed price)</li>
+        <li>MSP vs open mandi vs export as a real choice, not only FCI landing</li>
+        <li>Crop rotation bonus / monoculture fertility penalty</li>
+        <li>Intercropping on large tiles</li>
+        <li>Labour market: extra labour actions cost cash in peak season</li>
+        <li>Farmer producer org / cooperative tile (pool harvest, share bonus)</li>
+        <li>Climate event deck: El Nino year, heatwave, unseasonal rain as a season modifier</li>
+        <li>Policy cards: loan waiver, fertilizer subsidy, export ban with real board effects</li>
+        <li>Livestock / dairy as a side loop on a few tiles</li>
+        <li>Water table: over-irrigation lowers future yield on canal/borewell belts</li>
+        <li>Soil carbon / organic cert as a slow investment (card already exists; make it a track)</li>
+        <li>5 to 6 players (needs more coins, more belts, or a bigger board)</li>
+        <li>Shorter / longer match presets (12 / 18 / 24 seasons, different WIN_NET)</li>
+        <li>Sandbox / tutor match with forced good monsoon</li>
+      </ul>
+    </section>
+
+    <section class="content" id="content">
+      <h2>Content</h2>
+      <div class="belt"></div>
+      <ul>
+        <li>More crops: soybean, maize, onion, potato, rubber, coconut, chili, turmeric</li>
+        <li>More belts or a second map (South-only, Northeast, one-state district map)</li>
+        <li>Alternate boards: compact 28-tile quick farm, or 52-tile all India</li>
+        <li>Card expansions (more Farmer / Market cards) without engine rewrites</li>
+        <li>Seasonal events tied to festivals already in market cards</li>
+        <li>Real-ish regional crop lists per tile (already started)</li>
+      </ul>
+    </section>
+
+    <section class="ux" id="ux">
+      <h2>UX / presentation</h2>
+      <div class="belt"></div>
+      <ul>
+        <li>Hindi (and later Tamil, Telugu, Marathi, Bengali) — English only today</li>
+        <li>Number format: Indian grouping (Rs 12,000 vs 1.2 lakh)</li>
+        <li>Sound: dice, coin, harvest, insolvency (mute toggle)</li>
+        <li>Music bed per season/weather</li>
+        <li>Reduced-motion mode (dice 3D + token bob)</li>
+        <li>Dark board / high-contrast / color-blind palettes</li>
+        <li>Full mobile layout: the 40-tile perimeter is the hard part</li>
+        <li>PWA / Add to Home Screen</li>
+        <li>Spectator-friendly big-board TV mode</li>
+        <li>Tutorial overlay for the farming cycle</li>
+        <li>Undo last local action (not online)</li>
+        <li>Farm diary export / share image of the win screen</li>
+        <li>Animated crop growth on owned tiles</li>
+        <li>Map of India inset highlighting the tile's state</li>
+      </ul>
+    </section>
+
+    <section class="econ" id="econ">
+      <h2>Economy / balance tools</h2>
+      <div class="belt"></div>
+      <ul>
+        <li>Admin or debug overlay: force season, weather, prices</li>
+        <li>Data-driven balance file so crops/cards tune without code</li>
+        <li>Telemetry: which crops win, which tiles are never bought</li>
+        <li>Match length histogram; if games run too long, tune WIN_NET / grow times</li>
+      </ul>
+    </section>
+
+    <section class="tech" id="tech">
+      <h2>Tech debt that unlocks the rest</h2>
+      <div class="belt"></div>
+      <ul>
+        <li>Automated tests for engine.js (pay, harvest formula, insolvency, win)</li>
+        <li>Golden replay files: seed + actions to expected log</li>
+        <li>Split data.js from engine so expansions are JSON</li>
+        <li>TypeScript on engine + server</li>
+        <li>OpenAPI for /api/*</li>
+        <li>Docker Compose for local API + Vite</li>
+        <li>CI: lint, test, build on push</li>
+        <li>Replace in-memory Map with a room store interface (memory now, Redis later)</li>
+      </ul>
+    </section>
+
+    <section class="dist" id="dist">
+      <h2>Distribution / product</h2>
+      <div class="belt"></div>
+      <ul>
+        <li>itch.io / standalone static + bring your own server</li>
+        <li>School / NGO build: simplified rules, no loans, Hindi-first</li>
+        <li>Print-and-play card/board export from the same TILES / CROPS data</li>
+        <li>Spectator stream overlay (OBS browser source)</li>
+        <li>Weekly tournament (Coolify cron + persisted bracket)</li>
+      </ul>
+    </section>
+
+    <section class="seq" id="seq">
+      <h2>Suggested sequence</h2>
+      <div class="belt"></div>
+      <p class="lead">If building in order, this is the highest-leverage path.</p>
+      <ol class="seq-list">
+        <li>Persist rooms + reconnect (or every Coolify deploy kills games)</li>
+        <li>Tests around harvest / insolvency / win</li>
+        <li>Hindi UI strings</li>
+        <li>CPU in online rooms</li>
+        <li>Mobile board layout</li>
+        <li>Trading + auctions (the biggest rules jump)</li>
+        <li>Accounts / history only after rooms survive restarts</li>
+      </ol>
+    </section>
+  </main>
+
+  <footer>Harvest King — Indian farming board game roadmap</footer>
+</body>
+</html>
