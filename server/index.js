@@ -13,8 +13,14 @@ const PORT = Number(process.env.PORT) || 3001
 const rooms = new Map()
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 const ONLINE_MS = 25000
-const STATS_FILE = path.join(process.cwd(), 'data', 'stats.json')
+const DATA_DIR = path.join(process.cwd(), 'data')
+const STATS_FILE = path.join(DATA_DIR, 'stats.json')
+const ROOMS_FILE = path.join(DATA_DIR, 'rooms.json')
+const KEEP_OVER_MS = 24 * 60 * 60 * 1000
+const KEEP_WAIT_MS = 6 * 60 * 60 * 1000
+const KEEP_IDLE_MS = 48 * 60 * 60 * 1000
 const presence = new Map()
+let persistOk = true
 
 function loadStats() {
   try {
@@ -33,7 +39,7 @@ const knownVisitors = new Set(statsStore.ids)
 
 function saveStats() {
   try {
-    fs.mkdirSync(path.dirname(STATS_FILE), { recursive: true })
+    fs.mkdirSync(DATA_DIR, { recursive: true })
     fs.writeFileSync(STATS_FILE, JSON.stringify({
       visits: statsStore.visits,
       ids: [...knownVisitors].slice(-20000)
@@ -42,6 +48,88 @@ function saveStats() {
     /* ignore */
   }
 }
+
+function serializableRoom(room) {
+  return {
+    code: room.code,
+    started: room.started,
+    seq: room.seq,
+    rollSeq: room.rollSeq,
+    lastDice: room.lastDice,
+    state: room.state,
+    players: room.players.map((p) => ({
+      seat: p.seat,
+      name: p.name,
+      token: p.token,
+      seen: p.seen
+    })),
+    updatedAt: room.updatedAt || Date.now()
+  }
+}
+
+function shouldKeepRoom(room, now) {
+  const updated = Number(room.updatedAt) || 0
+  const over = !!(room.state && room.state.phase === 'over')
+  if (over) return now - updated <= KEEP_OVER_MS
+  if (!room.started) return now - updated <= KEEP_WAIT_MS
+  return now - updated <= KEEP_IDLE_MS
+}
+
+function pruneRooms(now = Date.now()) {
+  rooms.forEach((room, code) => {
+    if (!shouldKeepRoom(room, now)) rooms.delete(code)
+  })
+}
+
+function saveRooms() {
+  try {
+    pruneRooms()
+    fs.mkdirSync(DATA_DIR, { recursive: true })
+    const now = Date.now()
+    const payload = {
+      savedAt: now,
+      rooms: [...rooms.values()].map(serializableRoom)
+    }
+    const tmp = `${ROOMS_FILE}.tmp`
+    fs.writeFileSync(tmp, JSON.stringify(payload))
+    fs.renameSync(tmp, ROOMS_FILE)
+    persistOk = true
+  } catch {
+    persistOk = false
+  }
+}
+
+function loadRooms() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(ROOMS_FILE, 'utf8'))
+    const list = Array.isArray(raw.rooms) ? raw.rooms : []
+    const now = Date.now()
+    list.forEach((r) => {
+      if (!r || !r.code) return
+      if (!shouldKeepRoom(r, now)) return
+      rooms.set(String(r.code).toUpperCase(), {
+        code: String(r.code).toUpperCase(),
+        started: !!r.started,
+        seq: Number(r.seq) || 1,
+        rollSeq: Number(r.rollSeq) || 0,
+        lastDice: Array.isArray(r.lastDice) ? r.lastDice : [1, 1],
+        state: r.state || null,
+        waiters: [],
+        players: Array.isArray(r.players) ? r.players.map((p) => ({
+          seat: Number(p.seat),
+          name: String(p.name || 'Farmer').slice(0, 16),
+          token: String(p.token || ''),
+          seen: Number(p.seen) || 0
+        })) : [],
+        updatedAt: Number(r.updatedAt) || now
+      })
+    })
+  } catch {
+    /* empty store */
+  }
+}
+
+loadRooms()
 
 function prunePresence(now = Date.now()) {
   presence.forEach((p, id) => {
@@ -129,8 +217,10 @@ function snapshot(room, seat) {
 
 function bump(room) {
   room.seq += 1
+  room.updatedAt = Date.now()
   const waiters = room.waiters.splice(0)
   waiters.forEach((w) => w.resolve(true))
+  saveRooms()
 }
 
 function playerByToken(room, tok) {
@@ -239,7 +329,11 @@ const server = http.createServer(async (req, res) => {
 
   try {
     if (req.method === 'GET' && path === '/api/health') {
-      json(res, 200, { ok: true })
+      json(res, 200, {
+        ok: true,
+        rooms: rooms.size,
+        persist: persistOk
+      })
       return
     }
 
@@ -268,7 +362,9 @@ const server = http.createServer(async (req, res) => {
         players: []
       }
       room.players.push({ seat: 0, name, token: token(), seen: Date.now() })
+      room.updatedAt = Date.now()
       rooms.set(room.code, room)
+      saveRooms()
       json(res, 200, { ...snapshot(room, 0), token: room.players[0].token })
       return
     }
@@ -382,5 +478,14 @@ const server = http.createServer(async (req, res) => {
 })
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Harvest King session server on http://localhost:${PORT}`)
+  console.log(`Harvest King session server on http://localhost:${PORT} (${rooms.size} rooms restored)`)
 })
+
+function shutdown() {
+  saveRooms()
+  server.close(() => process.exit(0))
+  setTimeout(() => process.exit(0), 1500).unref()
+}
+
+process.on('SIGTERM', shutdown)
+process.on('SIGINT', shutdown)

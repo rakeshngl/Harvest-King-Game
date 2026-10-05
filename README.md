@@ -330,7 +330,7 @@ Base URL: `/api` (proxied to port 3001).
 
 | Method | Path | Body / Query | Description |
 | --- | --- | --- | --- |
-| GET | `/api/health` | - | Health check, returns `{ ok: true }` |
+| GET | `/api/health` | - | Health check, returns `{ ok, rooms, persist }` |
 | POST | `/api/create` | `{ name }` | Create a room. Returns a snapshot plus your `token`. Seat 0 is host. |
 | POST | `/api/join` | `{ code, name }` | Join an existing, unstarted room. Fails if full or already started. |
 | POST | `/api/start` | `{ code, token }` | Host-only. Starts the game; requires at least 2 players. |
@@ -372,7 +372,7 @@ Player tokens still use the Indian flag palette from `src/data.js`. The board it
 
 ## Notes and Limitations
 
-- Room state lives in server memory only. Restarting the backend clears all active rooms.
+- Room state is kept in memory and also written to `data/rooms.json`, so a Coolify/VPS restart can restore open games. Mount `data/` as a volume. Finished rooms expire after 24 hours, waiting rooms after 6 hours, idle in-progress games after 48 hours.
 - There is no authentication or persistence; tokens identify seats within a room.
 - Designed for casual session play, not for high concurrency.
 - All in-game text is in English. Internal tile ids (`kisan`, `mandi`, `nabard`) stay in code only.

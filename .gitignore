@@ -104,8 +104,10 @@
 *.log
 **/logs/
 
-# Local hall stats
+# Local hall stats and persisted rooms
 data/stats.json
+data/rooms.json
+data/rooms.json.tmp
 
 # Environment and secrets
 **/.env
