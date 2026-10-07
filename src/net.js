@@ -112,6 +112,14 @@ export function sendAction(sess, action) {
   return post('/api/action', { code: sess.code, token: sess.token, action })
 }
 
+export function kickSeat(sess, seat) {
+  return post('/api/kick', { code: sess.code, token: sess.token, seat })
+}
+
+export function passHost(sess, seat) {
+  return post('/api/host', { code: sess.code, token: sess.token, seat })
+}
+
 export async function fetchStats() {
   const res = await fetch(apiUrl('/api/stats'))
   const data = await res.json().catch(() => null)

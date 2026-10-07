@@ -9,7 +9,7 @@ import {
 } from './engine.js'
 import {
   createRoom, joinRoom, startRoom, sendAction, waitSnapshot, openEventStream,
-  loadSession, saveSession, savedSeat, savedSeats, forgetSeat, pingPresence
+  kickSeat, passHost, loadSession, saveSession, savedSeat, savedSeats, forgetSeat, pingPresence
 } from './net.js'
 import { PERSONAS, CPU_NAMES, chooseAction, describeAction } from './ai.js'
 
@@ -314,6 +314,12 @@ async function resumeSeat(code, token, name) {
 }
 
 function applySnap(snap, opts = {}) {
+  if (snap.kicked) {
+    leaveSession()
+    notice = 'The host removed you from this table.'
+    render()
+    return
+  }
   seq = snap.seq
   room = snap
   session = { ...session, code: snap.code, you: snap.you, spectator: !!snap.spectator }
@@ -356,6 +362,10 @@ function watchEvents() {
   eventSource = openEventStream(session, {
     onSnapshot(snap) {
       if (!pollOn) return
+      if (snap.kicked) {
+        applySnap(snap)
+        return
+      }
       notice = ''
       if (snap.seq !== seq || snap.started !== (screen === 'game') || screen === 'waiting') {
         applySnap(snap)
@@ -798,14 +808,16 @@ function bindLobby() {
 
 function waitingHtml() {
   const players = (room && room.players) || []
-  const host = session && session.you === 0
+  const hostSeat = room && Number.isInteger(room.hostSeat) ? room.hostSeat : 0
+  const host = session && session.you === hostSeat
+  const pal = PLAYER_PALETTE[session.you] || PLAYER_PALETTE[0]
   const share = location.origin + location.pathname + '?join=' + (session ? session.code : '')
   return `
   <div class="lobby">
     <div class="lobby-card">
       <div class="en">Waiting in the lobby</div>
       <h1>Room ${session ? session.code : ''}</h1>
-      <p class="lead">Share this code or link. Need 2 farmers to begin, 4 at most. You are the ${PLAYER_PALETTE[session.you].name} pin.</p>
+      <p class="lead">Share this code or link. Need 2 farmers to begin, 4 at most. You are the ${pal.name} pin${host ? ' and host' : ''}.</p>
       <div class="session-code">${session ? session.code : ''}</div>
       <p class="pcash" style="margin:8px 0 16px;word-break:break-all">${share}</p>
       <div class="waiting-list">
@@ -813,8 +825,12 @@ function waitingHtml() {
           <div class="player-card${p.seat === session.you ? ' turn' : ''}">
             <div class="swatch" style="background:${PLAYER_PALETTE[p.seat].color}"></div>
             <div>
-              <div class="pname">${p.name}${p.seat === 0 ? ' · host' : ''}${p.seat === session.you ? ' · you' : ''}</div>
+              <div class="pname">${p.name}${p.seat === hostSeat ? ' · host' : ''}${p.seat === session.you ? ' · you' : ''}${p.connected ? '' : ' · away'}</div>
               <div class="pcash">${p.connected ? 'seated' : 'away'}</div>
+              ${host && p.seat !== session.you ? `<div class="names" style="margin-top:8px">
+                <button class="ghost" data-kick="${p.seat}">Remove</button>
+                <button class="ghost" data-host="${p.seat}">Make host</button>
+              </div>` : ''}
             </div>
           </div>`).join('')}
         ${Array.from({ length: 4 - players.length }, (_, i) => `
@@ -852,6 +868,30 @@ function bindWaiting() {
       }
     })
   }
+  document.querySelectorAll('[data-kick]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      try {
+        notice = ''
+        const snap = await kickSeat(session, Number(btn.getAttribute('data-kick')))
+        applySnap(snap)
+      } catch (err) {
+        notice = err.message
+        render()
+      }
+    })
+  })
+  document.querySelectorAll('[data-host]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      try {
+        notice = ''
+        const snap = await passHost(session, Number(btn.getAttribute('data-host')))
+        applySnap(snap)
+      } catch (err) {
+        notice = err.message
+        render()
+      }
+    })
+  })
 }
 
 async function netAct(action) {

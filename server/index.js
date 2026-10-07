@@ -19,6 +19,7 @@ const ROOMS_FILE = path.join(DATA_DIR, 'rooms.json')
 const KEEP_OVER_MS = 24 * 60 * 60 * 1000
 const KEEP_WAIT_MS = 6 * 60 * 60 * 1000
 const KEEP_IDLE_MS = 48 * 60 * 60 * 1000
+const HOST_AWAY_MS = 45000
 const CREATE_LIMIT = 8
 const JOIN_LIMIT = 20
 const RATE_WINDOW_MS = 10 * 60 * 1000
@@ -74,6 +75,7 @@ function serializableRoom(room) {
       seen: p.seen,
       spectator: true
     })),
+    hostSeat: Number.isInteger(room.hostSeat) ? room.hostSeat : 0,
     updatedAt: room.updatedAt || Date.now()
   }
 }
@@ -140,6 +142,7 @@ function loadRooms() {
           seen: Number(p.seen) || 0,
           spectator: true
         })) : [],
+        hostSeat: Number.isInteger(r.hostSeat) ? r.hostSeat : 0,
         updatedAt: Number(r.updatedAt) || now
       })
     })
@@ -233,11 +236,12 @@ function rateLimited(key, limit) {
 }
 
 function snapshot(room, seat) {
+  ensureHost(room)
   return {
     seq: room.seq,
     started: room.started,
     code: room.code,
-    hostSeat: 0,
+    hostSeat: room.hostSeat,
     you: seat,
     spectator: seat < 0,
     players: room.players.map((p) => ({
@@ -266,7 +270,14 @@ function bump(room) {
   waiters.forEach((w) => w.resolve(true))
   const live = []
   ;(room.streams || []).forEach((s) => {
-    writeSse(s.res, 'snapshot', snapshot(room, s.seat))
+    const member = s.token ? memberByToken(room, s.token) : null
+    if (!member) {
+      writeSse(s.res, 'snapshot', { code: room.code, kicked: true, you: -1, spectator: true, seq: room.seq })
+      try { s.res.end() } catch { /* closed */ }
+      return
+    }
+    s.seat = member.seat
+    writeSse(s.res, 'snapshot', snapshot(room, member.seat))
     live.push(s)
   })
   room.streams = live
@@ -280,6 +291,40 @@ function memberByToken(room, tok) {
 
 function playerByToken(room, tok) {
   return room.players.find((p) => p.token === tok)
+}
+
+function ensureHost(room) {
+  if (!room.players.length) {
+    room.hostSeat = 0
+    return
+  }
+  if (room.players.some((p) => p.seat === room.hostSeat)) return
+  room.hostSeat = room.players[0].seat
+}
+
+function isHost(room, player) {
+  ensureHost(room)
+  return !!(player && player.seat === room.hostSeat)
+}
+
+function maybePassHost(room) {
+  ensureHost(room)
+  const host = room.players.find((p) => p.seat === room.hostSeat)
+  if (host && Date.now() - host.seen < HOST_AWAY_MS) return false
+  const next = room.players
+    .filter((p) => p !== host)
+    .sort((a, b) => b.seen - a.seen)[0]
+  if (!next || next.seat === room.hostSeat) return false
+  room.hostSeat = next.seat
+  return true
+}
+
+function compactWaiting(room) {
+  const hostTok = (room.players.find((p) => p.seat === room.hostSeat) || {}).token
+  room.players.sort((a, b) => a.seat - b.seat)
+  room.players.forEach((p, i) => { p.seat = i })
+  const host = room.players.find((p) => p.token === hostTok)
+  room.hostSeat = host ? host.seat : (room.players[0] ? room.players[0].seat : 0)
 }
 
 function applyAction(room, seat, action) {
@@ -421,6 +466,7 @@ const server = http.createServer(async (req, res) => {
         waiters: [],
         streams: [],
         spectators: [],
+        hostSeat: 0,
         players: []
       }
       room.players.push({ seat: 0, name, token: token(), seen: Date.now() })
@@ -446,6 +492,7 @@ const server = http.createServer(async (req, res) => {
       if (existing) {
         existing.seen = Date.now()
         if (body.name) existing.name = String(body.name).trim().slice(0, 16) || existing.name
+        maybePassHost(room)
         bump(room)
         json(res, 200, { ...snapshot(room, existing.seat), token: existing.token, resumed: true })
         return
@@ -488,7 +535,8 @@ const server = http.createServer(async (req, res) => {
         json(res, 404, { error: 'Session not found' })
         return
       }
-      if (p.seat !== 0) {
+      maybePassHost(room)
+      if (!isHost(room, p)) {
         json(res, 403, { error: 'Only the host may start the game' })
         return
       }
@@ -503,6 +551,64 @@ const server = http.createServer(async (req, res) => {
       room.state = createGame(room.players.length, room.players.map((x) => x.name))
       room.started = true
       room.lastDice = room.state.lastDice
+      bump(room)
+      json(res, 200, snapshot(room, p.seat))
+      return
+    }
+
+    if (req.method === 'POST' && path === '/api/kick') {
+      const body = await readBody(req)
+      const room = rooms.get(String(body.code || '').toUpperCase())
+      const p = room && playerByToken(room, body.token)
+      if (!room || !p) {
+        json(res, 404, { error: 'Session not found' })
+        return
+      }
+      maybePassHost(room)
+      if (!isHost(room, p)) {
+        json(res, 403, { error: 'Only the host may remove a farmer' })
+        return
+      }
+      if (room.started) {
+        json(res, 400, { error: 'Cannot remove a farmer after the match has begun' })
+        return
+      }
+      const seat = Number(body.seat)
+      if (seat === p.seat) {
+        json(res, 400, { error: 'Host cannot remove themselves' })
+        return
+      }
+      const idx = room.players.findIndex((x) => x.seat === seat)
+      if (idx < 0) {
+        json(res, 404, { error: 'That farmer is not seated' })
+        return
+      }
+      room.players.splice(idx, 1)
+      compactWaiting(room)
+      bump(room)
+      json(res, 200, snapshot(room, p.seat))
+      return
+    }
+
+    if (req.method === 'POST' && path === '/api/host') {
+      const body = await readBody(req)
+      const room = rooms.get(String(body.code || '').toUpperCase())
+      const p = room && playerByToken(room, body.token)
+      if (!room || !p) {
+        json(res, 404, { error: 'Session not found' })
+        return
+      }
+      maybePassHost(room)
+      if (!isHost(room, p)) {
+        json(res, 403, { error: 'Only the host may pass the gavel' })
+        return
+      }
+      const next = room.players.find((x) => x.seat === Number(body.seat))
+      if (!next) {
+        json(res, 404, { error: 'That farmer is not seated' })
+        return
+      }
+      room.hostSeat = next.seat
       bump(room)
       json(res, 200, snapshot(room, p.seat))
       return
@@ -541,6 +647,7 @@ const server = http.createServer(async (req, res) => {
         return
       }
       p.seen = Date.now()
+      if (maybePassHost(room)) bump(room)
       json(res, 200, snapshot(room, p.seat))
       return
     }
@@ -563,8 +670,9 @@ const server = http.createServer(async (req, res) => {
       })
       if (typeof res.flushHeaders === 'function') res.flushHeaders()
       room.streams = room.streams || []
-      const stream = { res, seat: p.seat }
+      const stream = { res, seat: p.seat, token: tok }
       room.streams.push(stream)
+      if (maybePassHost(room)) bump(room)
       writeSse(res, 'snapshot', snapshot(room, p.seat))
       const ping = setInterval(() => {
         try { res.write(': ping\n\n') } catch { /* closed */ }

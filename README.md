@@ -289,7 +289,7 @@ npm run preview
 1. One player opens the game and **creates a room**. A 4-letter code is generated.
 2. Other players open the same URL, choose **join**, and enter the code.
 3. The host starts the game once at least two farmers are seated. Up to four can join.
-4. Players act in turn order. Only the player whose turn it is can roll and act; everyone else watches the shared state update in near real time.
+4. Players act in turn order. Only the player whose turn it is can roll and act; everyone else watches the shared state update in near real time. The host can remove a waiting farmer or pass the gavel. If the host is away for 45 seconds, the most recently seen farmer becomes host.
 5. Closing and reopening the tab keeps your seat via a token stored in `localStorage`. Join the same code, or tap Resume on the lobby.
 
 ### Local play
@@ -336,6 +336,8 @@ Base URL: `/api` (proxied to port 3001).
 | POST | `/api/create` | `{ name }` | Create a room. Returns a snapshot plus your `token`. Seat 0 is host. |
 | POST | `/api/join` | `{ code, name, watch? }` | Join an unstarted room, or spectate a started one (`watch: true` or already started). |
 | POST | `/api/start` | `{ code, token }` | Host-only. Starts the game; requires at least 2 players. |
+| POST | `/api/kick` | `{ code, token, seat }` | Host-only, waiting room. Remove a farmer and compact seats. |
+| POST | `/api/host` | `{ code, token, seat }` | Host-only. Pass the gavel to another seated farmer. |
 | POST | `/api/action` | `{ code, token, action }` | Submit a validated game action for the current turn. Spectators are rejected. |
 | GET | `/api/session` | `?code&token` | Current snapshot (boot / restore). |
 | GET | `/api/events` | `?code&token` | SSE stream of `snapshot` events. |
