@@ -290,7 +290,7 @@ npm run preview
 2. Other players open the same URL, choose **join**, and enter the code.
 3. The host starts the game once at least two farmers are seated. Up to four can join.
 4. Players act in turn order. Only the player whose turn it is can roll and act; everyone else watches the shared state update in near real time.
-5. Closing and reopening the tab keeps your seat via a token stored in `sessionStorage`.
+5. Closing and reopening the tab keeps your seat via a token stored in `localStorage`. Join the same code, or tap Resume on the lobby.
 
 ### Local play
 
@@ -376,7 +376,7 @@ Player tokens still use the Indian flag palette from `src/data.js`. The board it
 ## Notes and Limitations
 
 - Room state is kept in memory and also written to `data/rooms.json`, so a Coolify/VPS restart can restore open games. Mount `data/` as a volume. Finished rooms expire after 24 hours, waiting rooms after 6 hours, idle in-progress games after 48 hours.
-- There is no authentication or persistence; tokens identify seats within a room.
+- Seat tokens live in `localStorage` on the device. Closing a tab, then opening the same origin or joining the same code, restores that farmer. Leave parks the seat; Forget / Play again drops it. There is no account login.
 - Designed for casual session play, not for high concurrency.
 - All in-game text is in English. Internal tile ids (`kisan`, `mandi`, `nabard`) stay in code only.
 - Vs computer is local-only in v1; online rooms do not host CPU seats.

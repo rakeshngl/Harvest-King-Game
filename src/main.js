@@ -9,7 +9,7 @@ import {
 } from './engine.js'
 import {
   createRoom, joinRoom, startRoom, sendAction, waitSnapshot, openEventStream,
-  loadSession, saveSession, pingPresence
+  loadSession, saveSession, savedSeat, savedSeats, forgetSeat, pingPresence
 } from './net.js'
 import { PERSONAS, CPU_NAMES, chooseAction, describeAction } from './ai.js'
 
@@ -270,7 +270,8 @@ function closeEvents() {
   }
 }
 
-function leaveSession() {
+function leaveSession(opts = {}) {
+  const code = session && session.code
   closeEvents()
   session = null
   room = null
@@ -290,6 +291,26 @@ function leaveSession() {
   cpuGen += 1
   humanSeat = 0
   saveSession(null)
+  if (opts.forget !== false && code) forgetSeat(code)
+}
+
+function enterOnline(snap, extra = {}) {
+  session = {
+    code: snap.code,
+    token: snap.token,
+    you: snap.you,
+    spectator: !!snap.spectator,
+    name: extra.name || (session && session.name) || ''
+  }
+  saveSession(session)
+  applySnap(snap)
+  watchEvents()
+}
+
+async function resumeSeat(code, token, name) {
+  const snap = await joinRoom(code, name || '', { token })
+  enterOnline(snap, { name: name || (snap.players && snap.players[snap.you] && snap.players[snap.you].name) })
+  return snap
 }
 
 function applySnap(snap, opts = {}) {
@@ -487,6 +508,7 @@ function lobbyHtml() {
         </div>
         <input id="myname" maxlength="16" placeholder="Your farmer name" value="${draftName}" required />
       </div>
+      ${resumeTablesHtml()}
       <div class="mode-grid">
         <article class="mode-card mode-online">
           <div class="mode-kicker">Online table</div>
@@ -582,6 +604,27 @@ function lobbyHtml() {
       </section>
     </main>
   </div>`
+}
+
+function resumeTablesHtml() {
+  const seats = savedSeats()
+  const codes = Object.keys(seats)
+  if (!codes.length) return ''
+  return `
+      <article class="mode-card">
+        <div class="mode-kicker">This device</div>
+        <h2>Resume a table</h2>
+        <p>Your seat token is kept here. Close the tab, then resume with the room code — or tap below.</p>
+        ${codes.map((code) => {
+          const s = seats[code]
+          const who = s.spectator ? 'watcher' : (s.name || 'farmer')
+          return `<div class="names">
+            <span class="session-code" style="font-size:20px;padding:8px 12px">${code}</span>
+            <button class="primary" data-resume="${code}">Resume ${who}</button>
+            <button class="ghost" data-forget="${code}">Forget</button>
+          </div>`
+        }).join('')}
+      </article>`
 }
 
 function nameInputs(n) {
@@ -688,45 +731,68 @@ function bindLobby() {
     try {
       notice = ''
       const snap = await createRoom(name)
-      session = { code: snap.code, token: snap.token, you: snap.you }
-      saveSession(session)
-      applySnap(snap)
-      watchEvents()
+      enterOnline(snap, { name })
     } catch (err) {
       notice = err.message
       render()
     }
   })
   document.getElementById('join').addEventListener('click', async () => {
-    const name = requireFarmerName()
-    if (!name) return
     const code = document.getElementById('joincode').value.trim()
+    const seat = savedSeat(code)
     try {
       notice = ''
+      if (seat && seat.token) {
+        await resumeSeat(code, seat.token, seat.name)
+        return
+      }
+      const name = requireFarmerName()
+      if (!name) return
       const snap = await joinRoom(code, name)
-      session = { code: snap.code, token: snap.token, you: snap.you, spectator: !!snap.spectator }
-      saveSession(session)
-      applySnap(snap)
-      watchEvents()
+      enterOnline(snap, { name })
     } catch (err) {
+      if (seat) forgetSeat(code)
       notice = err.message
       render()
     }
   })
   document.getElementById('watch').addEventListener('click', async () => {
-    const name = (document.getElementById('myname').value || '').trim().slice(0, 16) || 'Watcher'
     const code = document.getElementById('joincode').value.trim()
+    const seat = savedSeat(code)
+    const name = (document.getElementById('myname').value || '').trim().slice(0, 16) || 'Watcher'
     try {
       notice = ''
+      if (seat && seat.token && seat.spectator) {
+        await resumeSeat(code, seat.token, seat.name || name)
+        return
+      }
       const snap = await joinRoom(code, name, { watch: true })
-      session = { code: snap.code, token: snap.token, you: snap.you, spectator: true }
-      saveSession(session)
-      applySnap(snap)
-      watchEvents()
+      enterOnline(snap, { name })
     } catch (err) {
       notice = err.message
       render()
     }
+  })
+  document.querySelectorAll('[data-resume]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const code = btn.getAttribute('data-resume')
+      const seat = savedSeat(code)
+      if (!seat) return
+      try {
+        notice = ''
+        await resumeSeat(code, seat.token, seat.name)
+      } catch (err) {
+        forgetSeat(code)
+        notice = err.message
+        render()
+      }
+    })
+  })
+  document.querySelectorAll('[data-forget]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      forgetSeat(btn.getAttribute('data-forget'))
+      render()
+    })
   })
 }
 
@@ -769,7 +835,8 @@ function waitingHtml() {
 function bindWaiting() {
   const leave = document.getElementById('leave')
   if (leave) leave.addEventListener('click', () => {
-    leaveSession()
+    leaveSession({ forget: false })
+    notice = 'Seat kept on this device. Resume with the room code.'
     render()
   })
   const open = document.getElementById('opengame')
@@ -1164,7 +1231,8 @@ function bindGame() {
   }
   if (leave) {
     leave.addEventListener('click', () => {
-      leaveSession()
+      leaveSession({ forget: false })
+      notice = 'Seat kept on this device. Resume with the room code.'
       render()
     })
   }
@@ -1323,11 +1391,29 @@ async function boot() {
       watchEvents()
       startPresence()
       return
-    } catch {
-      leaveSession()
+    } catch (err) {
+      const msg = String(err && err.message || '')
+      try {
+        await resumeSeat(session.code, session.token, session.name)
+        startPresence()
+        return
+      } catch {
+        if (/not found|lost/i.test(msg)) leaveSession()
+        else leaveSession({ forget: false })
+      }
     }
   }
   if (joinCode) {
+    const seat = savedSeat(joinCode)
+    if (seat && seat.token) {
+      try {
+        await resumeSeat(joinCode, seat.token, seat.name)
+        startPresence()
+        return
+      } catch {
+        forgetSeat(joinCode)
+      }
+    }
     screen = 'lobby'
     render()
     const input = document.getElementById('joincode')

@@ -442,6 +442,14 @@ const server = http.createServer(async (req, res) => {
         json(res, 404, { error: 'Session not found' })
         return
       }
+      const existing = body.token ? memberByToken(room, body.token) : null
+      if (existing) {
+        existing.seen = Date.now()
+        if (body.name) existing.name = String(body.name).trim().slice(0, 16) || existing.name
+        bump(room)
+        json(res, 200, { ...snapshot(room, existing.seat), token: existing.token, resumed: true })
+        return
+      }
       const watch = !!body.watch || !!body.spectator
       if (room.started || watch) {
         if (!room.started) {

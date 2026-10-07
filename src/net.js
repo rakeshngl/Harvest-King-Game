@@ -1,21 +1,76 @@
 const STORAGE = 'annadata-session'
+const SEATS = 'annadata-seats'
 const API = String(import.meta.env.VITE_API_BASE || '').replace(/\/$/, '')
 
 function apiUrl(path) {
   return `${API}${path}`
 }
 
-export function loadSession() {
+function readJson(store, key, fallback) {
   try {
-    return JSON.parse(sessionStorage.getItem(STORAGE) || 'null')
+    const raw = store.getItem(key)
+    return raw ? JSON.parse(raw) : fallback
   } catch {
-    return null
+    return fallback
   }
 }
 
+function loadSeats() {
+  const seats = readJson(localStorage, SEATS, {})
+  return seats && typeof seats === 'object' ? seats : {}
+}
+
+function writeSeats(seats) {
+  try {
+    localStorage.setItem(SEATS, JSON.stringify(seats))
+  } catch {
+    /* quota */
+  }
+}
+
+export function savedSeat(code) {
+  return loadSeats()[String(code || '').toUpperCase()] || null
+}
+
+export function savedSeats() {
+  return loadSeats()
+}
+
+export function forgetSeat(code) {
+  const seats = loadSeats()
+  delete seats[String(code || '').toUpperCase()]
+  writeSeats(seats)
+}
+
+export function loadSession() {
+  const cur = readJson(localStorage, STORAGE, null)
+  if (cur && cur.token) return cur
+  const legacy = readJson(sessionStorage, STORAGE, null)
+  if (legacy && legacy.token) {
+    saveSession(legacy)
+    try { sessionStorage.removeItem(STORAGE) } catch { /* ignore */ }
+    return legacy
+  }
+  return null
+}
+
 export function saveSession(s) {
-  if (!s) sessionStorage.removeItem(STORAGE)
-  else sessionStorage.setItem(STORAGE, JSON.stringify(s))
+  try { sessionStorage.removeItem(STORAGE) } catch { /* ignore */ }
+  if (!s) {
+    try { localStorage.removeItem(STORAGE) } catch { /* ignore */ }
+    return
+  }
+  try { localStorage.setItem(STORAGE, JSON.stringify(s)) } catch { /* quota */ }
+  if (s.code && s.token) {
+    const seats = loadSeats()
+    seats[String(s.code).toUpperCase()] = {
+      token: s.token,
+      you: s.you,
+      spectator: !!s.spectator,
+      name: s.name || ''
+    }
+    writeSeats(seats)
+  }
 }
 
 async function post(path, body) {
@@ -37,7 +92,15 @@ export function joinRoom(code, name, opts = {}) {
   return post('/api/join', {
     code: String(code || '').toUpperCase(),
     name,
+    token: opts.token || undefined,
     watch: !!opts.watch
+  })
+}
+
+export function rejoinRoom(code, token) {
+  return post('/api/join', {
+    code: String(code || '').toUpperCase(),
+    token
   })
 }
 
