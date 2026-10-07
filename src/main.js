@@ -8,7 +8,7 @@ import {
   unmortgage, openFarmWork
 } from './engine.js'
 import {
-  createRoom, joinRoom, startRoom, sendAction, waitSnapshot,
+  createRoom, joinRoom, startRoom, sendAction, waitSnapshot, openEventStream,
   loadSession, saveSession, pingPresence
 } from './net.js'
 import { PERSONAS, CPU_NAMES, chooseAction, describeAction } from './ai.js'
@@ -37,6 +37,8 @@ let room = null
 let seq = 0
 let lastRollSeq = 0
 let pollOn = false
+let eventSource = null
+let landingQueue = []
 let notice = ''
 let seenLogId = 0
 let landing = null
@@ -127,26 +129,69 @@ function syncLog() {
   seenLogId = (state && state.log ? state.log : []).reduce((m, e) => Math.max(m, logIdOf(e)), 0)
 }
 
-function captureLanding(prevCash) {
-  if (!state) return
-  const fresh = (state.log || []).filter((e) => typeof e !== 'string' && e.id > seenLogId)
-  if (!fresh.length) return
-  seenLogId = fresh.reduce((m, e) => Math.max(m, logIdOf(e)), seenLogId)
-  const roll = fresh.find((e) => e.kind === 'roll')
-  if (!roll) return
-  const meta = roll.meta || {}
-  const pid = meta.pid != null ? meta.pid : state.turn
-  const player = state.players[pid]
-  const tileId = meta.tileId != null ? meta.tileId : (player ? player.pos : 0)
-  const before = prevCash && prevCash[pid] != null ? prevCash[pid] : null
+function cashDelta(entries, pid, prevCash) {
+  const player = state && state.players[pid]
   const after = player ? player.cash : null
-  landing = {
-    pid,
-    tileId,
-    entries: fresh.slice().reverse(),
-    delta: before != null && after != null ? after - before : null
+  const before = prevCash && prevCash[pid] != null ? prevCash[pid] : null
+  if (before != null && after != null) return after - before
+  let delta = 0
+  let any = false
+  entries.forEach((e) => {
+    if (e.meta && e.meta.pid === pid && typeof e.meta.amount === 'number') {
+      any = true
+      delta += e.kind === 'loss' ? -e.meta.amount : e.kind === 'gain' ? e.meta.amount : 0
+    }
+  })
+  return any ? delta : null
+}
+
+function landingsFromLog(log, fromId, prevCash) {
+  const fresh = (log || []).filter((e) => typeof e !== 'string' && e.id > fromId)
+  if (!fresh.length) return { seen: fromId, items: [] }
+  const seen = fresh.reduce((m, e) => Math.max(m, logIdOf(e)), fromId)
+  const chrono = fresh.slice().sort((a, b) => a.id - b.id)
+  const items = []
+  let bucket = []
+  chrono.forEach((e) => {
+    if (e.kind === 'roll' && bucket.length) {
+      items.push(bucket)
+      bucket = []
+    }
+    bucket.push(e)
+  })
+  if (bucket.length) items.push(bucket)
+  return {
+    seen,
+    items: items.filter((group) => group.some((e) => e.kind === 'roll')).map((group) => {
+      const roll = group.find((e) => e.kind === 'roll')
+      const meta = (roll && roll.meta) || {}
+      const pid = meta.pid != null ? meta.pid : 0
+      const player = state && state.players[pid]
+      return {
+        pid,
+        tileId: meta.tileId != null ? meta.tileId : (player ? player.pos : 0),
+        entries: group,
+        delta: cashDelta(group, pid, prevCash)
+      }
+    })
   }
+}
+
+function captureLanding(prevCash, opts = {}) {
+  if (!state) return
+  const replay = !!opts.replay
+  const { seen, items } = landingsFromLog(state.log, seenLogId, prevCash)
+  seenLogId = seen
+  if (!items.length) return
   diaryPage = 0
+  if (replay && items.length > 1) {
+    landingQueue = items.slice(1)
+    landing = items[0]
+    landing.queued = items.length
+    return
+  }
+  landingQueue = []
+  landing = items[items.length - 1]
 }
 
 function diaryRow(e) {
@@ -210,15 +255,23 @@ function isMyTurn() {
   if (state.phase === 'over') return false
   if (state.players[state.turn]?.bankrupt) return false
   if (landing) return false
-  if (online()) return session.you === state.turn
+  if (online()) return !session.spectator && session.you === state.turn
   if (state.players.some((p) => p.cpu)) {
     return !state.players[state.turn].cpu && state.turn === humanSeat
   }
   return true
 }
 
-function leaveSession() {
+function closeEvents() {
   pollOn = false
+  if (eventSource) {
+    eventSource.close()
+    eventSource = null
+  }
+}
+
+function leaveSession() {
+  closeEvents()
   session = null
   room = null
   state = null
@@ -230,6 +283,7 @@ function leaveSession() {
   seenLogId = 0
   diaryPage = 0
   landing = null
+  landingQueue = []
   cpuBusy = false
   cpuNote = ''
   cpuGuard = 0
@@ -241,26 +295,32 @@ function leaveSession() {
 function applySnap(snap, opts = {}) {
   seq = snap.seq
   room = snap
-  session = { ...session, code: snap.code, you: snap.you }
+  session = { ...session, code: snap.code, you: snap.you, spectator: !!snap.spectator }
   saveSession(session)
   if (snap.started && snap.state) {
     const diceChanged = !opts.fromSelfRoll && snap.rollSeq > lastRollSeq
+    const skipped = !opts.fromSelfRoll && snap.rollSeq > lastRollSeq + 1
     lastRollSeq = snap.rollSeq
     const prevCash = state ? state.players.map((p) => p.cash) : null
+    const firstLook = !state
     state = snap.state
     screen = 'game'
-    if (diceChanged && snap.lastDice) {
+    if (opts.capture) {
+      captureLanding(prevCash)
+    } else if (firstLook) {
+      syncLog()
+    } else if (diceChanged && snap.lastDice) {
       rolling = true
       render()
       animateDice(snap.lastDice[0], snap.lastDice[1], () => {
         rolling = false
-        captureLanding(prevCash)
+        captureLanding(prevCash, { replay: skipped })
         render()
       })
       return
+    } else {
+      syncLog()
     }
-    if (opts.capture) captureLanding(prevCash)
-    else syncLog()
   } else {
     state = null
     screen = 'waiting'
@@ -269,31 +329,23 @@ function applySnap(snap, opts = {}) {
   render()
 }
 
-async function pollLoop() {
-  if (pollOn) return
+function watchEvents() {
+  if (!session || eventSource) return
   pollOn = true
-  while (pollOn && session) {
-    try {
-      const snap = await waitSnapshot(session, seq)
+  eventSource = openEventStream(session, {
+    onSnapshot(snap) {
       if (!pollOn) return
-      if (snap.seq !== seq || snap.started !== (screen === 'game')) {
+      notice = ''
+      if (snap.seq !== seq || snap.started !== (screen === 'game') || screen === 'waiting') {
         applySnap(snap)
-      } else if (screen === 'waiting') {
-        room = snap
-        render()
       }
-    } catch (err) {
+    },
+    onError() {
       if (!pollOn) return
-      notice = err.message || 'Connection lost'
-      if (/not found|lost/i.test(notice)) {
-        leaveSession()
-        render()
-        return
-      }
+      notice = 'Reconnecting…'
       render()
-      await new Promise((r) => setTimeout(r, 1500))
     }
-  }
+  })
 }
 
 function scheduleCpu() {
@@ -445,6 +497,7 @@ function lobbyHtml() {
           <div class="names">
             <input id="joincode" maxlength="6" placeholder="ABCD" />
             <button class="primary" id="join">Join</button>
+            <button class="ghost" id="watch">Watch</button>
           </div>
         </article>
         <article class="mode-card mode-cpu">
@@ -638,7 +691,7 @@ function bindLobby() {
       session = { code: snap.code, token: snap.token, you: snap.you }
       saveSession(session)
       applySnap(snap)
-      pollLoop()
+      watchEvents()
     } catch (err) {
       notice = err.message
       render()
@@ -651,10 +704,25 @@ function bindLobby() {
     try {
       notice = ''
       const snap = await joinRoom(code, name)
-      session = { code: snap.code, token: snap.token, you: snap.you }
+      session = { code: snap.code, token: snap.token, you: snap.you, spectator: !!snap.spectator }
       saveSession(session)
       applySnap(snap)
-      pollLoop()
+      watchEvents()
+    } catch (err) {
+      notice = err.message
+      render()
+    }
+  })
+  document.getElementById('watch').addEventListener('click', async () => {
+    const name = (document.getElementById('myname').value || '').trim().slice(0, 16) || 'Watcher'
+    const code = document.getElementById('joincode').value.trim()
+    try {
+      notice = ''
+      const snap = await joinRoom(code, name, { watch: true })
+      session = { code: snap.code, token: snap.token, you: snap.you, spectator: true }
+      saveSession(session)
+      applySnap(snap)
+      watchEvents()
     } catch (err) {
       notice = err.message
       render()
@@ -763,7 +831,7 @@ function gameHtml() {
           <span class="chip g">${state.weather.name}</span>
           <span class="chip n">Season ${state.seasonIndex + 1}/${MAX_SEASONS}</span>
           <span class="chip">Market x${state.marketMod.toFixed(2)}</span>
-          ${online() ? `<span class="chip">You: ${me ? me.name : ''}</span>` : (state.players.some((x) => x.cpu) ? '<span class="chip">You vs computer</span>' : '')}
+          ${online() ? `<span class="chip">${session.spectator ? 'Watching' : 'You: ' + (me ? me.name : '')}</span>` : (state.players.some((x) => x.cpu) ? '<span class="chip">You vs computer</span>' : '')}
         </div>
       </div>
       <div class="board-stage">
@@ -954,7 +1022,7 @@ function landingModal() {
         </div>
         <div class="land-events">${landing.entries.map(diaryRow).join('')}</div>
         <div class="land-net ${netCls}">${netTxt}</div>
-        <div class="actions"><button class="primary" id="landok">Continue</button></div>
+         <div class="actions"><button class="primary" id="landok">${landingQueue.length ? 'Next landing (' + landingQueue.length + ' left)' : 'Continue'}</button></div>
       </div>
     </div>`
 }
@@ -1083,7 +1151,7 @@ function bindGame() {
   const landok = document.getElementById('landok')
   if (landok) {
     landok.addEventListener('click', () => {
-      landing = null
+      landing = landingQueue.shift() || null
       render()
     })
   }
@@ -1250,9 +1318,9 @@ async function boot() {
   const joinCode = (params.get('join') || '').toUpperCase()
   if (session && session.token) {
     try {
-      const snap = await waitSnapshot(session, 0)
+      const snap = await waitSnapshot(session)
       applySnap(snap)
-      pollLoop()
+      watchEvents()
       startPresence()
       return
     } catch {

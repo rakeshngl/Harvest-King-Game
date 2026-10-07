@@ -8,7 +8,7 @@ There is no jail. Instead, the board is loaded with agricultural complications: 
 
 ## Highlights
 
-- **Online multiplayer rooms** with a 4-letter join code (2 to 4 players), synced through a lightweight long-poll REST API. Online rooms are human-only.
+- **Online multiplayer rooms** with a 4-letter join code (2 to 4 players), synced through REST actions plus Server-Sent Events. Online rooms are human-only; a started table can be watched.
 - **Local pass-and-play** on a single device, plus **vs computer** with scripted heuristic rivals.
 - **Three-dimensional animated dice** rendered with CSS 3D transforms.
 - **Player tokens as bouncing letter coins**, colored per farmer, with a turn bob animation.
@@ -219,7 +219,7 @@ The sidebar labels the current rival, shows a short status line for each compute
 
 - **Frontend**: vanilla ES modules, no framework. Custom CSS (checkerboard board, grid layout, 3D dice), inline SVG icons.
 - **Backend**: Node.js built-in `http` server. No runtime dependencies.
-- **Transport**: REST with HTTP long-polling for turn sync (20-second hold, resolved immediately on any state change).
+- **Transport**: REST for actions (server-authoritative) plus Server-Sent Events for live snapshots. Create/join are rate-limited. Late join to a started room is spectator-only.
 - **Build tool**: Vite 5 for dev server and bundling.
 - **State**: a single plain-JavaScript game object, cloned as JSON between client and server.
 
@@ -234,7 +234,7 @@ The only dependency is Vite (dev dependency). The server runs on the Node standa
 ├── vite.config.js      # Dev server, allowedHosts, /api reverse proxy
 ├── package.json
 ├── server/
-│   └── index.js        # Session rooms, REST API, action validation, long-poll
+│   └── index.js        # Session rooms, REST API, SSE sync, action validation
 └── src/
     ├── main.js         # UI, lobby, board, vs computer loop, landing pop-up, diary, online sync
     ├── engine.js       # Game rules, farming cycle, cards, seasons, structured log, win logic
@@ -305,9 +305,11 @@ npm run preview
 
 Vs computer never talks to the room API. `src/ai.js` calls the same move helpers the human UI uses (`applyMove`, `buyFarm`, `seedLand`, and so on). `createGame` stores `cpu` and `persona` on each player so the lobby and sidebar can label rivals.
 
-### Long-poll sync
+### Live sync (SSE)
 
-The client calls `GET /api/session?code=...&token=...&seq=N`. If the room sequence is newer than `N`, the server replies immediately; otherwise it holds the request for up to 20 seconds and resolves as soon as any player changes state. The client loops on this to stay in sync without WebSockets.
+Actions stay on REST (`POST /api/action`). The client opens `GET /api/events?code=...&token=...` as an EventSource. The server pushes a `snapshot` event on every room change and a comment ping every 15 seconds. `GET /api/session` returns the current snapshot once (used on boot). If several rolls were missed while disconnected, the client queues landing pop-ups from the farm diary so dice and cash changes can be fast-forwarded.
+
+Create is limited to 8 rooms per IP per 10 minutes; join/watch to 20. A started room can be watched by up to 12 spectators. Spectators cannot submit actions.
 
 ### Reverse proxy
 
@@ -332,10 +334,11 @@ Base URL: `/api` (proxied to port 3001).
 | --- | --- | --- | --- |
 | GET | `/api/health` | - | Health check, returns `{ ok, rooms, persist }` |
 | POST | `/api/create` | `{ name }` | Create a room. Returns a snapshot plus your `token`. Seat 0 is host. |
-| POST | `/api/join` | `{ code, name }` | Join an existing, unstarted room. Fails if full or already started. |
+| POST | `/api/join` | `{ code, name, watch? }` | Join an unstarted room, or spectate a started one (`watch: true` or already started). |
 | POST | `/api/start` | `{ code, token }` | Host-only. Starts the game; requires at least 2 players. |
-| POST | `/api/action` | `{ code, token, action }` | Submit a validated game action for the current turn. |
-| GET | `/api/session` | `?code&token&seq` | Long-poll for the latest snapshot when `seq` changes. |
+| POST | `/api/action` | `{ code, token, action }` | Submit a validated game action for the current turn. Spectators are rejected. |
+| GET | `/api/session` | `?code&token` | Current snapshot (boot / restore). |
+| GET | `/api/events` | `?code&token` | SSE stream of `snapshot` events. |
 
 ### Action types
 

@@ -33,8 +33,12 @@ export function createRoom(name) {
   return post('/api/create', { name })
 }
 
-export function joinRoom(code, name) {
-  return post('/api/join', { code: String(code || '').toUpperCase(), name })
+export function joinRoom(code, name, opts = {}) {
+  return post('/api/join', {
+    code: String(code || '').toUpperCase(),
+    name,
+    watch: !!opts.watch
+  })
 }
 
 export function startRoom(sess) {
@@ -63,10 +67,29 @@ export async function pingPresence(visitor, playing) {
   return data
 }
 
-export async function waitSnapshot(sess, seq) {
-  const q = new URLSearchParams({ code: sess.code, token: sess.token, seq: String(seq) })
+export async function waitSnapshot(sess) {
+  const q = new URLSearchParams({ code: sess.code, token: sess.token })
   const res = await fetch(apiUrl(`/api/session?${q}`))
   const data = await res.json().catch(() => ({ error: 'Network error' }))
   if (!res.ok) throw new Error(data.error || 'Session lost')
   return data
+}
+
+export function openEventStream(sess, { onSnapshot, onError, onOpen }) {
+  const q = new URLSearchParams({ code: sess.code, token: sess.token })
+  const source = new EventSource(apiUrl(`/api/events?${q}`))
+  source.addEventListener('snapshot', (ev) => {
+    try {
+      onSnapshot(JSON.parse(ev.data))
+    } catch {
+      /* ignore */
+    }
+  })
+  source.addEventListener('open', () => {
+    if (onOpen) onOpen()
+  })
+  source.onerror = () => {
+    if (onError) onError(new Error('Connection lost'))
+  }
+  return source
 }
