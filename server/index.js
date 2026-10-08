@@ -27,9 +27,11 @@ const CPU_ROLL_MS = 1800
 const CREATE_LIMIT = 8
 const JOIN_LIMIT = 20
 const RATE_WINDOW_MS = 10 * 60 * 1000
+const DRAIN_MS = Math.max(3, Number(process.env.DRAIN_MS) || 25) * 1000
 const presence = new Map()
 const rateBuckets = new Map()
 let persistOk = true
+let draining = false
 
 function loadStats() {
   try {
@@ -289,7 +291,8 @@ function snapshot(room, seat) {
     locked: !!room.passHash,
     turnEndsAt: room.turnEndsAt || 0,
     turnMs: TURN_MS,
-    cpuDifficulty: room.cpuDifficulty || 'normal'
+    cpuDifficulty: room.cpuDifficulty || 'normal',
+    draining
   }
 }
 
@@ -411,7 +414,8 @@ function playCpuSoon(room, wait) {
   if (!room.started || !room.state || room.state.phase === 'over') return
   if (!isCpuSeat(room, room.state.turn)) return
   if (room.state.players[room.state.turn]?.bankrupt) return
-  const delay = wait != null ? wait : (room.cpuRolled ? CPU_ROLL_MS : CPU_MS)
+  if (draining && room.state.phase === 'roll') return
+  const delay = draining ? 0 : (wait != null ? wait : (room.cpuRolled ? CPU_ROLL_MS : CPU_MS))
   room.cpuRolled = false
   room.cpuTimer = setTimeout(() => {
     room.cpuTimer = 0
@@ -565,7 +569,8 @@ const server = http.createServer(async (req, res) => {
         rooms: rooms.size,
         persist: persistOk,
         transport: 'sse',
-        turnMs: TURN_MS
+        turnMs: TURN_MS,
+        draining
       })
       return
     }
@@ -587,6 +592,10 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'POST' && path === '/api/create') {
+      if (draining) {
+        json(res, 503, { error: 'The hall is restarting. Try again in a moment.' })
+        return
+      }
       if (rateLimited(`create:${clientIp(req)}`, CREATE_LIMIT)) {
         json(res, 429, { error: 'Too many rooms from this network. Wait a few minutes.' })
         return
@@ -627,6 +636,10 @@ const server = http.createServer(async (req, res) => {
         return
       }
       const existing = body.token ? memberByToken(room, body.token) : null
+      if (draining && !existing) {
+        json(res, 503, { error: 'This table is restarting. Try again in a moment.' })
+        return
+      }
       if (existing) {
         existing.seen = Date.now()
         if (body.name) existing.name = String(body.name).trim().slice(0, 16) || existing.name
@@ -686,6 +699,10 @@ const server = http.createServer(async (req, res) => {
         json(res, 200, snapshot(room, p.seat))
         return
       }
+      if (draining) {
+        json(res, 503, { error: 'The hall is restarting. Finish later.' })
+        return
+      }
       if (room.players.length < 2) {
         json(res, 400, { error: 'Need at least 2 farmers' })
         return
@@ -718,6 +735,10 @@ const server = http.createServer(async (req, res) => {
       maybePassHost(room)
       if (!isHost(room, p)) {
         json(res, 403, { error: 'Only the host may seat a computer' })
+        return
+      }
+      if (draining) {
+        json(res, 503, { error: 'The hall is restarting. Finish later.' })
         return
       }
       if (room.started) {
@@ -898,11 +919,39 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`Harvest King session server on http://localhost:${PORT} (${rooms.size} rooms restored)`)
 })
 
-function shutdown() {
+function liveTurns() {
+  for (const room of rooms.values()) {
+    if (room.cpuTimer) return true
+    const state = room.state
+    if (room.started && state && (state.phase === 'action' || state.phase === 'end')) return true
+  }
+  return false
+}
+
+function finishDrain() {
+  rooms.forEach((room) => {
+    if (room.cpuTimer) {
+      clearTimeout(room.cpuTimer)
+      room.cpuTimer = 0
+    }
+  })
   saveRooms()
   server.close(() => process.exit(0))
   setTimeout(() => process.exit(0), 1500).unref()
 }
 
-process.on('SIGTERM', shutdown)
-process.on('SIGINT', shutdown)
+function beginDrain() {
+  if (draining) return
+  draining = true
+  rooms.forEach((room) => bump(room))
+  const deadline = Date.now() + DRAIN_MS
+  const tick = setInterval(() => {
+    if (!liveTurns() || Date.now() >= deadline) {
+      clearInterval(tick)
+      finishDrain()
+    }
+  }, 200)
+}
+
+process.on('SIGTERM', beginDrain)
+process.on('SIGINT', beginDrain)

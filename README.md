@@ -313,6 +313,8 @@ Create is limited to 8 rooms per IP per 10 minutes; join/watch to 20. A started 
 
 Each online turn has a 90 second clock (`TURN_MS`, seconds). The timer covers the whole turn, not each click. If the seat does not finish in time, the server declines any pending prompt, logs the skip, and passes the turn. The sidebar shows a live countdown.
 
+On SIGTERM/SIGINT the server drains for up to 25 seconds (`DRAIN_MS`): no new rooms, no new joins except resume, no new starts. CPU seats finish the current turn. Then rooms are written to `data/rooms.json` and the process exits.
+
 ### Reverse proxy
 
 The frontend dev server proxies `/api` to the backend at `http://localhost:3001`:
@@ -334,7 +336,7 @@ Base URL: `/api` (proxied to port 3001).
 
 | Method | Path | Body / Query | Description |
 | --- | --- | --- | --- |
-| GET | `/api/health` | - | Health check, returns `{ ok, rooms, persist, transport, turnMs }` |
+| GET | `/api/health` | - | Health check, returns `{ ok, rooms, persist, transport, turnMs, draining }` |
 | GET | `/api/lobby` | - | Unlocked waiting rooms (`code`, `seats`, `host`, `names`). Locked rooms are omitted. |
 | POST | `/api/create` | `{ name, password? }` | Create a room. Optional password locks join/watch. Returns a snapshot plus your `token`. |
 | POST | `/api/join` | `{ code, name, watch?, password?, token? }` | Join an unstarted room, or spectate a started one. Resume with `token` skips the password. |
@@ -381,7 +383,7 @@ Player tokens still use the Indian flag palette from `src/data.js`. The board it
 
 ## Notes and Limitations
 
-- Room state is kept in memory and also written to `data/rooms.json`, so a Coolify/VPS restart can restore open games. Mount `data/` as a volume. Finished rooms expire after 24 hours, waiting rooms after 6 hours, idle in-progress games after 48 hours.
+- Room state is kept in memory and also written to `data/rooms.json`, so a Coolify/VPS restart can restore open games. Mount `data/` as a volume. SIGTERM waits up to 25s (`DRAIN_MS`) for the current turn, then flushes. Finished rooms expire after 24 hours, waiting rooms after 6 hours, idle in-progress games after 48 hours.
 - Seat tokens live in `localStorage` on the device. Closing a tab, then opening the same origin or joining the same code, restores that farmer. Leave parks the seat; Forget / Play again drops it. There is no account login.
 - Designed for casual session play, not for high concurrency.
 - All in-game text is in English. Internal tile ids (`kisan`, `mandi`, `nabard`) stay in code only.

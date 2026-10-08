@@ -362,6 +362,7 @@ function applySnap(snap, opts = {}) {
   room = snap
   session = { ...session, code: snap.code, you: snap.you, spectator: !!snap.spectator }
   saveSession(session)
+  if (snap.draining) notice = 'This hall is restarting. Finish the turn.'
   if (snap.started && snap.state) {
     const diceChanged = !opts.fromSelfRoll && snap.rollSeq > lastRollSeq
     const skipped = !opts.fromSelfRoll && snap.rollSeq > lastRollSeq + 1
