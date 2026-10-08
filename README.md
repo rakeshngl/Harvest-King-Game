@@ -315,6 +315,8 @@ Each online turn has a 90 second clock (`TURN_MS`, seconds). The timer covers th
 
 On SIGTERM/SIGINT the server drains for up to 25 seconds (`DRAIN_MS`): no new rooms, no new joins except resume, no new starts. CPU seats finish the current turn. Then rooms are written to `data/rooms.json` and the process exits.
 
+The process writes one JSON object per line to stdout (`ts`, `event`, fields). Tokens are never logged. Coolify can scrape these. `/api/health` is 503 while draining so a load balancer can stop sending new traffic.
+
 ### Reverse proxy
 
 The frontend dev server proxies `/api` to the backend at `http://localhost:3001`:
@@ -336,7 +338,7 @@ Base URL: `/api` (proxied to port 3001).
 
 | Method | Path | Body / Query | Description |
 | --- | --- | --- | --- |
-| GET | `/api/health` | - | Health check, returns `{ ok, rooms, persist, transport, turnMs, draining }` |
+| GET | `/api/health` | - | Health. `{ ok, rooms, roomsBy, persist, persistWritable, streams, uptimeMs, memory, draining }`. 503 while draining. |
 | GET | `/api/lobby` | - | Unlocked waiting rooms (`code`, `seats`, `host`, `names`). Locked rooms are omitted. |
 | POST | `/api/create` | `{ name, password? }` | Create a room. Optional password locks join/watch. Returns a snapshot plus your `token`. |
 | POST | `/api/join` | `{ code, name, watch?, password?, token? }` | Join an unstarted room, or spectate a started one. Resume with `token` skips the password. |

@@ -32,6 +32,44 @@ const presence = new Map()
 const rateBuckets = new Map()
 let persistOk = true
 let draining = false
+const startedAt = Date.now()
+
+function logEvent(event, fields = {}) {
+  const row = { ts: new Date().toISOString(), event, ...fields }
+  try {
+    process.stdout.write(JSON.stringify(row) + '\n')
+  } catch {
+    /* ignore */
+  }
+}
+
+function persistWritable() {
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true })
+    fs.accessSync(DATA_DIR, fs.constants.W_OK)
+    return persistOk
+  } catch {
+    return false
+  }
+}
+
+function roomCounts() {
+  let waiting = 0
+  let playing = 0
+  let finished = 0
+  rooms.forEach((room) => {
+    if (!room.started) waiting += 1
+    else if (room.state && room.state.phase === 'over') finished += 1
+    else playing += 1
+  })
+  return { waiting, playing, finished }
+}
+
+function streamCount() {
+  let n = 0
+  rooms.forEach((room) => { n += (room.streams || []).length })
+  return n
+}
 
 function loadStats() {
   try {
@@ -118,8 +156,9 @@ function saveRooms() {
     fs.writeFileSync(tmp, JSON.stringify(payload))
     fs.renameSync(tmp, ROOMS_FILE)
     persistOk = true
-  } catch {
+  } catch (err) {
     persistOk = false
+    logEvent('persist.error', { error: String(err && err.message || err) })
   }
 }
 
@@ -392,10 +431,12 @@ function skipAfk(room) {
     return false
   }
   if (Date.now() < room.turnEndsAt) return false
+  const skipped = state.turn
   skipTurn(state, 'did not act in time')
   armTurn(room)
   bump(room)
   playCpuSoon(room)
+  logEvent('turn.skip', { code: room.code, seat: skipped })
   return true
 }
 
@@ -564,13 +605,19 @@ const server = http.createServer(async (req, res) => {
 
   try {
     if (req.method === 'GET' && path === '/api/health') {
-      json(res, 200, {
-        ok: true,
+      const writable = persistWritable()
+      json(res, draining ? 503 : 200, {
+        ok: writable && !draining,
         rooms: rooms.size,
         persist: persistOk,
+        persistWritable: writable,
         transport: 'sse',
         turnMs: TURN_MS,
-        draining
+        draining,
+        uptimeMs: Date.now() - startedAt,
+        roomsBy: roomCounts(),
+        streams: streamCount(),
+        memory: process.memoryUsage().rss
       })
       return
     }
@@ -620,6 +667,7 @@ const server = http.createServer(async (req, res) => {
       room.updatedAt = Date.now()
       rooms.set(room.code, room)
       saveRooms()
+      logEvent('room.create', { code: room.code, locked: !!room.passHash })
       json(res, 200, { ...snapshot(room, 0), token: room.players[0].token })
       return
     }
@@ -720,6 +768,7 @@ const server = http.createServer(async (req, res) => {
       armTurn(room)
       bump(room)
       playCpuSoon(room)
+      logEvent('room.start', { code: room.code, seats: room.players.length, cpu: room.players.filter((x) => x.cpu).length })
       json(res, 200, snapshot(room, p.seat))
       return
     }
@@ -916,7 +965,7 @@ setInterval(() => {
 
 server.listen(PORT, '0.0.0.0', () => {
   rooms.forEach((room) => playCpuSoon(room, 800))
-  console.log(`Harvest King session server on http://localhost:${PORT} (${rooms.size} rooms restored)`)
+  logEvent('server.listen', { port: PORT, rooms: rooms.size, persist: persistOk })
 })
 
 function liveTurns() {
@@ -936,6 +985,7 @@ function finishDrain() {
     }
   })
   saveRooms()
+  logEvent('server.exit', { rooms: rooms.size, persist: persistOk })
   server.close(() => process.exit(0))
   setTimeout(() => process.exit(0), 1500).unref()
 }
@@ -943,6 +993,7 @@ function finishDrain() {
 function beginDrain() {
   if (draining) return
   draining = true
+  logEvent('server.drain', { rooms: rooms.size, drainMs: DRAIN_MS })
   rooms.forEach((room) => bump(room))
   const deadline = Date.now() + DRAIN_MS
   const tick = setInterval(() => {
