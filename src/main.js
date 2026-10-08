@@ -9,7 +9,7 @@ import {
 } from './engine.js'
 import {
   createRoom, joinRoom, startRoom, sendAction, waitSnapshot, openEventStream,
-  kickSeat, passHost, loadSession, saveSession, savedSeat, savedSeats, forgetSeat, pingPresence
+  kickSeat, passHost, loadSession, saveSession, savedSeat, savedSeats, forgetSeat, pingPresence, fetchLobby
 } from './net.js'
 import { PERSONAS, CPU_NAMES, chooseAction, describeAction } from './ai.js'
 
@@ -52,6 +52,7 @@ let draftName = ''
 let diaryPage = 0
 const DIARY_PAGE = 20
 let hallStats = { visits: 0, online: 0, playing: 0 }
+let openTables = []
 let visitorId = ''
 let presenceOn = false
 
@@ -96,6 +97,10 @@ async function pulsePresence() {
   try {
     hallStats = await pingPresence(visitorId, playing)
     paintHallStats()
+    if (screen === 'lobby' && !state) {
+      openTables = await fetchLobby()
+      paintOpenTables()
+    }
   } catch {
     /* ignore */
   }
@@ -519,6 +524,7 @@ function lobbyHtml() {
         <input id="myname" maxlength="16" placeholder="Your farmer name" value="${draftName}" required />
       </div>
       ${resumeTablesHtml()}
+      <div id="opentables">${openTablesHtml()}</div>
       <div class="mode-grid">
         <article class="mode-card mode-online">
           <div class="mode-kicker">Online table</div>
@@ -615,6 +621,59 @@ function lobbyHtml() {
       </section>
     </main>
   </div>`
+}
+
+function openTablesHtml() {
+  if (!openTables.length) {
+    return `
+      <article class="mode-card">
+        <div class="mode-kicker">Village hall</div>
+        <h2>Open tables</h2>
+        <p>No unlocked rooms are waiting. Create one, or join with a code.</p>
+      </article>`
+  }
+  return `
+      <article class="mode-card">
+        <div class="mode-kicker">Village hall</div>
+        <h2>Open tables</h2>
+        <p>Unlocked rooms waiting for farmers. Locked tables stay hidden.</p>
+        ${openTables.map((t) => `
+          <div class="names">
+            <span class="session-code" style="font-size:20px;padding:8px 12px">${t.code}</span>
+            <span class="pcash">${t.seats}/4 · host ${t.host}</span>
+            <button class="primary" data-halljoin="${t.code}">Sit down</button>
+          </div>`).join('')}
+      </article>`
+}
+
+function paintOpenTables() {
+  const root = document.getElementById('opentables')
+  if (!root) return
+  root.innerHTML = openTablesHtml()
+  bindOpenTables()
+}
+
+function bindOpenTables() {
+  document.querySelectorAll('[data-halljoin]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const code = btn.getAttribute('data-halljoin')
+      const name = requireFarmerName()
+      if (!name) return
+      try {
+        notice = ''
+        const seat = savedSeat(code)
+        if (seat && seat.token) {
+          await resumeSeat(code, seat.token, seat.name || name)
+          return
+        }
+        const snap = await joinRoom(code, name)
+        enterOnline(snap, { name })
+      } catch (err) {
+        notice = err.message
+        render()
+      }
+    })
+  })
 }
 
 function resumeTablesHtml() {
@@ -808,6 +867,11 @@ function bindLobby() {
       render()
     })
   })
+  bindOpenTables()
+  fetchLobby().then((tables) => {
+    openTables = tables
+    paintOpenTables()
+  }).catch(() => {})
 }
 
 function waitingHtml() {

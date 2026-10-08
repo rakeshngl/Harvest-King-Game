@@ -128,6 +128,13 @@ export async function fetchStats() {
   return data
 }
 
+export async function fetchLobby() {
+  const res = await fetch(apiUrl('/api/lobby'))
+  const data = await res.json().catch(() => null)
+  if (!res.ok || !data) return []
+  return Array.isArray(data.rooms) ? data.rooms : []
+}
+
 export async function pingPresence(visitor, playing) {
   const res = await fetch(apiUrl('/api/presence'), {
     method: 'POST',

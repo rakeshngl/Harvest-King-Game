@@ -333,6 +333,7 @@ Base URL: `/api` (proxied to port 3001).
 | Method | Path | Body / Query | Description |
 | --- | --- | --- | --- |
 | GET | `/api/health` | - | Health check, returns `{ ok, rooms, persist }` |
+| GET | `/api/lobby` | - | Unlocked waiting rooms (`code`, `seats`, `host`, `names`). Locked rooms are omitted. |
 | POST | `/api/create` | `{ name, password? }` | Create a room. Optional password locks join/watch. Returns a snapshot plus your `token`. |
 | POST | `/api/join` | `{ code, name, watch?, password?, token? }` | Join an unstarted room, or spectate a started one. Resume with `token` skips the password. |
 | POST | `/api/start` | `{ code, token }` | Host-only. Starts the game; requires at least 2 players. |

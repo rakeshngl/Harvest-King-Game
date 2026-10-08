@@ -172,6 +172,24 @@ function publicStats() {
   return { visits: statsStore.visits, online, playing }
 }
 
+function publicLobby() {
+  pruneRooms()
+  return [...rooms.values()]
+    .filter((room) => !room.started && !room.passHash && room.players.length > 0 && room.players.length < 4)
+    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+    .slice(0, 24)
+    .map((room) => {
+      ensureHost(room)
+      const host = room.players.find((p) => p.seat === room.hostSeat) || room.players[0]
+      return {
+        code: room.code,
+        seats: room.players.length,
+        host: host ? host.name : 'Host',
+        names: room.players.map((p) => p.name)
+      }
+    })
+}
+
 function touchPresence(visitor, playing) {
   const id = String(visitor || '').slice(0, 64)
   if (!id) return publicStats()
@@ -454,6 +472,11 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && path === '/api/stats') {
       json(res, 200, publicStats())
+      return
+    }
+
+    if (req.method === 'GET' && path === '/api/lobby') {
+      json(res, 200, { rooms: publicLobby() })
       return
     }
 
