@@ -303,7 +303,7 @@ npm run preview
 
 `src/engine.js` is imported by both the browser UI and the Node server. Online play is authoritative on the server: the server owns the room state, validates every action, and broadcasts snapshots. This means an online client cannot invent moves, and the same rules apply to local play.
 
-Vs computer never talks to the room API. `src/ai.js` calls the same move helpers the human UI uses (`applyMove`, `buyFarm`, `seedLand`, and so on). `createGame` stores `cpu` and `persona` on each player so the lobby and sidebar can label rivals.
+`src/ai.js` is used locally and on the session server. Hosts can seat computer farmers in an online waiting room; the server then calls `chooseAction` and `POST`-equivalent `applyAction` on those seats. Local vs computer still never talks to the room API. `createGame` stores `cpu` and `persona` on each player so the lobby and sidebar can label rivals.
 
 ### Live sync (SSE)
 
@@ -340,7 +340,8 @@ Base URL: `/api` (proxied to port 3001).
 | POST | `/api/join` | `{ code, name, watch?, password?, token? }` | Join an unstarted room, or spectate a started one. Resume with `token` skips the password. |
 | POST | `/api/start` | `{ code, token }` | Host-only. Starts the game; requires at least 2 players. |
 | POST | `/api/kick` | `{ code, token, seat }` | Host-only, waiting room. Remove a farmer and compact seats. |
-| POST | `/api/host` | `{ code, token, seat }` | Host-only. Pass the gavel to another seated farmer. |
+| POST | `/api/host` | `{ code, token, seat }` | Host-only. Pass the gavel to another seated farmer. Humans only. |
+| POST | `/api/cpu` | `{ code, token, difficulty? }` | Host-only, waiting room. Seat a computer farmer (`easy` / `normal` / `hard`). |
 | POST | `/api/action` | `{ code, token, action }` | Submit a validated game action for the current turn. Spectators are rejected. |
 | GET | `/api/session` | `?code&token` | Current snapshot (boot / restore). |
 | GET | `/api/events` | `?code&token` | SSE stream of `snapshot` events. |
@@ -384,8 +385,8 @@ Player tokens still use the Indian flag palette from `src/data.js`. The board it
 - Seat tokens live in `localStorage` on the device. Closing a tab, then opening the same origin or joining the same code, restores that farmer. Leave parks the seat; Forget / Play again drops it. There is no account login.
 - Designed for casual session play, not for high concurrency.
 - All in-game text is in English. Internal tile ids (`kisan`, `mandi`, `nabard`) stay in code only.
-- Vs computer is local-only in v1; online rooms do not host CPU seats.
-- Online turns skip after 90 seconds of no finish (`TURN_MS`). Local vs computer has no AFK clock.
+- Hosts can seat computer farmers in an online waiting room (`POST /api/cpu`). The server plays those seats with the same personas as local vs computer. A computer cannot host.
+- Online turns skip after 90 seconds of no finish (`TURN_MS`). Computer seats still use the clock if the server stalls.
 
 ## License
 

@@ -8,6 +8,7 @@ import {
   declineAction, nextTurn, skipTurn, unmortgage, openFarmWork
 } from '../src/engine.js'
 import { LOAN_STEP } from '../src/data.js'
+import { PERSONAS, CPU_NAMES, chooseAction } from '../src/ai.js'
 
 const PORT = Number(process.env.PORT) || 3001
 const rooms = new Map()
@@ -21,6 +22,8 @@ const KEEP_WAIT_MS = 6 * 60 * 60 * 1000
 const KEEP_IDLE_MS = 48 * 60 * 60 * 1000
 const HOST_AWAY_MS = 45000
 const TURN_MS = Math.max(20, Number(process.env.TURN_MS) || 90) * 1000
+const CPU_MS = 700
+const CPU_ROLL_MS = 1800
 const CREATE_LIMIT = 8
 const JOIN_LIMIT = 20
 const RATE_WINDOW_MS = 10 * 60 * 1000
@@ -67,7 +70,9 @@ function serializableRoom(room) {
       seat: p.seat,
       name: p.name,
       token: p.token,
-      seen: p.seen
+      seen: p.seen,
+      cpu: !!p.cpu,
+      persona: p.persona || null
     })),
     spectators: (room.spectators || []).map((p) => ({
       seat: -1,
@@ -79,6 +84,7 @@ function serializableRoom(room) {
     hostSeat: Number.isInteger(room.hostSeat) ? room.hostSeat : 0,
     passHash: room.passHash || '',
     turnEndsAt: room.turnEndsAt || 0,
+    cpuDifficulty: room.cpuDifficulty || 'normal',
     updatedAt: room.updatedAt || Date.now()
   }
 }
@@ -136,7 +142,9 @@ function loadRooms() {
           seat: Number(p.seat),
           name: String(p.name || 'Farmer').slice(0, 16),
           token: String(p.token || ''),
-          seen: Number(p.seen) || 0
+          seen: Number(p.seen) || 0,
+          cpu: !!p.cpu,
+          persona: p.persona ? String(p.persona) : null
         })) : [],
         spectators: Array.isArray(r.spectators) ? r.spectators.map((p) => ({
           seat: -1,
@@ -148,6 +156,7 @@ function loadRooms() {
         hostSeat: Number.isInteger(r.hostSeat) ? r.hostSeat : 0,
         passHash: String(r.passHash || ''),
         turnEndsAt: Number(r.turnEndsAt) || 0,
+        cpuDifficulty: ['easy', 'normal', 'hard'].includes(r.cpuDifficulty) ? r.cpuDifficulty : 'normal',
         updatedAt: Number(r.updatedAt) || now
       })
     })
@@ -188,7 +197,7 @@ function publicLobby() {
         code: room.code,
         seats: room.players.length,
         host: host ? host.name : 'Host',
-        names: room.players.map((p) => p.name)
+        names: room.players.map((p) => p.cpu ? `${p.name} (computer)` : p.name)
       }
     })
 }
@@ -270,14 +279,17 @@ function snapshot(room, seat) {
     players: room.players.map((p) => ({
       seat: p.seat,
       name: p.name,
-      connected: Date.now() - p.seen < 20000
+      connected: p.cpu ? true : Date.now() - p.seen < 20000,
+      cpu: !!p.cpu,
+      persona: p.persona || null
     })),
     state: room.state,
     lastDice: room.lastDice,
     rollSeq: room.rollSeq,
     locked: !!room.passHash,
     turnEndsAt: room.turnEndsAt || 0,
-    turnMs: TURN_MS
+    turnMs: TURN_MS,
+    cpuDifficulty: room.cpuDifficulty || 'normal'
   }
 }
 
@@ -335,8 +347,9 @@ function ensureHost(room) {
     room.hostSeat = 0
     return
   }
-  if (room.players.some((p) => p.seat === room.hostSeat)) return
-  room.hostSeat = room.players[0].seat
+  if (room.players.some((p) => p.seat === room.hostSeat && !p.cpu)) return
+  const human = room.players.find((p) => !p.cpu)
+  room.hostSeat = human ? human.seat : room.players[0].seat
 }
 
 function isHost(room, player) {
@@ -349,7 +362,7 @@ function maybePassHost(room) {
   const host = room.players.find((p) => p.seat === room.hostSeat)
   if (host && Date.now() - host.seen < HOST_AWAY_MS) return false
   const next = room.players
-    .filter((p) => p !== host)
+    .filter((p) => p !== host && !p.cpu)
     .sort((a, b) => b.seen - a.seen)[0]
   if (!next || next.seat === room.hostSeat) return false
   room.hostSeat = next.seat
@@ -379,7 +392,62 @@ function skipAfk(room) {
   skipTurn(state, 'did not act in time')
   armTurn(room)
   bump(room)
+  playCpuSoon(room)
   return true
+}
+
+function isCpuSeat(room, seat) {
+  const p = room.players.find((x) => x.seat === seat)
+  return !!(p && p.cpu)
+}
+
+function nextCpuPersona(room) {
+  const used = new Set(room.players.map((p) => p.persona).filter(Boolean))
+  return PERSONAS.find((x) => !used.has(x.id)) || PERSONAS[room.players.length % PERSONAS.length]
+}
+
+function playCpuSoon(room, wait) {
+  if (!room || room.cpuTimer) return
+  if (!room.started || !room.state || room.state.phase === 'over') return
+  if (!isCpuSeat(room, room.state.turn)) return
+  if (room.state.players[room.state.turn]?.bankrupt) return
+  const delay = wait != null ? wait : (room.cpuRolled ? CPU_ROLL_MS : CPU_MS)
+  room.cpuRolled = false
+  room.cpuTimer = setTimeout(() => {
+    room.cpuTimer = 0
+    playCpuNow(room)
+  }, delay)
+  if (room.cpuTimer && room.cpuTimer.unref) room.cpuTimer.unref()
+}
+
+function playCpuNow(room) {
+  const state = room.state
+  if (!room.started || !state || state.phase === 'over') return
+  if (!isCpuSeat(room, state.turn)) return
+  if (state.players[state.turn]?.bankrupt) return
+  room.cpuGuard = (room.cpuGuard || 0) + 1
+  if (room.cpuGuard > 24) {
+    skipTurn(state, 'could not finish the turn')
+    room.cpuGuard = 0
+    armTurn(room)
+    bump(room)
+    playCpuSoon(room)
+    return
+  }
+  const action = chooseAction(state, room.cpuDifficulty || 'normal')
+  const turnBefore = state.turn
+  const result = applyAction(room, state.turn, action)
+  if (result.error) {
+    if (state.phase === 'action') declineAction(state)
+    else skipTurn(state, 'could not finish the turn')
+  }
+  if (result.rolled) room.cpuRolled = true
+  if (!room.state || room.state.phase === 'over' || room.state.turn !== turnBefore) {
+    room.cpuGuard = 0
+    armTurn(room)
+  }
+  bump(room)
+  playCpuSoon(room)
 }
 
 function compactWaiting(room) {
@@ -622,10 +690,56 @@ const server = http.createServer(async (req, res) => {
         json(res, 400, { error: 'Need at least 2 farmers' })
         return
       }
-      room.state = createGame(room.players.length, room.players.map((x) => x.name))
+      if (!room.players.some((x) => !x.cpu)) {
+        json(res, 400, { error: 'Need at least one human farmer' })
+        return
+      }
+      room.state = createGame(room.players.length, room.players.map((x) => x.name), {
+        cpu: room.players.map((x) => !!x.cpu),
+        persona: room.players.map((x) => x.persona || null)
+      })
       room.started = true
       room.lastDice = room.state.lastDice
       armTurn(room)
+      bump(room)
+      playCpuSoon(room)
+      json(res, 200, snapshot(room, p.seat))
+      return
+    }
+
+    if (req.method === 'POST' && path === '/api/cpu') {
+      const body = await readBody(req)
+      const room = rooms.get(String(body.code || '').toUpperCase())
+      const p = room && playerByToken(room, body.token)
+      if (!room || !p || p.cpu) {
+        json(res, 404, { error: 'Session not found' })
+        return
+      }
+      maybePassHost(room)
+      if (!isHost(room, p)) {
+        json(res, 403, { error: 'Only the host may seat a computer' })
+        return
+      }
+      if (room.started) {
+        json(res, 400, { error: 'Cannot add a computer after the match has begun' })
+        return
+      }
+      if (room.players.length >= 4) {
+        json(res, 400, { error: 'Session is full (4 farmers)' })
+        return
+      }
+      const diff = String(body.difficulty || body.diff || room.cpuDifficulty || 'normal')
+      room.cpuDifficulty = ['easy', 'normal', 'hard'].includes(diff) ? diff : 'normal'
+      const persona = nextCpuPersona(room)
+      const bot = {
+        seat: room.players.length,
+        name: CPU_NAMES[persona.id] || persona.name,
+        token: token(),
+        seen: Date.now(),
+        cpu: true,
+        persona: persona.id
+      }
+      room.players.push(bot)
       bump(room)
       json(res, 200, snapshot(room, p.seat))
       return
@@ -683,6 +797,10 @@ const server = http.createServer(async (req, res) => {
         json(res, 404, { error: 'That farmer is not seated' })
         return
       }
+      if (next.cpu) {
+        json(res, 400, { error: 'A computer cannot host the table' })
+        return
+      }
       room.hostSeat = next.seat
       bump(room)
       json(res, 200, snapshot(room, p.seat))
@@ -714,6 +832,7 @@ const server = http.createServer(async (req, res) => {
         armTurn(room)
       }
       bump(room)
+      playCpuSoon(room)
       json(res, 200, { ...snapshot(room, p.seat), rolled: result.rolled || null })
       return
     }
@@ -775,6 +894,7 @@ setInterval(() => {
 }, 1000).unref()
 
 server.listen(PORT, '0.0.0.0', () => {
+  rooms.forEach((room) => playCpuSoon(room, 800))
   console.log(`Harvest King session server on http://localhost:${PORT} (${rooms.size} rooms restored)`)
 })
 

@@ -121,6 +121,10 @@ export function passHost(sess, seat) {
   return post('/api/host', { code: sess.code, token: sess.token, seat })
 }
 
+export function addCpu(sess, difficulty) {
+  return post('/api/cpu', { code: sess.code, token: sess.token, difficulty: difficulty || 'normal' })
+}
+
 export async function fetchStats() {
   const res = await fetch(apiUrl('/api/stats'))
   const data = await res.json().catch(() => null)

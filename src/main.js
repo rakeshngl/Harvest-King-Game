@@ -9,7 +9,7 @@ import {
 } from './engine.js'
 import {
   createRoom, joinRoom, startRoom, sendAction, waitSnapshot, openEventStream,
-  kickSeat, passHost, loadSession, saveSession, savedSeat, savedSeats, forgetSeat, pingPresence, fetchLobby
+  kickSeat, passHost, addCpu, loadSession, saveSession, savedSeat, savedSeats, forgetSeat, pingPresence, fetchLobby
 } from './net.js'
 import { PERSONAS, CPU_NAMES, chooseAction, describeAction } from './ai.js'
 
@@ -929,7 +929,7 @@ function waitingHtml() {
     <div class="lobby-card">
       <div class="en">Waiting in the lobby</div>
       <h1>Room ${session ? session.code : ''}</h1>
-      <p class="lead">Share this code or link${room && room.locked ? ' and the table password' : ''}. Need 2 farmers to begin, 4 at most. You are the ${pal.name} pin${host ? ' and host' : ''}.</p>
+      <p class="lead">Share this code or link${room && room.locked ? ' and the table password' : ''}. Need 2 farmers to begin, 4 at most. Seat a computer if you want a rival now. You are the ${pal.name} pin${host ? ' and host' : ''}.</p>
       <div class="session-code">${session ? session.code : ''}</div>
       <p class="pcash" style="margin:8px 0 16px;word-break:break-all">${share}</p>
       <div class="waiting-list">
@@ -937,11 +937,11 @@ function waitingHtml() {
           <div class="player-card${p.seat === session.you ? ' turn' : ''}">
             <div class="swatch" style="background:${PLAYER_PALETTE[p.seat].color}"></div>
             <div>
-              <div class="pname">${p.name}${p.seat === hostSeat ? ' · host' : ''}${p.seat === session.you ? ' · you' : ''}${p.connected ? '' : ' · away'}</div>
-              <div class="pcash">${p.connected ? 'seated' : 'away'}</div>
+              <div class="pname">${p.name}${p.cpu ? ' · computer' : ''}${p.seat === hostSeat ? ' · host' : ''}${p.seat === session.you ? ' · you' : ''}${!p.cpu && !p.connected ? ' · away' : ''}</div>
+              <div class="pcash">${p.cpu ? (PERSONAS.find((x) => x.id === p.persona)?.name || 'CPU') : (p.connected ? 'seated' : 'away')}</div>
               ${host && p.seat !== session.you ? `<div class="names" style="margin-top:8px">
                 <button class="ghost" data-kick="${p.seat}">Remove</button>
-                <button class="ghost" data-host="${p.seat}">Make host</button>
+                ${p.cpu ? '' : `<button class="ghost" data-host="${p.seat}">Make host</button>`}
               </div>` : ''}
             </div>
           </div>`).join('')}
@@ -953,6 +953,10 @@ function waitingHtml() {
       </div>
       ${notice ? `<p class="notice">${notice}</p>` : ''}
       <div class="actions">
+        ${host && players.length < 4 ? `<div class="count-row" id="onlinediff">
+          ${['easy', 'normal', 'hard'].map((d) => `<button class="count-btn${d === (room.cpuDifficulty || 'normal') ? ' on' : ''}" data-onlinediff="${d}">${d}</button>`).join('')}
+        </div>
+        <button class="ghost" id="addcpu">Add computer</button>` : ''}
         ${host ? `<button class="primary" id="opengame" ${players.length < 2 ? 'disabled' : ''}>Start game</button>` : '<p class="pcash">Waiting for the host to start the game.</p>'}
         <button class="ghost" id="leave">Leave</button>
       </div>
@@ -978,6 +982,28 @@ function bindWaiting() {
         notice = err.message
         render()
       }
+    })
+  }
+  const add = document.getElementById('addcpu')
+  if (add) {
+    add.addEventListener('click', async () => {
+      try {
+        notice = ''
+        const on = document.querySelector('#onlinediff .count-btn.on')
+        const snap = await addCpu(session, on ? on.getAttribute('data-onlinediff') : 'normal')
+        applySnap(snap)
+      } catch (err) {
+        notice = err.message
+        render()
+      }
+    })
+  }
+  const diffs = document.getElementById('onlinediff')
+  if (diffs) {
+    diffs.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-onlinediff]')
+      if (!b) return
+      diffs.querySelectorAll('.count-btn').forEach((x) => x.classList.toggle('on', x === b))
     })
   }
   document.querySelectorAll('[data-kick]').forEach((btn) => {
