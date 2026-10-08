@@ -394,4 +394,4 @@ Player tokens still use the Indian flag palette from `src/data.js`. The board it
 
 ## License
 
-No license file is currently included. All rights reserved unless a license is added by the repository owner.
+MIT. See `LICENSE`.
