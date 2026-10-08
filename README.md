@@ -311,6 +311,8 @@ Actions stay on REST (`POST /api/action`). The client opens `GET /api/events?cod
 
 Create is limited to 8 rooms per IP per 10 minutes; join/watch to 20. A started room can be watched by up to 12 spectators. Spectators cannot submit actions.
 
+Each online turn has a 90 second clock (`TURN_MS`, seconds). The timer covers the whole turn, not each click. If the seat does not finish in time, the server declines any pending prompt, logs the skip, and passes the turn. The sidebar shows a live countdown.
+
 ### Reverse proxy
 
 The frontend dev server proxies `/api` to the backend at `http://localhost:3001`:
@@ -332,7 +334,7 @@ Base URL: `/api` (proxied to port 3001).
 
 | Method | Path | Body / Query | Description |
 | --- | --- | --- | --- |
-| GET | `/api/health` | - | Health check, returns `{ ok, rooms, persist }` |
+| GET | `/api/health` | - | Health check, returns `{ ok, rooms, persist, transport, turnMs }` |
 | GET | `/api/lobby` | - | Unlocked waiting rooms (`code`, `seats`, `host`, `names`). Locked rooms are omitted. |
 | POST | `/api/create` | `{ name, password? }` | Create a room. Optional password locks join/watch. Returns a snapshot plus your `token`. |
 | POST | `/api/join` | `{ code, name, watch?, password?, token? }` | Join an unstarted room, or spectate a started one. Resume with `token` skips the password. |
@@ -383,6 +385,7 @@ Player tokens still use the Indian flag palette from `src/data.js`. The board it
 - Designed for casual session play, not for high concurrency.
 - All in-game text is in English. Internal tile ids (`kisan`, `mandi`, `nabard`) stay in code only.
 - Vs computer is local-only in v1; online rooms do not host CPU seats.
+- Online turns skip after 90 seconds of no finish (`TURN_MS`). Local vs computer has no AFK clock.
 
 ## License
 

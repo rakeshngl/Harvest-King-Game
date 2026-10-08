@@ -5,7 +5,7 @@ import path from 'node:path'
 import {
   createGame, applyMove, rollDice, buyFarm, leaseFarm, buyInfra, prepareLand,
   seedLand, irrigate, insure, harvest, tendCrop, sellToFci, takeLoan, repayLoan,
-  declineAction, nextTurn, unmortgage, openFarmWork
+  declineAction, nextTurn, skipTurn, unmortgage, openFarmWork
 } from '../src/engine.js'
 import { LOAN_STEP } from '../src/data.js'
 
@@ -20,6 +20,7 @@ const KEEP_OVER_MS = 24 * 60 * 60 * 1000
 const KEEP_WAIT_MS = 6 * 60 * 60 * 1000
 const KEEP_IDLE_MS = 48 * 60 * 60 * 1000
 const HOST_AWAY_MS = 45000
+const TURN_MS = Math.max(20, Number(process.env.TURN_MS) || 90) * 1000
 const CREATE_LIMIT = 8
 const JOIN_LIMIT = 20
 const RATE_WINDOW_MS = 10 * 60 * 1000
@@ -77,6 +78,7 @@ function serializableRoom(room) {
     })),
     hostSeat: Number.isInteger(room.hostSeat) ? room.hostSeat : 0,
     passHash: room.passHash || '',
+    turnEndsAt: room.turnEndsAt || 0,
     updatedAt: room.updatedAt || Date.now()
   }
 }
@@ -145,6 +147,7 @@ function loadRooms() {
         })) : [],
         hostSeat: Number.isInteger(r.hostSeat) ? r.hostSeat : 0,
         passHash: String(r.passHash || ''),
+        turnEndsAt: Number(r.turnEndsAt) || 0,
         updatedAt: Number(r.updatedAt) || now
       })
     })
@@ -272,7 +275,9 @@ function snapshot(room, seat) {
     state: room.state,
     lastDice: room.lastDice,
     rollSeq: room.rollSeq,
-    locked: !!room.passHash
+    locked: !!room.passHash,
+    turnEndsAt: room.turnEndsAt || 0,
+    turnMs: TURN_MS
   }
 }
 
@@ -348,6 +353,32 @@ function maybePassHost(room) {
     .sort((a, b) => b.seen - a.seen)[0]
   if (!next || next.seat === room.hostSeat) return false
   room.hostSeat = next.seat
+  return true
+}
+
+function armTurn(room) {
+  if (!room.started || !room.state || room.state.phase === 'over') {
+    room.turnEndsAt = 0
+    return
+  }
+  room.turnEndsAt = Date.now() + TURN_MS
+}
+
+function skipAfk(room) {
+  const state = room.state
+  if (!room.started || !state || state.phase === 'over') {
+    room.turnEndsAt = 0
+    return false
+  }
+  if (!room.turnEndsAt) {
+    armTurn(room)
+    bump(room)
+    return false
+  }
+  if (Date.now() < room.turnEndsAt) return false
+  skipTurn(state, 'did not act in time')
+  armTurn(room)
+  bump(room)
   return true
 }
 
@@ -465,7 +496,8 @@ const server = http.createServer(async (req, res) => {
         ok: true,
         rooms: rooms.size,
         persist: persistOk,
-        transport: 'sse'
+        transport: 'sse',
+        turnMs: TURN_MS
       })
       return
     }
@@ -593,6 +625,7 @@ const server = http.createServer(async (req, res) => {
       room.state = createGame(room.players.length, room.players.map((x) => x.name))
       room.started = true
       room.lastDice = room.state.lastDice
+      armTurn(room)
       bump(room)
       json(res, 200, snapshot(room, p.seat))
       return
@@ -670,10 +703,15 @@ const server = http.createServer(async (req, res) => {
       }
       const p = member
       p.seen = Date.now()
+      skipAfk(room)
+      const turnBefore = room.state && room.state.turn
       const result = applyAction(room, p.seat, body.action || {})
       if (result.error) {
         json(res, 400, { error: result.error, ...snapshot(room, p.seat) })
         return
+      }
+      if (!room.state || room.state.phase === 'over' || room.state.turn !== turnBefore) {
+        armTurn(room)
       }
       bump(room)
       json(res, 200, { ...snapshot(room, p.seat), rolled: result.rolled || null })
@@ -731,6 +769,10 @@ const server = http.createServer(async (req, res) => {
     json(res, 400, { error: 'Bad request' })
   }
 })
+
+setInterval(() => {
+  rooms.forEach((room) => skipAfk(room))
+}, 1000).unref()
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Harvest King session server on http://localhost:${PORT} (${rooms.size} rooms restored)`)

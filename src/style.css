@@ -536,6 +536,19 @@ html, body {
 .chip.g { background: var(--green); color: #fff; }
 .chip.n { background: var(--navy); color: #fff; }
 
+.turn-clock {
+  text-align: center;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .04em;
+  margin: 8px 0 0;
+  color: var(--navy);
+}
+
+.turn-clock.urgent {
+  color: #9b1c1c;
+}
+
 .board {
   --gap: 3px;
   display: grid;

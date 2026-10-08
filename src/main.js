@@ -52,6 +52,7 @@ let draftName = ''
 let diaryPage = 0
 const DIARY_PAGE = 20
 let hallStats = { visits: 0, online: 0, playing: 0 }
+let clockTimer = 0
 let openTables = []
 let visitorId = ''
 let presenceOn = false
@@ -275,8 +276,40 @@ function closeEvents() {
   }
 }
 
+function turnLeftMs() {
+  if (!online() || !room || !room.turnEndsAt || !state || state.phase === 'over') return 0
+  return Math.max(0, room.turnEndsAt - Date.now())
+}
+
+function paintClock() {
+  const el = document.getElementById('turnclock')
+  if (!el) return
+  const ms = turnLeftMs()
+  if (!ms) {
+    el.hidden = true
+    el.textContent = ''
+    return
+  }
+  const s = Math.ceil(ms / 1000)
+  el.hidden = false
+  el.textContent = (isMyTurn() ? 'Your turn · ' : '') + s + 's left'
+  el.classList.toggle('urgent', s <= 15)
+}
+
+function startClock() {
+  if (clockTimer) return
+  clockTimer = setInterval(paintClock, 250)
+}
+
+function stopClock() {
+  if (!clockTimer) return
+  clearInterval(clockTimer)
+  clockTimer = 0
+}
+
 function leaveSession(opts = {}) {
   const code = session && session.code
+  stopClock()
   closeEvents()
   session = null
   room = null
@@ -334,9 +367,14 @@ function applySnap(snap, opts = {}) {
     const skipped = !opts.fromSelfRoll && snap.rollSeq > lastRollSeq + 1
     lastRollSeq = snap.rollSeq
     const prevCash = state ? state.players.map((p) => p.cash) : null
+    const prevTurn = state ? state.turn : null
     const firstLook = !state
     state = snap.state
     screen = 'game'
+    if (prevTurn != null && prevTurn !== state.turn) {
+      landing = null
+      landingQueue = []
+    }
     if (opts.capture) {
       captureLanding(prevCash)
     } else if (firstLook) {
@@ -503,6 +541,12 @@ function render() {
   app.innerHTML = gameHtml()
   bindGame()
   if (state) setDiceFace(state.lastDice[0], state.lastDice[1])
+  if (online() && state && state.phase !== 'over') {
+    startClock()
+    paintClock()
+  } else {
+    stopClock()
+  }
   scheduleCpu()
 }
 
@@ -1042,6 +1086,7 @@ function gameHtml() {
           : ''}
         ${cpuNote ? `<p class="cpu-note">${cpuNote}</p>` : ''}
         ${notice ? `<p class="notice">${notice}</p>` : ''}
+        ${online() && state.phase !== 'over' ? '<div class="turn-clock" id="turnclock" hidden></div>' : ''}
         <button class="ghost" id="leavegame">${online() ? 'Leave session' : 'Leave table'}</button>
       </div>
       <div class="panel">

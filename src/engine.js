@@ -841,6 +841,14 @@ export function declineAction(state) {
   state.phase = 'end'
 }
 
+export function skipTurn(state, reason = 'did not act in time') {
+  if (state.phase === 'over') return state
+  const p = currentPlayer(state)
+  if (state.pending) declineAction(state)
+  log(state, `${p.name} ${reason}. Turn passes.`, 'info', { pid: p.id, skip: true })
+  return nextTurn(state)
+}
+
 export function nextTurn(state) {
   if (state.phase === 'over') return state
   const alive = state.players.filter((p) => !p.bankrupt)
