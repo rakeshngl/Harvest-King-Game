@@ -523,7 +523,8 @@ function lobbyHtml() {
         <article class="mode-card mode-online">
           <div class="mode-kicker">Online table</div>
           <h2>Play with friends</h2>
-          <p>Create a room, share a 4-letter code, and farm together from any browser. Two to four seats. Host starts the match.</p>
+          <p>Create a room, share a 4-letter code, and farm together from any browser. Two to four seats. Host starts the match. Optional password locks the table.</p>
+          <input id="roompass" maxlength="24" placeholder="Password (optional)" />
           <button class="primary" id="create">Create session</button>
           <div class="mode-split">or join with a code</div>
           <div class="names">
@@ -740,7 +741,8 @@ function bindLobby() {
     if (!name) return
     try {
       notice = ''
-      const snap = await createRoom(name)
+      const password = (document.getElementById('roompass').value || '').trim()
+      const snap = await createRoom(name, { password })
       enterOnline(snap, { name })
     } catch (err) {
       notice = err.message
@@ -758,7 +760,8 @@ function bindLobby() {
       }
       const name = requireFarmerName()
       if (!name) return
-      const snap = await joinRoom(code, name)
+      const password = (document.getElementById('roompass').value || '').trim()
+      const snap = await joinRoom(code, name, { password })
       enterOnline(snap, { name })
     } catch (err) {
       if (seat) forgetSeat(code)
@@ -776,7 +779,8 @@ function bindLobby() {
         await resumeSeat(code, seat.token, seat.name || name)
         return
       }
-      const snap = await joinRoom(code, name, { watch: true })
+      const password = (document.getElementById('roompass').value || '').trim()
+      const snap = await joinRoom(code, name, { watch: true, password })
       enterOnline(snap, { name })
     } catch (err) {
       notice = err.message
@@ -817,7 +821,7 @@ function waitingHtml() {
     <div class="lobby-card">
       <div class="en">Waiting in the lobby</div>
       <h1>Room ${session ? session.code : ''}</h1>
-      <p class="lead">Share this code or link. Need 2 farmers to begin, 4 at most. You are the ${pal.name} pin${host ? ' and host' : ''}.</p>
+      <p class="lead">Share this code or link${room && room.locked ? ' and the table password' : ''}. Need 2 farmers to begin, 4 at most. You are the ${pal.name} pin${host ? ' and host' : ''}.</p>
       <div class="session-code">${session ? session.code : ''}</div>
       <p class="pcash" style="margin:8px 0 16px;word-break:break-all">${share}</p>
       <div class="waiting-list">

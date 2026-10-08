@@ -333,8 +333,8 @@ Base URL: `/api` (proxied to port 3001).
 | Method | Path | Body / Query | Description |
 | --- | --- | --- | --- |
 | GET | `/api/health` | - | Health check, returns `{ ok, rooms, persist }` |
-| POST | `/api/create` | `{ name }` | Create a room. Returns a snapshot plus your `token`. Seat 0 is host. |
-| POST | `/api/join` | `{ code, name, watch? }` | Join an unstarted room, or spectate a started one (`watch: true` or already started). |
+| POST | `/api/create` | `{ name, password? }` | Create a room. Optional password locks join/watch. Returns a snapshot plus your `token`. |
+| POST | `/api/join` | `{ code, name, watch?, password?, token? }` | Join an unstarted room, or spectate a started one. Resume with `token` skips the password. |
 | POST | `/api/start` | `{ code, token }` | Host-only. Starts the game; requires at least 2 players. |
 | POST | `/api/kick` | `{ code, token, seat }` | Host-only, waiting room. Remove a farmer and compact seats. |
 | POST | `/api/host` | `{ code, token, seat }` | Host-only. Pass the gavel to another seated farmer. |

@@ -76,6 +76,7 @@ function serializableRoom(room) {
       spectator: true
     })),
     hostSeat: Number.isInteger(room.hostSeat) ? room.hostSeat : 0,
+    passHash: room.passHash || '',
     updatedAt: room.updatedAt || Date.now()
   }
 }
@@ -143,6 +144,7 @@ function loadRooms() {
           spectator: true
         })) : [],
         hostSeat: Number.isInteger(r.hostSeat) ? r.hostSeat : 0,
+        passHash: String(r.passHash || ''),
         updatedAt: Number(r.updatedAt) || now
       })
     })
@@ -251,8 +253,20 @@ function snapshot(room, seat) {
     })),
     state: room.state,
     lastDice: room.lastDice,
-    rollSeq: room.rollSeq
+    rollSeq: room.rollSeq,
+    locked: !!room.passHash
   }
+}
+
+function passHash(value) {
+  const raw = String(value || '').trim()
+  if (!raw) return ''
+  return crypto.createHash('sha256').update(raw).digest('hex')
+}
+
+function passOk(room, value) {
+  if (!room.passHash) return true
+  return passHash(value) === room.passHash
 }
 
 function writeSse(res, event, body) {
@@ -467,6 +481,7 @@ const server = http.createServer(async (req, res) => {
         streams: [],
         spectators: [],
         hostSeat: 0,
+        passHash: passHash(body.password || body.pass),
         players: []
       }
       room.players.push({ seat: 0, name, token: token(), seen: Date.now() })
@@ -498,6 +513,10 @@ const server = http.createServer(async (req, res) => {
         return
       }
       const watch = !!body.watch || !!body.spectator
+      if (!passOk(room, body.password || body.pass)) {
+        json(res, 403, { error: 'This table is locked. Enter the password.' })
+        return
+      }
       if (room.started || watch) {
         if (!room.started) {
           json(res, 400, { error: 'This session has not begun' })

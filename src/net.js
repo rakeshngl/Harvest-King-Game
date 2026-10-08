@@ -84,8 +84,8 @@ async function post(path, body) {
   return data
 }
 
-export function createRoom(name) {
-  return post('/api/create', { name })
+export function createRoom(name, opts = {}) {
+  return post('/api/create', { name, password: opts.password || '' })
 }
 
 export function joinRoom(code, name, opts = {}) {
@@ -93,7 +93,8 @@ export function joinRoom(code, name, opts = {}) {
     code: String(code || '').toUpperCase(),
     name,
     token: opts.token || undefined,
-    watch: !!opts.watch
+    watch: !!opts.watch,
+    password: opts.password || undefined
   })
 }
 
