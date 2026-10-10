@@ -8,7 +8,7 @@ There is no jail. Instead, the board is loaded with agricultural complications: 
 
 ## Highlights
 
-- **Online multiplayer rooms** with a 4-letter join code (2 to 4 players), synced through REST actions plus Server-Sent Events. Online rooms are human-only; a started table can be watched.
+- **Online multiplayer rooms** with a 4-letter join code (2 to 4 players), synced through REST actions plus Server-Sent Events. Hosts can seat computer farmers; a started table can be watched.
 - **Local pass-and-play** on a single device, plus **vs computer** with scripted heuristic rivals.
 - **Three-dimensional animated dice** rendered with CSS 3D transforms.
 - **Player tokens as bouncing letter coins**, colored per farmer, with a turn bob animation.
@@ -282,6 +282,11 @@ npm run build
 ```bash
 # Preview the production build
 npm run preview
+```
+
+```bash
+# Engine unit tests (harvest, insolvency, win)
+npm test
 ```
 
 ## How to Play Online
