@@ -111,6 +111,23 @@ html, body {
   color: #6b5a3e;
 }
 
+.lang-toggle {
+  display: inline-flex;
+  gap: 6px;
+  margin: 0 0 14px;
+}
+
+.lang-toggle .count-btn {
+  min-width: 44px;
+  padding: 6px 12px;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+}
+
+.game-shell .lang-toggle {
+  margin: 0;
+}
+
 .farmer-bar {
   display: flex;
   align-items: center;

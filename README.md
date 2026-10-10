@@ -18,6 +18,7 @@ There is no jail. Instead, the board is loaded with agricultural complications: 
 - **Color-coded farm diary**: gains render green, losses red, with distinct accents for dice rolls, cards, seasons, and crop milestones.
 - **Living economy**: crop prices drift each season, cards shift the market, and infrastructure investments improve your yields and margins.
 - **Deterministic rules engine** shared by local and online play, so the same game logic runs everywhere.
+- **English / Hindi chrome** via an EN | HI toggle (`localStorage` `hk-lang`). Board names, crop labels, and engine logs stay English.
 
 ## Board
 
@@ -393,7 +394,7 @@ Player tokens still use the Indian flag palette from `src/data.js`. The board it
 - Room state is kept in memory and also written to `data/rooms.json`, so a Coolify/VPS restart can restore open games. Mount `data/` as a volume. SIGTERM waits up to 25s (`DRAIN_MS`) for the current turn, then flushes. Finished rooms expire after 24 hours, waiting rooms after 6 hours, idle in-progress games after 48 hours.
 - Seat tokens live in `localStorage` on the device. Closing a tab, then opening the same origin or joining the same code, restores that farmer. Leave parks the seat; Forget / Play again drops it. There is no account login.
 - Designed for casual session play, not for high concurrency.
-- All in-game text is in English. Internal tile ids (`kisan`, `mandi`, `nabard`) stay in code only.
+- UI chrome (lobby, waiting room, buttons, notices, clocks) is English or Hindi. Tile names, crop labels, weather copy, and engine diary lines stay English. Internal tile ids (`kisan`, `mandi`, `nabard`) stay in code only.
 - Hosts can seat computer farmers in an online waiting room (`POST /api/cpu`). The server plays those seats with the same personas as local vs computer. A computer cannot host.
 - Online turns skip after 90 seconds of no finish (`TURN_MS`). Computer seats still use the clock if the server stalls.
 
