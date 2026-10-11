@@ -1,9 +1,9 @@
 const LANG_KEY = 'hk-lang'
 
 export const LANGS = [
-  { id: 'en', label: 'EN' },
-  { id: 'hi', label: 'HI' },
-  { id: 'ta', label: 'TA' }
+  { id: 'en', label: 'English' },
+  { id: 'hi', label: 'Hindi' },
+  { id: 'ta', label: 'Tamil' }
 ]
 
 const PACK = {

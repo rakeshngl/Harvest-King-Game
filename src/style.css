@@ -118,10 +118,10 @@ html, body {
 }
 
 .lang-toggle .count-btn {
-  min-width: 44px;
+  min-width: 0;
   padding: 6px 12px;
   font-size: 13px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
 }
 
 .game-shell .lang-toggle {
