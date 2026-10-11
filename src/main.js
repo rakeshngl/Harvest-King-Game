@@ -82,7 +82,7 @@ function langToggleHtml() {
 }
 
 function bindLang() {
-  document.documentElement.lang = currentLang() === 'hi' ? 'hi' : 'en'
+  document.documentElement.lang = currentLang()
   const root = document.getElementById('langtoggle')
   if (!root) return
   root.addEventListener('click', (e) => {
@@ -548,7 +548,7 @@ function applyCpuAction(action) {
 }
 
 function render() {
-  document.documentElement.lang = currentLang() === 'hi' ? 'hi' : 'en'
+  document.documentElement.lang = currentLang()
   if (screen === 'lobby' && !state) {
     app.innerHTML = lobbyHtml()
     bindLobby()
