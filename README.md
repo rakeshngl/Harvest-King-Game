@@ -18,7 +18,8 @@ There is no jail. Instead, the board is loaded with agricultural complications: 
 - **Color-coded farm diary**: gains render green, losses red, with distinct accents for dice rolls, cards, seasons, and crop milestones.
 - **Living economy**: crop prices drift each season, cards shift the market, and infrastructure investments improve your yields and margins.
 - **Deterministic rules engine** shared by local and online play, so the same game logic runs everywhere.
-- **English / Hindi / Tamil chrome** via an EN | HI | TA toggle (`localStorage` `hk-lang`). Board names, crop labels, and engine logs stay English.
+- **English / Hindi / Tamil chrome** via an English | Hindi | Tamil toggle (`localStorage` `hk-lang`). Board names, crop labels, and engine logs stay English.
+- **Phone layout**: the 40-tile board shrinks to the viewport, side panels tab, and the roll dock stays under the board.
 
 ## Board
 

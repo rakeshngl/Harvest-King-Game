@@ -57,6 +57,7 @@ let clockTimer = 0
 let openTables = []
 let visitorId = ''
 let presenceOn = false
+let sideTab = 'farmers'
 
 function visitorKey() {
   try {
@@ -1121,36 +1122,51 @@ function gameHtml() {
       </div>
     </div>
     <div class="side">
-      <div class="panel">
-        <h3>${t('farmers')}</h3>
-        ${state.players.map(playerCard).join('')}
-      </div>
-      <div class="panel">
-        <h3>${t('yourFields')}</h3>
-        ${fieldsPanel()}
-      </div>
-      <div class="panel dice-panel">
+      <div class="panel play-dock dice-panel">
         <h3>${state.phase === 'over' ? t('gameOver') : (mine ? t('yourTurn', p.name) : t('toAct', p.name, p.cpu))}</h3>
         ${diceHtml()}
-        <button class="roll-btn" id="roll" ${!mine || state.phase !== 'roll' || rolling ? 'disabled' : ''}>${mine ? t('roll') : (p.cpu ? t('cpuRolling') : t('waitingAct'))}</button>
-        <button class="ghost" id="endturn" ${!mine || state.phase !== 'end' ? 'disabled' : ''}>${t('endTurn')}</button>
+        <div class="play-acts">
+          <button class="roll-btn" id="roll" ${!mine || state.phase !== 'roll' || rolling ? 'disabled' : ''}>${mine ? t('roll') : (p.cpu ? t('cpuRolling') : t('waitingAct'))}</button>
+          <button class="ghost" id="endturn" ${!mine || state.phase !== 'end' ? 'disabled' : ''}>${t('endTurn')}</button>
+        </div>
         ${mine && state.phase === 'end' && !state.labourUsed && farmsOf(state, mySeat()).length
-          ? '<div class="tsub" style="font-size:12px;text-align:center">' + t('extraLabour') + '</div>'
+          ? '<div class="tsub labour-hint">' + t('extraLabour') + '</div>'
           : ''}
         ${cpuNote ? `<p class="cpu-note">${cpuNote}</p>` : ''}
         ${notice ? `<p class="notice">${notice}</p>` : ''}
         ${online() && state.phase !== 'over' ? '<div class="turn-clock" id="turnclock" hidden></div>' : ''}
         <button class="ghost" id="leavegame">${online() ? t('leaveSession') : t('leaveTable')}</button>
       </div>
-      <div class="panel">
-        <h3>${t('prices')}</h3>
-        <div class="prices">
-          ${Object.values(CROPS).slice(0, 12).map((c) =>
-            `<span><b>${c.name}</b> ${rs(state.prices[c.id])}</span>`
-          ).join('')}
+      <div class="side-tabs" role="tablist">
+        ${[['farmers', t('farmers')], ['fields', t('yourFields')], ['prices', t('prices')], ['diary', t('diary')]].map(([id, label]) =>
+          `<button class="count-btn${sideTab === id ? ' on' : ''}" data-sidetab="${id}">${label}</button>`
+        ).join('')}
+      </div>
+      <div class="side-pane${sideTab === 'farmers' ? ' on' : ''}" data-pane="farmers">
+        <div class="panel">
+          <h3>${t('farmers')}</h3>
+          ${state.players.map(playerCard).join('')}
         </div>
       </div>
-      ${diaryPanel()}
+      <div class="side-pane${sideTab === 'fields' ? ' on' : ''}" data-pane="fields">
+        <div class="panel">
+          <h3>${t('yourFields')}</h3>
+          ${fieldsPanel()}
+        </div>
+      </div>
+      <div class="side-pane${sideTab === 'prices' ? ' on' : ''}" data-pane="prices">
+        <div class="panel">
+          <h3>${t('prices')}</h3>
+          <div class="prices">
+            ${Object.values(CROPS).slice(0, 12).map((c) =>
+              `<span><b>${c.name}</b> ${rs(state.prices[c.id])}</span>`
+            ).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="side-pane${sideTab === 'diary' ? ' on' : ''}" data-pane="diary">
+        ${diaryPanel()}
+      </div>
     </div>
   </div>
   ${modalHtml()}`
@@ -1466,6 +1482,12 @@ function bindGame() {
       render()
     })
   }
+  document.querySelectorAll('[data-sidetab]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      sideTab = btn.getAttribute('data-sidetab')
+      render()
+    })
+  })
   const diaryPrev = document.getElementById('diaryprev')
   const diaryNext = document.getElementById('diarynext')
   if (diaryPrev) {
