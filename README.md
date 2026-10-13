@@ -67,6 +67,12 @@ idle -> prepared -> seeded -> ripe -> (harvest) -> idle
 
 You may also **tend** a growing crop to raise fertility, **irrigate** a field, or **insure** it against disaster. After your main action has resolved, you get one free "labour" farm action per turn (working one of your fields).
 
+### Auctions and trades
+
+Walk on an unowned farm (or pass an infrastructure yard) and the lot goes to a **village auction**. Bids step by Rs 100 from about half list price. The highest paying bid wins; if nobody bids, Village Hall keeps the lot. AFK on an auction, trade, acquire, or buy-infra prompt declines that prompt only — it does not skip the whole seat.
+
+On your **end** phase, with no pending prompt, you may **offer a deal**: cash, owned land, and debt (capped at `LOAN_CAP`). The other farmer accepts or turns it down. CPU seats bid, pass, accept, and reject using the same engine.
+
 ### Yield formula (harvest)
 
 Roughly, yield is computed as:
@@ -287,7 +293,7 @@ npm run preview
 ```
 
 ```bash
-# Engine unit tests (harvest, insolvency, win)
+# Engine unit tests (harvest, insolvency, win, auctions, trades)
 npm test
 ```
 
@@ -361,7 +367,7 @@ Base URL: `/api` (proxied to port 3001).
 
 The action endpoint accepts these `action.type` values, each validated against the current phase and pending state:
 
-`roll`, `endTurn`, `skip`, `buy`, `lease`, `buyinfra`, `prepare`, `tend`, `harvest`, `irrigate`, `insure`, `unmortgage`, `fci`, `loan`, `repay`, `seed`, `work`.
+`roll`, `endTurn`, `skip`, `buy`, `lease`, `buyinfra`, `prepare`, `tend`, `harvest`, `irrigate`, `insure`, `unmortgage`, `fci`, `loan`, `repay`, `seed`, `work`, `bid`, `passbid`, `offer`, `accept`, `reject`.
 
 ## Game Constants
 

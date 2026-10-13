@@ -836,15 +836,271 @@ export function repayLoan(state, amount) {
   return true
 }
 
-export function declineAction(state) {
+export function actingSeat(state) {
+  if (!state || !state.pending) return state ? state.turn : 0
+  if (state.pending.kind === 'auction') return state.pending.actor
+  if (state.pending.kind === 'trade') return state.pending.to
+  return state.turn
+}
+
+function lotLabel(tileId) {
+  return TILES[tileId] ? TILES[tileId].name : 'the lot'
+}
+
+function lotPrice(tileId) {
+  const t = TILES[tileId]
+  return t && t.price ? t.price : 500
+}
+
+function nextAuctionActor(state, fromId, passed) {
+  const n = state.players.length
+  for (let i = 1; i <= n; i++) {
+    const id = (fromId + i) % n
+    const p = state.players[id]
+    if (!p || p.bankrupt) continue
+    if (passed.includes(id)) continue
+    return id
+  }
+  return null
+}
+
+function awardLot(state, pid, tileId, map, price) {
+  const p = state.players[pid]
+  const t = TILES[tileId]
+  if (!p || p.bankrupt || !t || p.cash < price) return false
+  p.cash -= price
+  if (map) {
+    if (state[map][tileId] != null) return false
+    state[map][tileId] = pid
+  } else {
+    const f = state.farms[tileId]
+    if (!f || f.owner != null) return false
+    f.owner = pid
+    f.leasee = null
+  }
+  log(state, `${p.name} wins ${t.name} at auction for Rs ${price}.`, 'loss', { amount: price, pid, tileId })
+  return true
+}
+
+function settleAuction(state) {
+  const a = state.pending
+  if (!a || a.kind !== 'auction') return false
+  if (a.highBidder == null || a.highBid <= 0) {
+    log(state, `No bid for ${lotLabel(a.tileId)}. It stays with Village Hall.`, 'info', { tileId: a.tileId })
+    state.pending = null
+    state.phase = 'end'
+    return true
+  }
+  if (!awardLot(state, a.highBidder, a.tileId, a.map, a.highBid)) {
+    log(state, `${state.players[a.highBidder].name} cannot pay the auction bid.`, 'info', { pid: a.highBidder })
+    state.pending = null
+    state.phase = 'end'
+    return false
+  }
   state.pending = null
   state.phase = 'end'
+  return true
+}
+
+export function startAuction(state) {
+  const pending = state.pending
+  if (!pending) return false
+  if (pending.kind !== 'acquire' && pending.kind !== 'buyInfra') return false
+  const tileId = pending.tileId
+  const t = TILES[tileId]
+  if (!t) return false
+  const map = pending.kind === 'buyInfra' ? pending.map : null
+  if (map && state[map][tileId] != null) return false
+  if (!map) {
+    const f = state.farms[tileId]
+    if (!f || f.owner != null) return false
+  }
+  const alive = state.players.filter((p) => !p.bankrupt)
+  if (alive.length < 2) {
+    state.pending = null
+    state.phase = 'end'
+    return true
+  }
+  const minBid = Math.max(100, Math.round(lotPrice(tileId) * 0.5 / 100) * 100)
+  const passed = []
+  const actor = nextAuctionActor(state, state.turn, passed)
+  state.pending = {
+    kind: 'auction',
+    tileId,
+    map,
+    starter: state.turn,
+    highBid: 0,
+    highBidder: null,
+    minBid,
+    passed,
+    actor
+  }
+  state.phase = 'action'
+  log(state, `${t.name} goes to auction. Opening bid Rs ${minBid}.`, 'info', { tileId })
+  return true
+}
+
+export function bidAuction(state, amount) {
+  const a = state.pending
+  if (!a || a.kind !== 'auction') return false
+  const p = state.players[a.actor]
+  if (!p || p.bankrupt) return false
+  if (a.passed.includes(a.actor)) return false
+  const bid = Math.round(Number(amount) || 0)
+  const floor = a.highBid > 0 ? a.highBid + 100 : a.minBid
+  if (bid < floor || bid % 100 !== 0) return false
+  if (p.cash < bid) return false
+  a.highBid = bid
+  a.highBidder = a.actor
+  log(state, `${p.name} bids Rs ${bid} on ${lotLabel(a.tileId)}.`, 'info', { amount: bid, pid: p.id, tileId: a.tileId })
+  const next = nextAuctionActor(state, a.actor, a.passed)
+  if (next == null || next === a.highBidder) return settleAuction(state)
+  a.actor = next
+  return true
+}
+
+export function passAuction(state) {
+  const a = state.pending
+  if (!a || a.kind !== 'auction') return false
+  const p = state.players[a.actor]
+  if (!p) return false
+  if (!a.passed.includes(a.actor)) a.passed.push(a.actor)
+  log(state, `${p.name} passes on ${lotLabel(a.tileId)}.`, 'info', { pid: p.id, tileId: a.tileId })
+  const next = nextAuctionActor(state, a.actor, a.passed)
+  if (next == null) return settleAuction(state)
+  if (a.highBidder != null && next === a.highBidder) {
+    const after = nextAuctionActor(state, next, a.passed)
+    if (after == null || after === a.highBidder) return settleAuction(state)
+  }
+  a.actor = next
+  return true
+}
+
+function ownedFarmId(state, pid, tileId) {
+  const f = state.farms[tileId]
+  return !!(f && f.owner === pid)
+}
+
+export function offerTrade(state, offer) {
+  if (!state || state.phase === 'over') return false
+  if (state.phase !== 'end' || state.pending) return false
+  const from = currentPlayer(state)
+  const to = state.players[Number(offer && offer.to)]
+  if (!from || !to || from.id === to.id || from.bankrupt || to.bankrupt) return false
+  const cashGive = Math.max(0, Math.round(Number(offer.cashGive) || 0))
+  const cashTake = Math.max(0, Math.round(Number(offer.cashTake) || 0))
+  const landGive = offer.landGive == null || offer.landGive === '' ? null : Number(offer.landGive)
+  const landTake = offer.landTake == null || offer.landTake === '' ? null : Number(offer.landTake)
+  const debtGive = Math.max(0, Math.round(Number(offer.debtGive) || 0))
+  const debtTake = Math.max(0, Math.round(Number(offer.debtTake) || 0))
+  if (!cashGive && !cashTake && landGive == null && landTake == null && !debtGive && !debtTake) return false
+  if (cashGive && from.cash < cashGive) return false
+  if (cashTake && to.cash < cashTake) return false
+  if (landGive != null && !ownedFarmId(state, from.id, landGive)) return false
+  if (landTake != null && !ownedFarmId(state, to.id, landTake)) return false
+  if (debtGive && from.debt < debtGive) return false
+  if (debtTake && to.debt < debtTake) return false
+  if (debtGive && to.debt + debtGive > LOAN_CAP) return false
+  if (debtTake && from.debt + debtTake > LOAN_CAP) return false
+  state.pending = {
+    kind: 'trade',
+    from: from.id,
+    to: to.id,
+    cashGive,
+    cashTake,
+    landGive,
+    landTake,
+    debtGive,
+    debtTake
+  }
+  state.phase = 'action'
+  log(state, `${from.name} offers a deal to ${to.name}.`, 'info', { pid: from.id })
+  return true
+}
+
+function applyTrade(state, deal) {
+  const from = state.players[deal.from]
+  const to = state.players[deal.to]
+  if (deal.cashGive) {
+    from.cash -= deal.cashGive
+    to.cash += deal.cashGive
+  }
+  if (deal.cashTake) {
+    to.cash -= deal.cashTake
+    from.cash += deal.cashTake
+  }
+  if (deal.landGive != null) {
+    state.farms[deal.landGive].owner = to.id
+  }
+  if (deal.landTake != null) {
+    state.farms[deal.landTake].owner = from.id
+  }
+  if (deal.debtGive) {
+    from.debt -= deal.debtGive
+    to.debt += deal.debtGive
+  }
+  if (deal.debtTake) {
+    to.debt -= deal.debtTake
+    from.debt += deal.debtTake
+  }
+}
+
+export function acceptTrade(state) {
+  const deal = state.pending
+  if (!deal || deal.kind !== 'trade') return false
+  const from = state.players[deal.from]
+  const to = state.players[deal.to]
+  if (!from || !to || from.bankrupt || to.bankrupt) return false
+  if (deal.cashGive && from.cash < deal.cashGive) return false
+  if (deal.cashTake && to.cash < deal.cashTake) return false
+  if (deal.landGive != null && !ownedFarmId(state, from.id, deal.landGive)) return false
+  if (deal.landTake != null && !ownedFarmId(state, to.id, deal.landTake)) return false
+  if (deal.debtGive && from.debt < deal.debtGive) return false
+  if (deal.debtTake && to.debt < deal.debtTake) return false
+  if (deal.debtGive && to.debt + deal.debtGive > LOAN_CAP) return false
+  if (deal.debtTake && from.debt + deal.debtTake > LOAN_CAP) return false
+  applyTrade(state, deal)
+  log(state, `${to.name} accepts the deal with ${from.name}.`, 'gain', { pid: to.id })
+  state.pending = null
+  state.phase = 'end'
+  checkWin(state)
+  return true
+}
+
+export function rejectTrade(state) {
+  const deal = state.pending
+  if (!deal || deal.kind !== 'trade') return false
+  const to = state.players[deal.to]
+  log(state, `${to ? to.name : 'A farmer'} turns down the deal.`, 'info', { pid: deal.to })
+  state.pending = null
+  state.phase = 'end'
+  return true
+}
+
+export function declineAction(state) {
+  const pending = state.pending
+  if (pending && pending.kind === 'auction') return passAuction(state)
+  if (pending && pending.kind === 'trade') return rejectTrade(state)
+  if (pending && (pending.kind === 'acquire' || pending.kind === 'buyInfra')) {
+    return startAuction(state)
+  }
+  state.pending = null
+  state.phase = 'end'
+  return true
 }
 
 export function skipTurn(state, reason = 'did not act in time') {
   if (state.phase === 'over') return state
+  const pending = state.pending
+  if (pending && (pending.kind === 'auction' || pending.kind === 'trade' || pending.kind === 'acquire' || pending.kind === 'buyInfra')) {
+    const actor = actingSeat(state)
+    const name = state.players[actor] ? state.players[actor].name : currentPlayer(state).name
+    log(state, `${name} ${reason}.`, 'info', { pid: actor, skip: true })
+    declineAction(state)
+    return state
+  }
   const p = currentPlayer(state)
-  if (state.pending) declineAction(state)
+  if (pending) declineAction(state)
   log(state, `${p.name} ${reason}. Turn passes.`, 'info', { pid: p.id, skip: true })
   return nextTurn(state)
 }

@@ -5,7 +5,8 @@ import path from 'node:path'
 import {
   createGame, applyMove, rollDice, buyFarm, leaseFarm, buyInfra, prepareLand,
   seedLand, irrigate, insure, harvest, tendCrop, sellToFci, takeLoan, repayLoan,
-  declineAction, nextTurn, skipTurn, unmortgage, openFarmWork
+  declineAction, nextTurn, skipTurn, unmortgage, openFarmWork, actingSeat,
+  bidAuction, passAuction, offerTrade, acceptTrade, rejectTrade
 } from '../src/engine.js'
 import { LOAN_STEP } from '../src/data.js'
 import { PERSONAS, CPU_NAMES, chooseAction } from '../src/ai.js'
@@ -445,6 +446,11 @@ function isCpuSeat(room, seat) {
   return !!(p && p.cpu)
 }
 
+function cpuActing(room) {
+  if (!room || !room.state) return false
+  return isCpuSeat(room, actingSeat(room.state))
+}
+
 function nextCpuPersona(room) {
   const used = new Set(room.players.map((p) => p.persona).filter(Boolean))
   return PERSONAS.find((x) => !used.has(x.id)) || PERSONAS[room.players.length % PERSONAS.length]
@@ -453,8 +459,8 @@ function nextCpuPersona(room) {
 function playCpuSoon(room, wait) {
   if (!room || room.cpuTimer) return
   if (!room.started || !room.state || room.state.phase === 'over') return
-  if (!isCpuSeat(room, room.state.turn)) return
-  if (room.state.players[room.state.turn]?.bankrupt) return
+  if (!cpuActing(room)) return
+  if (room.state.players[actingSeat(room.state)]?.bankrupt) return
   if (draining && room.state.phase === 'roll') return
   const delay = draining ? 0 : (wait != null ? wait : (room.cpuRolled ? CPU_ROLL_MS : CPU_MS))
   room.cpuRolled = false
@@ -468,8 +474,9 @@ function playCpuSoon(room, wait) {
 function playCpuNow(room) {
   const state = room.state
   if (!room.started || !state || state.phase === 'over') return
-  if (!isCpuSeat(room, state.turn)) return
-  if (state.players[state.turn]?.bankrupt) return
+  if (!cpuActing(room)) return
+  const actor = actingSeat(state)
+  if (state.players[actor]?.bankrupt) return
   room.cpuGuard = (room.cpuGuard || 0) + 1
   if (room.cpuGuard > 24) {
     skipTurn(state, 'could not finish the turn')
@@ -481,13 +488,14 @@ function playCpuNow(room) {
   }
   const action = chooseAction(state, room.cpuDifficulty || 'normal')
   const turnBefore = state.turn
-  const result = applyAction(room, state.turn, action)
+  const actorBefore = actor
+  const result = applyAction(room, actor, action)
   if (result.error) {
     if (state.phase === 'action') declineAction(state)
     else skipTurn(state, 'could not finish the turn')
   }
   if (result.rolled) room.cpuRolled = true
-  if (!room.state || room.state.phase === 'over' || room.state.turn !== turnBefore) {
+  if (!room.state || room.state.phase === 'over' || room.state.turn !== turnBefore || actingSeat(room.state) !== actorBefore) {
     room.cpuGuard = 0
     armTurn(room)
   }
@@ -507,7 +515,7 @@ function applyAction(room, seat, action) {
   const state = room.state
   if (!state) return { error: 'Game has not started' }
   if (state.phase === 'over') return { error: 'The game is over' }
-  if (state.turn !== seat) return { error: 'Not your turn' }
+  if (actingSeat(state) !== seat) return { error: 'Not your turn' }
   if (state.players[seat].bankrupt) return { error: 'You are insolvent' }
 
   const pending = state.pending
@@ -584,6 +592,30 @@ function applyAction(room, seat, action) {
       if (!openFarmWork(state, id)) return { error: 'Cannot work that field' }
       return { ok: true }
     }
+    case 'bid':
+      if (!pending || pending.kind !== 'auction') return { error: 'No auction' }
+      if (pending.actor !== seat) return { error: 'Not your bid' }
+      if (!bidAuction(state, action.amount)) return { error: 'Bid refused' }
+      return { ok: true }
+    case 'passbid':
+      if (!pending || pending.kind !== 'auction') return { error: 'No auction' }
+      if (pending.actor !== seat) return { error: 'Not your bid' }
+      if (!passAuction(state)) return { error: 'Cannot pass' }
+      return { ok: true }
+    case 'offer':
+      if (state.turn !== seat) return { error: 'Not your turn' }
+      if (!offerTrade(state, action.offer || action)) return { error: 'Deal refused' }
+      return { ok: true }
+    case 'accept':
+      if (!pending || pending.kind !== 'trade') return { error: 'No deal' }
+      if (pending.to !== seat) return { error: 'Not your deal' }
+      if (!acceptTrade(state)) return { error: 'Cannot accept' }
+      return { ok: true }
+    case 'reject':
+      if (!pending || pending.kind !== 'trade') return { error: 'No deal' }
+      if (pending.to !== seat) return { error: 'Not your deal' }
+      if (!rejectTrade(state)) return { error: 'Cannot reject' }
+      return { ok: true }
     default:
       return { error: 'Unknown action' }
   }

@@ -2,7 +2,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   createGame, harvest, forcePay, buyFarm, prepareLand, seedLand, skipTurn,
-  nextTurn, netWorth, applyMove, takeLoan
+  nextTurn, netWorth, applyMove, takeLoan, declineAction, bidAuction, passAuction,
+  offerTrade, acceptTrade, rejectTrade, actingSeat
 } from '../src/engine.js'
 import { START_CASH, WIN_NET, PASS_GO, WEATHER, TILES, CROPS, INTEREST } from '../src/data.js'
 
@@ -127,14 +128,71 @@ test('passing Village Hall pays harvest dues', () => {
   assert.ok(s.players[0].cash >= cash + PASS_GO)
 })
 
-test('skipTurn declines a pending prompt and passes the seat', () => {
+test('skipTurn on acquire opens an auction without passing the seat', () => {
   const s = createGame(2, ['A', 'B'])
   s.pending = { kind: 'acquire', tileId: 1 }
   s.phase = 'action'
   skipTurn(s)
-  assert.equal(s.turn, 1)
-  assert.equal(s.phase, 'roll')
+  assert.equal(s.turn, 0)
+  assert.equal(s.pending.kind, 'auction')
+  assert.equal(s.pending.tileId, 1)
+  assert.equal(s.phase, 'action')
+})
+
+test('walk-on starts an auction and a bid awards the lot', () => {
+  const s = createGame(2, ['A', 'B'])
+  s.pending = { kind: 'acquire', tileId: 1 }
+  s.phase = 'action'
+  assert.equal(declineAction(s), true)
+  assert.equal(s.pending.kind, 'auction')
+  assert.equal(actingSeat(s), 1)
+  const floor = s.pending.minBid
+  assert.equal(bidAuction(s, floor), true)
+  assert.equal(actingSeat(s), 0)
+  assert.equal(passAuction(s), true)
+  assert.equal(s.farms[1].owner, 1)
+  assert.equal(s.players[1].cash, START_CASH - floor)
   assert.equal(s.pending, null)
+  assert.equal(s.phase, 'end')
+})
+
+test('all passes leave the lot with Village Hall', () => {
+  const s = createGame(2, ['A', 'B'])
+  s.pending = { kind: 'acquire', tileId: 1 }
+  s.phase = 'action'
+  declineAction(s)
+  assert.equal(passAuction(s), true)
+  assert.equal(passAuction(s), true)
+  assert.equal(s.farms[1].owner, null)
+  assert.equal(s.pending, null)
+  assert.equal(s.phase, 'end')
+})
+
+test('trade swaps cash and land after accept', () => {
+  const s = createGame(2, ['A', 'B'])
+  s.phase = 'end'
+  s.farms[1].owner = 0
+  s.farms[3].owner = 1
+  assert.equal(offerTrade(s, { to: 1, cashGive: 500, landGive: 1, landTake: 3 }), true)
+  assert.equal(s.pending.kind, 'trade')
+  assert.equal(actingSeat(s), 1)
+  assert.equal(acceptTrade(s), true)
+  assert.equal(s.farms[1].owner, 1)
+  assert.equal(s.farms[3].owner, 0)
+  assert.equal(s.players[0].cash, START_CASH - 500)
+  assert.equal(s.players[1].cash, START_CASH + 500)
+  assert.equal(s.phase, 'end')
+})
+
+test('rejectTrade returns to the end phase', () => {
+  const s = createGame(2, ['A', 'B'])
+  s.phase = 'end'
+  s.farms[1].owner = 0
+  offerTrade(s, { to: 1, landGive: 1 })
+  assert.equal(rejectTrade(s), true)
+  assert.equal(s.farms[1].owner, 0)
+  assert.equal(s.pending, null)
+  assert.equal(s.phase, 'end')
 })
 
 test('nextTurn ripens a one-season crop', () => {

@@ -5,7 +5,8 @@ import {
   createGame, currentPlayer, netWorth, farmsOf, seasonOf, applyMove, rollDice,
   buyFarm, leaseFarm, buyInfra, prepareLand, seedLand, irrigate, insure,
   harvest, tendCrop, sellToFci, takeLoan, repayLoan, declineAction, nextTurn,
-  unmortgage, openFarmWork
+  unmortgage, openFarmWork, actingSeat, bidAuction, passAuction, offerTrade,
+  acceptTrade, rejectTrade
 } from './engine.js'
 import {
   createRoom, joinRoom, startRoom, sendAction, waitSnapshot, openEventStream,
@@ -58,6 +59,7 @@ let openTables = []
 let visitorId = ''
 let presenceOn = false
 let sideTab = 'farmers'
+let tradeDraft = { to: '', cashGive: '', cashTake: '', landGive: '', landTake: '', debtGive: '', debtTake: '' }
 
 function visitorKey() {
   try {
@@ -272,18 +274,19 @@ function mySeat() {
 function isCpuTurn() {
   if (!state || online()) return false
   if (state.phase === 'over') return false
-  const p = state.players[state.turn]
+  const p = state.players[actingSeat(state)]
   return !!(p && p.cpu && !p.bankrupt)
 }
 
 function isMyTurn() {
   if (!state) return false
   if (state.phase === 'over') return false
-  if (state.players[state.turn]?.bankrupt) return false
+  const actor = actingSeat(state)
+  if (state.players[actor]?.bankrupt) return false
   if (landing) return false
-  if (online()) return !session.spectator && session.you === state.turn
+  if (online()) return !session.spectator && session.you === actor
   if (state.players.some((p) => p.cpu)) {
-    return !state.players[state.turn].cpu && state.turn === humanSeat
+    return !state.players[actor].cpu
   }
   return true
 }
@@ -447,8 +450,9 @@ function scheduleCpu() {
   if (online() || cpuBusy || rolling || !state) return
   if (screen !== 'game' || state.phase === 'over') return
   if (landing) return
-  if (state.players[state.turn]?.bankrupt) {
-    nextTurn(state)
+  if (state.players[actingSeat(state)]?.bankrupt) {
+    if (state.pending) declineAction(state)
+    else nextTurn(state)
     render()
     return
   }
@@ -533,7 +537,12 @@ function applyCpuAction(action) {
     ok = openFarmWork(state, action.tileId)
     if (!ok && state.phase === 'end') nextTurn(state)
     else if (!ok) declineAction(state)
-  } else if (action.type === 'skip') declineAction(state)
+  } else if (action.type === 'bid') ok = bidAuction(state, action.amount)
+  else if (action.type === 'passbid') ok = passAuction(state)
+  else if (action.type === 'accept') ok = acceptTrade(state)
+  else if (action.type === 'reject') ok = rejectTrade(state)
+  else if (action.type === 'offer') ok = offerTrade(state, action.offer || action)
+  else if (action.type === 'skip') declineAction(state)
   else if (action.type === 'endTurn') {
     nextTurn(state)
     cpuNote = ''
@@ -1088,7 +1097,7 @@ async function netAct(action) {
 function gameHtml() {
   const p = currentPlayer(state)
   const season = seasonOf(state)
-  const mine = isMyTurn()
+  const mine = isMyTurn() && actingSeat(state) === state.turn
   const me = state.players[mySeat()]
   return `
   <div class="game-shell">
@@ -1123,7 +1132,7 @@ function gameHtml() {
     </div>
     <div class="side">
       <div class="panel play-dock dice-panel">
-        <h3>${state.phase === 'over' ? t('gameOver') : (mine ? t('yourTurn', p.name) : t('toAct', p.name, p.cpu))}</h3>
+        <h3>${state.phase === 'over' ? t('gameOver') : playHeadline()}</h3>
         ${diceHtml()}
         <div class="play-acts">
           <button class="roll-btn" id="roll" ${!mine || state.phase !== 'roll' || rolling ? 'disabled' : ''}>${mine ? t('roll') : (p.cpu ? t('cpuRolling') : t('waitingAct'))}</button>
@@ -1146,6 +1155,7 @@ function gameHtml() {
         <div class="panel">
           <h3>${t('farmers')}</h3>
           ${state.players.map(playerCard).join('')}
+          ${tradePanel()}
         </div>
       </div>
       <div class="side-pane${sideTab === 'fields' ? ' on' : ''}" data-pane="fields">
@@ -1232,7 +1242,7 @@ function tileHtml(t) {
   const pins = state.players
     .filter((p) => !p.bankrupt && p.pos === t.id)
     .map((p) => {
-      const on = state.turn === p.id && state.phase !== 'over'
+  const on = actingSeat(state) === p.id && state.phase !== 'over'
       const letter = (p.name || '?').trim().charAt(0).toUpperCase()
       return `<div class="coin${on ? ' active' : ''}" style="--pc:${p.color}" title="${p.name}">${letter}</div>`
     })
@@ -1279,10 +1289,78 @@ function modalHtml() {
       </div>`
   }
   if (landing) return landingModal()
+  if (state.phase === 'action' && state.pending && (state.pending.kind === 'auction' || state.pending.kind === 'trade')) {
+    return actionModal(state.pending)
+  }
   if (inspectId != null) return inspectModal(inspectId)
   if (!isMyTurn()) return ''
   if (state.phase === 'action' && state.pending) return actionModal(state.pending)
   return ''
+}
+
+function playHeadline() {
+  const pending = state.pending
+  if (pending && pending.kind === 'auction') {
+    const actor = state.players[pending.actor]
+    return t('auctionHead', actor ? actor.name : '')
+  }
+  if (pending && pending.kind === 'trade') {
+    const to = state.players[pending.to]
+    return t('tradeHead', to ? to.name : '')
+  }
+  const p = currentPlayer(state)
+  const mine = isMyTurn() && actingSeat(state) === state.turn
+  return mine ? t('yourTurn', p.name) : t('toAct', p.name, p.cpu)
+}
+
+function ownedLandOptions(pid, selected) {
+  return farmsOf(state, pid)
+    .filter((f) => f.owner === pid)
+    .map((f) => `<option value="${f.id}"${String(selected) === String(f.id) ? ' selected' : ''}>${f.tile.name}</option>`)
+    .join('')
+}
+
+function tradePanel() {
+  const me = mySeat()
+  const mine = isMyTurn() && state.phase === 'end' && !state.pending && actingSeat(state) === me
+  const others = state.players.filter((p) => p.id !== me && !p.bankrupt)
+  if (!others.length) return ''
+  const to = tradeDraft.to === '' ? others[0].id : Number(tradeDraft.to)
+  return `
+    <div class="trade-box">
+      <h4>${t('trade')}</h4>
+      <p class="pcash">${t('tradeHint')}</p>
+      <label>${t('tradeWith')}
+        <select id="tradeto"${mine ? '' : ' disabled'}>
+          ${others.map((p) => `<option value="${p.id}"${p.id === to ? ' selected' : ''}>${p.name}</option>`).join('')}
+        </select>
+      </label>
+      <label>${t('youPay')}
+        <input id="tradecashgive" type="number" min="0" step="100" value="${tradeDraft.cashGive}"${mine ? '' : ' disabled'} />
+      </label>
+      <label>${t('youAsk')}
+        <input id="tradecashtake" type="number" min="0" step="100" value="${tradeDraft.cashTake}"${mine ? '' : ' disabled'} />
+      </label>
+      <label>${t('youGiveLand')}
+        <select id="tradelandgive"${mine ? '' : ' disabled'}>
+          <option value="">${t('noLandDeal')}</option>
+          ${ownedLandOptions(me, tradeDraft.landGive)}
+        </select>
+      </label>
+      <label>${t('youWantLand')}
+        <select id="tradelandtake"${mine ? '' : ' disabled'}>
+          <option value="">${t('noLandDeal')}</option>
+          ${ownedLandOptions(to, tradeDraft.landTake)}
+        </select>
+      </label>
+      <label>${t('youGiveDebt')}
+        <input id="tradedebtgive" type="number" min="0" step="100" value="${tradeDraft.debtGive}"${mine ? '' : ' disabled'} />
+      </label>
+      <label>${t('youTakeDebt')}
+        <input id="tradedebttake" type="number" min="0" step="100" value="${tradeDraft.debtTake}"${mine ? '' : ' disabled'} />
+      </label>
+      <button class="primary" id="tradeoffer" ${mine ? '' : 'disabled'}>${t('offerDeal')}</button>
+    </div>`
 }
 
 function landingModal() {
@@ -1318,6 +1396,8 @@ function landingModal() {
 
 function actionModal(pending) {
   const p = currentPlayer(state)
+  if (pending.kind === 'auction') return auctionModal(pending)
+  if (pending.kind === 'trade') return tradeModal(pending)
   if (pending.kind === 'acquire') {
     const tile = TILES[pending.tileId]
     return wrapModal(`
@@ -1327,7 +1407,7 @@ function actionModal(pending) {
       <div class="actions">
         <button class="work-btn gold" data-act="buy" ${p.cash < tile.price ? 'disabled' : ''}>${t('buyLand')}</button>
         <button class="work-btn alt" data-act="lease" ${p.cash < tile.lease ? 'disabled' : ''}>${t('leaseLand')}</button>
-        <button class="ghost" data-act="skip">${t('walkOn')}</button>
+        <button class="ghost" data-act="skip">${t('sendAuction')}</button>
       </div>`)
   }
   if (pending.kind === 'buyInfra') {
@@ -1378,6 +1458,50 @@ function actionModal(pending) {
       <div class="actions"><button class="ghost" data-act="skip">${t('skipField')}</button></div>`)
   }
   return ''
+}
+
+function auctionModal(pending) {
+  const tile = TILES[pending.tileId]
+  const actor = state.players[pending.actor]
+  const bidder = pending.highBidder != null ? state.players[pending.highBidder] : null
+  const floor = pending.highBid > 0 ? pending.highBid + 100 : pending.minBid
+  const mine = isMyTurn()
+  const canBid = mine && actor && actor.cash >= floor
+  return wrapModal(`
+    <h2>${t('auction')}</h2>
+    <p>${t('auctionLot', tile ? tile.name : '', rs(pending.minBid))}</p>
+    <div class="farm-meta">
+      ${bidder ? t('highBid', bidder.name, rs(pending.highBid)) : t('noBids')}
+      <br/>${t('toBid', actor ? actor.name : '', rs(floor))}
+    </div>
+    ${mine ? `<div class="actions">
+      <button class="work-btn gold" data-act="bid" ${canBid ? '' : 'disabled'}>${t('bidNow', rs(floor))}</button>
+      <button class="ghost" data-act="passbid">${t('passBid')}</button>
+    </div>` : `<p class="pcash">${t('waitingBid')}</p>`}`)
+}
+
+function tradeLine(n, landId) {
+  const bits = []
+  if (n) bits.push(rs(n))
+  if (landId != null && TILES[landId]) bits.push(TILES[landId].name)
+  return bits.length ? bits.join(' · ') : t('nothing')
+}
+
+function tradeModal(pending) {
+  const from = state.players[pending.from]
+  const to = state.players[pending.to]
+  const mine = isMyTurn()
+  return wrapModal(`
+    <h2>${t('trade')}</h2>
+    <p>${t('tradeOffer', from ? from.name : '', to ? to.name : '')}</p>
+    <div class="farm-meta">
+      ${t('theyGive')}: ${tradeLine(pending.cashGive, pending.landGive)}${pending.debtGive ? ' · ' + t('debt') + ' ' + rs(pending.debtGive) : ''}<br/>
+      ${t('theyAsk')}: ${tradeLine(pending.cashTake, pending.landTake)}${pending.debtTake ? ' · ' + t('debt') + ' ' + rs(pending.debtTake) : ''}
+    </div>
+    ${mine ? `<div class="actions">
+      <button class="work-btn gold" data-act="accept">${t('acceptDeal')}</button>
+      <button class="ghost" data-act="reject">${t('rejectDeal')}</button>
+    </div>` : `<p class="pcash">${t('waitingDeal')}</p>`}`)
 }
 
 function farmWorkModal(tileId) {
@@ -1528,6 +1652,59 @@ function bindGame() {
       el.addEventListener('click', () => workField(Number(el.dataset.work)))
     })
   }
+  bindTradeForm()
+}
+
+function readTradeDraft() {
+  const toEl = document.getElementById('tradeto')
+  const giveEl = document.getElementById('tradecashgive')
+  const takeEl = document.getElementById('tradecashtake')
+  const landGiveEl = document.getElementById('tradelandgive')
+  const landTakeEl = document.getElementById('tradelandtake')
+  const debtGiveEl = document.getElementById('tradedebtgive')
+  const debtTakeEl = document.getElementById('tradedebttake')
+  if (toEl) tradeDraft.to = toEl.value
+  if (giveEl) tradeDraft.cashGive = giveEl.value
+  if (takeEl) tradeDraft.cashTake = takeEl.value
+  if (landGiveEl) tradeDraft.landGive = landGiveEl.value
+  if (landTakeEl) tradeDraft.landTake = landTakeEl.value
+  if (debtGiveEl) tradeDraft.debtGive = debtGiveEl.value
+  if (debtTakeEl) tradeDraft.debtTake = debtTakeEl.value
+}
+
+function bindTradeForm() {
+  const offer = document.getElementById('tradeoffer')
+  const toEl = document.getElementById('tradeto')
+  if (toEl) {
+    toEl.addEventListener('change', () => {
+      readTradeDraft()
+      tradeDraft.landTake = ''
+      render()
+    })
+  }
+  ;['tradecashgive', 'tradecashtake', 'tradelandgive', 'tradelandtake', 'tradedebtgive', 'tradedebttake'].forEach((id) => {
+    const el = document.getElementById(id)
+    if (el) el.addEventListener('change', readTradeDraft)
+  })
+  if (offer) {
+    offer.addEventListener('click', async () => {
+      if (!isMyTurn() || state.phase !== 'end' || state.pending) return
+      readTradeDraft()
+      const payload = {
+        type: 'offer',
+        to: Number(tradeDraft.to),
+        cashGive: Number(tradeDraft.cashGive) || 0,
+        cashTake: Number(tradeDraft.cashTake) || 0,
+        landGive: tradeDraft.landGive === '' ? null : Number(tradeDraft.landGive),
+        landTake: tradeDraft.landTake === '' ? null : Number(tradeDraft.landTake),
+        debtGive: Number(tradeDraft.debtGive) || 0,
+        debtTake: Number(tradeDraft.debtTake) || 0
+      }
+      if (await netAct(payload)) return
+      offerTrade(state, payload)
+      render()
+    })
+  }
 }
 
 async function workField(id) {
@@ -1552,6 +1729,36 @@ async function handleAct(act) {
     }
     if (await netAct({ type: 'skip' })) return
     declineAction(state)
+    render()
+    return
+  }
+  if (act === 'bid') {
+    if (!isMyTurn()) return
+    const a = state.pending
+    const floor = a && a.highBid > 0 ? a.highBid + 100 : (a ? a.minBid : 0)
+    if (await netAct({ type: 'bid', amount: floor })) return
+    bidAuction(state, floor)
+    render()
+    return
+  }
+  if (act === 'passbid') {
+    if (!isMyTurn()) return
+    if (await netAct({ type: 'passbid' })) return
+    passAuction(state)
+    render()
+    return
+  }
+  if (act === 'accept') {
+    if (!isMyTurn()) return
+    if (await netAct({ type: 'accept' })) return
+    acceptTrade(state)
+    render()
+    return
+  }
+  if (act === 'reject') {
+    if (!isMyTurn()) return
+    if (await netAct({ type: 'reject' })) return
+    rejectTrade(state)
     render()
     return
   }

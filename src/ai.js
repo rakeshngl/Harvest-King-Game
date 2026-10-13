@@ -1,5 +1,5 @@
 import { TILES, CROPS, GROUPS, LOAN_STEP, LOAN_CAP } from './data.js'
-import { currentPlayer, farmsOf, seasonOf, groupOwned } from './engine.js'
+import { currentPlayer, farmsOf, seasonOf, groupOwned, actingSeat } from './engine.js'
 
 export const PERSONAS = [
   { id: 'thrifty', name: 'Thrifty', hint: 'Leases, millets, fat cash buffer' },
@@ -216,18 +216,63 @@ function fciAction(state, p) {
   return { type: 'skip' }
 }
 
+function auctionAction(state, knobs) {
+  const a = state.pending
+  const p = state.players[a.actor]
+  if (!p) return { type: 'passbid' }
+  const tile = TILES[a.tileId]
+  const floor = a.highBid > 0 ? a.highBid + 100 : a.minBid
+  if (p.cash < floor) return { type: 'passbid' }
+  if (a.highBidder === p.id) return { type: 'passbid' }
+  const value = tile && tile.type === 'farm' ? farmValue(state, p, tile, knobs) : (tile ? tile.price * 0.6 : 0)
+  const cap = Math.min(p.cash - knobs.reserve * 0.35, Math.round((tile ? tile.price : floor) * (personaOf(p).id === 'landlord' ? 1.35 : 1.05)))
+  const bid = Math.min(p.cash, Math.max(floor, Math.round(cap / 100) * 100))
+  if (bid < floor) return { type: 'passbid' }
+  if (value < 200 && personaOf(p).id !== 'landlord') return { type: 'passbid' }
+  if (bid > p.cash - knobs.reserve * 0.25 && personaOf(p).id === 'thrifty') return { type: 'passbid' }
+  return { type: 'bid', amount: bid }
+}
+
+function tradeReply(state) {
+  const deal = state.pending
+  const me = state.players[deal.to]
+  const them = state.players[deal.from]
+  if (!me || !them) return { type: 'reject' }
+  let score = (deal.cashTake || 0) - (deal.cashGive || 0)
+  if (deal.landTake != null) {
+    const t = TILES[deal.landTake]
+    score += t ? t.price * 0.9 : 0
+  }
+  if (deal.landGive != null) {
+    const t = TILES[deal.landGive]
+    score -= t ? t.price * 0.9 : 0
+  }
+  score -= (deal.debtTake || 0) * 0.6
+  score += (deal.debtGive || 0) * 0.4
+  if (deal.landGive != null && TILES[deal.landGive] && groupOwned(state, me.id, TILES[deal.landGive].group) === false) {
+    const ids = TILES.filter((x) => x.type === 'farm' && x.group === TILES[deal.landGive].group)
+    const owned = ids.filter((x) => state.farms[x.id].owner === me.id).length
+    if (owned === ids.length - 1) score += 1800
+  }
+  return score >= 0 ? { type: 'accept' } : { type: 'reject' }
+}
+
 export function chooseAction(state, difficulty = 'normal') {
-  const p = currentPlayer(state)
+  const pending = state.pending
+  const actorId = actingSeat(state)
+  const p = state.players[actorId] || currentPlayer(state)
   if (!p || state.phase === 'over') return { type: 'endTurn' }
   if (p.bankrupt) return { type: 'endTurn' }
   const knobs = DIFF[difficulty] || DIFF.normal
+  if (state.phase === 'action' && pending && pending.kind === 'auction') return auctionAction(state, knobs)
+  if (state.phase === 'action' && pending && pending.kind === 'trade') return tradeReply(state)
+  if (state.turn !== actorId) return { type: 'skip' }
   if (state.phase === 'roll') return { type: 'roll' }
   if (knobs.miss && Math.random() < knobs.miss) {
     if (state.phase === 'action') return { type: 'skip' }
     if (state.phase === 'end') return { type: 'endTurn' }
   }
 
-  const pending = state.pending
   if (state.phase === 'action' && pending) {
     if (pending.kind === 'card') return { type: 'skip' }
     if (pending.kind === 'acquire') return acquireAction(state, p, pending.tileId, knobs)
@@ -259,7 +304,7 @@ export function chooseAction(state, difficulty = 'normal') {
 }
 
 export function describeAction(state, action) {
-  const p = currentPlayer(state)
+  const p = state.players[actingSeat(state)] || currentPlayer(state)
   const name = p ? p.name : 'Computer'
   const pending = state.pending
   const tile = pending && pending.tileId != null ? TILES[pending.tileId] : (action.tileId != null ? TILES[action.tileId] : null)
@@ -279,6 +324,11 @@ export function describeAction(state, action) {
     case 'repay': return `${name} repays the rural bank.`
     case 'work': return `${name} works ${tile ? tile.name : 'a field'}.`
     case 'skip': return `${name} passes.`
+    case 'bid': return `${name} bids Rs ${action.amount}.`
+    case 'passbid': return `${name} passes on the auction.`
+    case 'accept': return `${name} accepts the deal.`
+    case 'reject': return `${name} turns down the deal.`
+    case 'offer': return `${name} offers a deal.`
     case 'endTurn': return `${name} ends the turn.`
     default: return `${name} acts.`
   }
