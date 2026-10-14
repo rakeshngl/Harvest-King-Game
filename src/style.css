@@ -1051,6 +1051,16 @@ html, body {
   font: inherit;
 }
 
+.trade-box > .primary { width: 100%; }
+
+.trade-acts {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.trade-acts .primary { flex: 1; }
+
 .dice-panel { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 
 .play-acts {

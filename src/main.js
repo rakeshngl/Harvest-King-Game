@@ -60,6 +60,7 @@ let visitorId = ''
 let presenceOn = false
 let sideTab = 'farmers'
 let tradeDraft = { to: '', cashGive: '', cashTake: '', landGive: '', landTake: '', debtGive: '', debtTake: '' }
+let tradeOpen = false
 
 function visitorKey() {
   try {
@@ -1325,6 +1326,12 @@ function tradePanel() {
   const mine = isMyTurn() && state.phase === 'end' && !state.pending && actingSeat(state) === me
   const others = state.players.filter((p) => p.id !== me && !p.bankrupt)
   if (!others.length) return ''
+  if (!tradeOpen) {
+    return `
+    <div class="trade-box">
+      <button class="primary" id="tradeopen" ${mine ? '' : 'disabled'}>${t('makeADeal')}</button>
+    </div>`
+  }
   const to = tradeDraft.to === '' ? others[0].id : Number(tradeDraft.to)
   return `
     <div class="trade-box">
@@ -1359,7 +1366,10 @@ function tradePanel() {
       <label>${t('youTakeDebt')}
         <input id="tradedebttake" type="number" min="0" step="100" value="${tradeDraft.debtTake}"${mine ? '' : ' disabled'} />
       </label>
-      <button class="primary" id="tradeoffer" ${mine ? '' : 'disabled'}>${t('offerDeal')}</button>
+      <div class="trade-acts">
+        <button class="primary" id="tradeoffer" ${mine ? '' : 'disabled'}>${t('offerDeal')}</button>
+        <button class="ghost" id="tradecancel">${t('cancelTrade')}</button>
+      </div>
     </div>`
 }
 
@@ -1673,6 +1683,22 @@ function readTradeDraft() {
 }
 
 function bindTradeForm() {
+  const openBtn = document.getElementById('tradeopen')
+  if (openBtn) {
+    openBtn.addEventListener('click', () => {
+      if (!isMyTurn()) return
+      tradeOpen = true
+      render()
+    })
+  }
+  const cancelBtn = document.getElementById('tradecancel')
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => {
+      readTradeDraft()
+      tradeOpen = false
+      render()
+    })
+  }
   const offer = document.getElementById('tradeoffer')
   const toEl = document.getElementById('tradeto')
   if (toEl) {
@@ -1700,6 +1726,7 @@ function bindTradeForm() {
         debtGive: Number(tradeDraft.debtGive) || 0,
         debtTake: Number(tradeDraft.debtTake) || 0
       }
+      tradeOpen = false
       if (await netAct(payload)) return
       offerTrade(state, payload)
       render()
