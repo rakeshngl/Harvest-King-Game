@@ -212,6 +212,8 @@ const PACK = {
     harvestKing: 'Harvest King',
     fallow: 'fallow',
     indianFarming: 'Indian Farming',
+    soundOn: 'Sound on',
+    soundOff: 'Sound off',
     rs: 'Rs '
   },
   hi: {
@@ -419,6 +421,8 @@ const PACK = {
     harvestKing: 'फसल राजा',
     fallow: 'परती',
     indianFarming: 'भारतीय खेती',
+    soundOn: 'ध्वनि चालू',
+    soundOff: 'ध्वनि बंद',
     rs: '₹'
   },
   ta: {
@@ -626,6 +630,8 @@ const PACK = {
     harvestKing: 'அறுவடை அரசன்',
     fallow: 'தரிசு',
     indianFarming: 'இந்திய விவசாயம்',
+    soundOn: 'ஒலி இயக்கம்',
+    soundOff: 'ஒலி அணை',
     rs: '₹'
   }
 }

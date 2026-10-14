@@ -19,6 +19,7 @@ There is no jail. Instead, the board is loaded with agricultural complications: 
 - **Living economy**: crop prices drift each season, cards shift the market, and infrastructure investments improve your yields and margins.
 - **Deterministic rules engine** shared by local and online play, so the same game logic runs everywhere.
 - **English / Hindi / Tamil chrome** via an English | Hindi | Tamil toggle (`localStorage` `hk-lang`). Board names, crop labels, and engine logs stay English.
+- **Web Audio cues**: dice rattle, coin, harvest, insolvency, cards, and a win fanfare, synthesized in the browser (no audio assets) with a **Sound on / off** toggle (`localStorage` `hk-mute`).
 - **Phone layout**: the 40-tile board shrinks to the viewport, side panels tab, and the roll dock stays under the board.
 
 ## Board

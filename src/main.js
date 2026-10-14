@@ -14,6 +14,7 @@ import {
 } from './net.js'
 import { PERSONAS, CPU_NAMES, chooseAction, describeAction } from './ai.js'
 import { t, setLang, currentLang, LANGS } from './i18n.js'
+import { playCue, isMuted, toggleMute } from './sound.js'
 
 const app = document.getElementById('app')
 
@@ -52,6 +53,7 @@ let humanSeat = 0
 let cpuDifficulty = 'normal'
 let draftName = ''
 let diaryPage = 0
+let wasOver = false
 const DIARY_PAGE = 20
 let hallStats = { visits: 0, online: 0, playing: 0 }
 let clockTimer = 0
@@ -79,22 +81,36 @@ function fmtCount(n) {
   return Number(n || 0).toLocaleString('en-IN')
 }
 
-function langToggleHtml() {
-  return `<div class="lang-toggle" id="langtoggle">${LANGS.map((l) =>
-    `<button class="count-btn${currentLang() === l.id ? ' on' : ''}" data-lang="${l.id}">${l.label}</button>`
-  ).join('')}</div>`
+function chromeToggleHtml() {
+  const off = isMuted()
+  return `
+    <div class="chrome-toggles">
+      <div class="lang-toggle" id="langtoggle">${LANGS.map((l) =>
+        `<button class="count-btn${currentLang() === l.id ? ' on' : ''}" data-lang="${l.id}">${l.label}</button>`
+      ).join('')}</div>
+      <button class="count-btn sound-btn${off ? ' off' : ''}" id="soundtoggle" type="button" aria-pressed="${off ? 'false' : 'true'}">${off ? t('soundOff') : t('soundOn')}</button>
+    </div>`
 }
 
 function bindLang() {
   document.documentElement.lang = currentLang()
   const root = document.getElementById('langtoggle')
-  if (!root) return
-  root.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-lang]')
-    if (!b) return
-    setLang(b.getAttribute('data-lang'))
-    render()
-  })
+  if (root) {
+    root.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-lang]')
+      if (!b) return
+      setLang(b.getAttribute('data-lang'))
+      render()
+    })
+  }
+  const sound = document.getElementById('soundtoggle')
+  if (sound) {
+    sound.addEventListener('click', () => {
+      toggleMute()
+      if (!isMuted()) playCue('coin')
+      render()
+    })
+  }
 }
 
 function statsHtml() {
@@ -217,10 +233,30 @@ function captureLanding(prevCash, opts = {}) {
     landingQueue = items.slice(1)
     landing = items[0]
     landing.queued = items.length
+    cueForLanding(landing)
     return
   }
   landingQueue = []
   landing = items[items.length - 1]
+  cueForLanding(landing)
+}
+
+function cueForLanding(item) {
+  if (!item || !item.entries) return
+  const text = item.entries.map((e) => (typeof e === 'string' ? e : e.text || '')).join(' ')
+  if (text.includes('insolvent')) {
+    playCue('insolvent')
+    return
+  }
+  if (text.includes('harvests')) {
+    playCue('harvest')
+    return
+  }
+  if (item.delta != null && item.delta > 0) {
+    playCue('coin')
+    return
+  }
+  if (item.delta != null && item.delta < 0) playCue('loss')
 }
 
 function diaryRow(e) {
@@ -407,6 +443,7 @@ function applySnap(snap, opts = {}) {
     } else if (diceChanged && snap.lastDice) {
       rolling = true
       render()
+      playCue('dice')
       animateDice(snap.lastDice[0], snap.lastDice[1], () => {
         rolling = false
         captureLanding(prevCash, { replay: skipped })
@@ -506,6 +543,7 @@ function applyCpuAction(action) {
     const prevCash = state.players.map((p) => p.cash)
     render()
     const gen = cpuGen
+    playCue('dice')
     animateDice(dice[0], dice[1], () => {
       if (gen !== cpuGen || !state) return
       applyMove(state, dice)
@@ -558,23 +596,32 @@ function applyCpuAction(action) {
   render()
 }
 
+function maybePlayWin() {
+  const over = !!(state && state.phase === 'over')
+  if (over && !wasOver) playCue('win')
+  wasOver = over
+}
+
 function render() {
   document.documentElement.lang = currentLang()
   if (screen === 'lobby' && !state) {
     app.innerHTML = lobbyHtml()
     bindLobby()
     bindLang()
+    maybePlayWin()
     return
   }
   if (screen === 'waiting') {
     app.innerHTML = waitingHtml()
     bindWaiting()
     bindLang()
+    maybePlayWin()
     return
   }
   app.innerHTML = gameHtml()
   bindGame()
   bindLang()
+  maybePlayWin()
   if (state) setDiceFace(state.lastDice[0], state.lastDice[1])
   if (online() && state && state.phase !== 'over') {
     startClock()
@@ -593,7 +640,7 @@ function lobbyHtml() {
       <div class="hero-fade"></div>
     </header>
     <main class="lobby-table">
-      ${langToggleHtml()}
+      ${chromeToggleHtml()}
       ${notice ? `<p class="notice">${notice}</p>` : ''}
       ${statsHtml()}
       <div class="farmer-bar">
@@ -963,7 +1010,7 @@ function waitingHtml() {
   return `
   <div class="lobby">
     <div class="lobby-card">
-      ${langToggleHtml()}
+      ${chromeToggleHtml()}
       <div class="en">${t('waiting')}</div>
       <h1>${t('room')} ${session ? session.code : ''}</h1>
       <p class="lead">${t('waitingLead', !!(room && room.locked), pal.name, host)}</p>
@@ -1079,6 +1126,7 @@ async function netAct(action) {
       lastRollSeq = snap.rollSeq
       rolling = true
       render()
+      playCue('dice')
       animateDice(snap.rolled[0], snap.rolled[1], () => {
         rolling = false
         applySnap(snap, { fromSelfRoll: true, capture: true })
@@ -1109,7 +1157,7 @@ function gameHtml() {
           <div class="en" style="letter-spacing:.2em;font-size:10px">${t('farming')}${online() ? ' · ' + session.code : ''}</div>
         </div>
         <div class="meta">
-          ${langToggleHtml()}
+          ${chromeToggleHtml()}
           <span class="chip s">${season.name} · ${season.hint}</span>
           <span class="chip g">${state.weather.name}</span>
           <span class="chip n">${t('seasonN', state.seasonIndex + 1, MAX_SEASONS)}</span>
@@ -1575,6 +1623,7 @@ function bindGame() {
   if (landok) {
     landok.addEventListener('click', () => {
       landing = landingQueue.shift() || null
+      cueForLanding(landing)
       render()
     })
   }
@@ -1600,6 +1649,7 @@ function bindGame() {
       roll.disabled = true
       const dice = rollDice()
       const prevCash = state.players.map((p) => p.cash)
+      playCue('dice')
       animateDice(dice[0], dice[1], () => {
         applyMove(state, dice)
         rolling = false

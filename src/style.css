@@ -112,10 +112,22 @@ html, body {
   color: #6b5a3e;
 }
 
+.chrome-toggles {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0 0 14px;
+}
+
 .lang-toggle {
   display: inline-flex;
   gap: 6px;
-  margin: 0 0 14px;
+}
+
+.sound-btn.off {
+  opacity: 0.6;
+  text-decoration: line-through;
 }
 
 .lang-toggle .count-btn {
@@ -126,6 +138,10 @@ html, body {
 }
 
 .game-shell .lang-toggle {
+  margin: 0;
+}
+
+.game-shell .chrome-toggles {
   margin: 0;
 }
 
