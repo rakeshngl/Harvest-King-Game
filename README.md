@@ -20,6 +20,8 @@ There is no jail. Instead, the board is loaded with agricultural complications: 
 - **Deterministic rules engine** shared by local and online play, so the same game logic runs everywhere.
 - **English / Hindi / Tamil chrome** via an English | Hindi | Tamil toggle (`localStorage` `hk-lang`). Board names, crop labels, and engine logs stay English.
 - **Web Audio cues**: dice rattle, coin, harvest, insolvency, cards, and a win fanfare, synthesized in the browser (no audio assets) with a **Sound on / off** toggle (`localStorage` `hk-mute`).
+- **Seasonal music bed**: a synthesized ambient loop that shifts tempo and scale with the season and weather, with its own **Music on / off** toggle (`localStorage` `hk-music`).
+- **Indian number formatting**: money uses lakh/crore shorthand (Rs 12,000 / Rs 1.2 lakh / Rs 1.5 crore) and `en-IN` digit grouping for counts.
 - **Phone layout**: the 40-tile board shrinks to the viewport, side panels tab, and the roll dock stays under the board.
 
 ## Board

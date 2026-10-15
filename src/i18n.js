@@ -214,6 +214,8 @@ const PACK = {
     indianFarming: 'Indian Farming',
     soundOn: 'Sound on',
     soundOff: 'Sound off',
+    musicOn: 'Music on',
+    musicOff: 'Music off',
     rs: 'Rs '
   },
   hi: {
@@ -423,6 +425,8 @@ const PACK = {
     indianFarming: 'भारतीय खेती',
     soundOn: 'ध्वनि चालू',
     soundOff: 'ध्वनि बंद',
+    musicOn: 'संगीत चालू',
+    musicOff: 'संगीत बंद',
     rs: '₹'
   },
   ta: {
@@ -632,6 +636,8 @@ const PACK = {
     indianFarming: 'இந்திய விவசாயம்',
     soundOn: 'ஒலி இயக்கம்',
     soundOff: 'ஒலி அணை',
+    musicOn: 'இசை இயக்கம்',
+    musicOff: 'இசை அணை',
     rs: '₹'
   }
 }

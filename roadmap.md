@@ -73,8 +73,6 @@ Done: player trading (land, cash, debt); auctions when someone declines to buy.
 ## UX / presentation
 
 - Telugu, Marathi, Bengali UI chrome (Hindi / Tamil done)
-- Number format: Indian grouping (Rs 12,000 vs 1.2 lakh)
-- Music bed per season/weather
 - Reduced-motion mode (dice 3D + token bob)
 - Dark board / high-contrast / color-blind palettes
 - PWA / Add to Home Screen
@@ -85,7 +83,7 @@ Done: player trading (land, cash, debt); auctions when someone declines to buy.
 - Animated crop growth on owned tiles
 - Map of India inset highlighting the tile's state
 
-Done: English / Hindi / Tamil toggle; full mobile layout; sound effects (dice, coin, harvest, insolvency) with a mute toggle.
+Done: English / Hindi / Tamil toggle; full mobile layout; sound effects with a mute toggle; seasonal music bed; Indian number formatting (lakh/crore shorthand).
 
 ## Economy / balance tools
 

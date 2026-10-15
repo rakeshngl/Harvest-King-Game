@@ -1,11 +1,16 @@
 const MUTE_KEY = 'hk-mute'
+const MUSIC_KEY = 'hk-music'
 
 let ctx = null
 let master = null
+let musicGain = null
 let muted = false
+let musicOn = true
 
 try {
   muted = localStorage.getItem(MUTE_KEY) === '1'
+  const savedMusic = localStorage.getItem(MUSIC_KEY)
+  if (savedMusic != null) musicOn = savedMusic === '1'
 } catch {
   /* ignore */
 }
@@ -16,16 +21,8 @@ export function isMuted() {
 
 export function setMuted(value) {
   muted = !!value
-  try {
-    localStorage.setItem(MUTE_KEY, muted ? '1' : '0')
-  } catch {
-    /* ignore */
-  }
-  if (muted && ctx) {
-    try { ctx.suspend() } catch { /* ignore */ }
-  } else if (!muted && ctx) {
-    try { ctx.resume() } catch { /* ignore */ }
-  }
+  try { localStorage.setItem(MUTE_KEY, muted ? '1' : '0') } catch { /* ignore */ }
+  if (master) master.gain.value = muted ? 0 : 0.45
   return muted
 }
 
@@ -33,20 +30,49 @@ export function toggleMute() {
   return setMuted(!muted)
 }
 
-function audio() {
-  if (muted) return null
+export function isMusicOn() {
+  return musicOn
+}
+
+export function setMusicOn(value) {
+  musicOn = !!value
+  try { localStorage.setItem(MUSIC_KEY, musicOn ? '1' : '0') } catch { /* ignore */ }
+  applyMusicGain()
+  if (musicOn) startMusic()
+  else stopMusic()
+  return musicOn
+}
+
+export function toggleMusic() {
+  return setMusicOn(!musicOn)
+}
+
+function applyMusicGain() {
+  if (!musicGain) return
+  musicGain.gain.value = musicOn ? MUSIC_LEVEL : 0
+}
+
+function ensureCtx() {
   if (!ctx) {
     const AC = window.AudioContext || window.webkitAudioContext
     if (!AC) return null
     ctx = new AC()
     master = ctx.createGain()
-    master.gain.value = 0.45
+    master.gain.value = muted ? 0 : 0.45
     master.connect(ctx.destination)
+    musicGain = ctx.createGain()
+    musicGain.gain.value = musicOn ? MUSIC_LEVEL : 0
+    musicGain.connect(ctx.destination)
   }
   if (ctx.state === 'suspended') {
     try { ctx.resume() } catch { /* ignore */ }
   }
   return ctx
+}
+
+function audio() {
+  if (muted) return null
+  return ensureCtx()
 }
 
 function tone({ freq, dur, type = 'sine', gain = 0.2, at = 0, slideTo }) {
@@ -136,4 +162,123 @@ export function playCue(name) {
   } catch {
     /* ignore */
   }
+}
+
+const MUSIC_LEVEL = 0.16
+const LOOKAHEAD = 0.6
+const TICK_MS = 250
+
+const SCALES = {
+  kharif: { root: 196, notes: [0, 3, 5, 7, 10], step: 0.46, wave: 'sine', pad: [0, 7, 12] },
+  rabi: { root: 220, notes: [0, 2, 4, 7, 9], step: 0.4, wave: 'triangle', pad: [0, 4, 7] },
+  zaid: { root: 247, notes: [0, 2, 4, 7, 11], step: 0.34, wave: 'triangle', pad: [0, 7, 10] }
+}
+
+const BAD_WEATHER = ['drought', 'flood', 'hail']
+
+let musicPlaying = false
+let musicTimer = 0
+let musicStep = 0
+let nextNoteTime = 0
+let theme = { season: 'rabi', weather: 'normal' }
+let padNodes = []
+
+function freqOf(root, semis) {
+  return root * Math.pow(2, semis / 12)
+}
+
+function scaleFor() {
+  const base = SCALES[theme.season] || SCALES.rabi
+  if (BAD_WEATHER.includes(theme.weather)) {
+    return { ...base, root: base.root * Math.pow(2, -2 / 12), step: base.step * 1.18 }
+  }
+  return base
+}
+
+function pluck(freq, when, dur, wave) {
+  const osc = ctx.createOscillator()
+  const g = ctx.createGain()
+  osc.type = wave
+  osc.frequency.setValueAtTime(freq, when)
+  g.gain.setValueAtTime(0.0001, when)
+  g.gain.exponentialRampToValueAtTime(0.09, when + 0.03)
+  g.gain.exponentialRampToValueAtTime(0.0001, when + dur)
+  osc.connect(g)
+  g.connect(musicGain)
+  osc.start(when)
+  osc.stop(when + dur + 0.05)
+}
+
+function scheduleMusic() {
+  if (!musicPlaying || !ctx) return
+  const scale = scaleFor()
+  while (nextNoteTime < ctx.currentTime + LOOKAHEAD) {
+    const deg = scale.notes[musicStep % scale.notes.length]
+    const octave = musicStep % 8 < 4 ? 12 : 0
+    pluck(freqOf(scale.root, deg + octave), nextNoteTime, scale.step * 1.4, scale.wave)
+    if (musicStep % 4 === 0) {
+      pluck(freqOf(scale.root, scale.pad[0] - 12), nextNoteTime, scale.step * 2.4, 'sine')
+    }
+    musicStep += 1
+    nextNoteTime += scale.step
+  }
+}
+
+function startPad() {
+  stopPad()
+  if (!ctx || !musicGain) return
+  const scale = scaleFor()
+  scale.pad.forEach((semi) => {
+    const osc = ctx.createOscillator()
+    const g = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.value = freqOf(scale.root, semi - 12)
+    g.gain.value = 0.02
+    osc.connect(g)
+    g.connect(musicGain)
+    osc.start()
+    padNodes.push({ osc, g })
+  })
+}
+
+function stopPad() {
+  padNodes.forEach(({ osc, g }) => {
+    try {
+      g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.3)
+      osc.stop(ctx.currentTime + 0.6)
+    } catch {
+      /* ignore */
+    }
+  })
+  padNodes = []
+}
+
+export function startMusic() {
+  if (musicPlaying || !musicOn) return
+  if (!ensureCtx()) return
+  musicPlaying = true
+  musicStep = 0
+  nextNoteTime = ctx.currentTime + 0.1
+  startPad()
+  scheduleMusic()
+  musicTimer = window.setInterval(scheduleMusic, TICK_MS)
+}
+
+export function stopMusic() {
+  if (!musicPlaying) return
+  musicPlaying = false
+  if (musicTimer) {
+    window.clearInterval(musicTimer)
+    musicTimer = 0
+  }
+  stopPad()
+}
+
+export function setMusicScene(season, weather) {
+  if (theme.season === season && theme.weather === weather) return
+  theme = { season: season || 'rabi', weather: weather || 'normal' }
+  if (!musicPlaying) return
+  stopPad()
+  musicStep = 0
+  startPad()
 }

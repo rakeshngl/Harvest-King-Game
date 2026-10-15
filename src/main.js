@@ -14,7 +14,8 @@ import {
 } from './net.js'
 import { PERSONAS, CPU_NAMES, chooseAction, describeAction } from './ai.js'
 import { t, setLang, currentLang, LANGS } from './i18n.js'
-import { playCue, isMuted, toggleMute } from './sound.js'
+import { playCue, isMuted, toggleMute, isMusicOn, toggleMusic, startMusic, stopMusic, setMusicScene } from './sound.js'
+import { inrShort, fmtCount } from './format.js'
 
 const app = document.getElementById('app')
 
@@ -77,18 +78,16 @@ function visitorKey() {
   }
 }
 
-function fmtCount(n) {
-  return Number(n || 0).toLocaleString('en-IN')
-}
-
 function chromeToggleHtml() {
   const off = isMuted()
+  const musicOff = !isMusicOn()
   return `
     <div class="chrome-toggles">
       <div class="lang-toggle" id="langtoggle">${LANGS.map((l) =>
         `<button class="count-btn${currentLang() === l.id ? ' on' : ''}" data-lang="${l.id}">${l.label}</button>`
       ).join('')}</div>
       <button class="count-btn sound-btn${off ? ' off' : ''}" id="soundtoggle" type="button" aria-pressed="${off ? 'false' : 'true'}">${off ? t('soundOff') : t('soundOn')}</button>
+      <button class="count-btn sound-btn${musicOff ? ' off' : ''}" id="musictoggle" type="button" aria-pressed="${musicOff ? 'false' : 'true'}">${musicOff ? t('musicOff') : t('musicOn')}</button>
     </div>`
 }
 
@@ -111,6 +110,23 @@ function bindLang() {
       render()
     })
   }
+  const music = document.getElementById('musictoggle')
+  if (music) {
+    music.addEventListener('click', () => {
+      toggleMusic()
+      render()
+    })
+  }
+}
+
+function syncMusic() {
+  const inGame = (screen === 'game') && !!state && state.phase !== 'over'
+  if (!inGame) {
+    stopMusic()
+    return
+  }
+  setMusicScene(seasonOf(state).id, state.weather.id)
+  startMusic()
 }
 
 function statsHtml() {
@@ -163,7 +179,7 @@ function startPresence() {
 }
 
 function rs(n) {
-  return t('rs') + Math.round(n).toLocaleString('en-IN')
+  return t('rs') + inrShort(n)
 }
 
 function logIdOf(e) {
@@ -604,6 +620,7 @@ function maybePlayWin() {
 
 function render() {
   document.documentElement.lang = currentLang()
+  syncMusic()
   if (screen === 'lobby' && !state) {
     app.innerHTML = lobbyHtml()
     bindLobby()
