@@ -6,11 +6,12 @@ import {
   buyFarm, leaseFarm, buyInfra, prepareLand, seedLand, irrigate, insure,
   harvest, tendCrop, sellToFci, takeLoan, repayLoan, declineAction, nextTurn,
   unmortgage, openFarmWork, actingSeat, bidAuction, passAuction, offerTrade,
-  acceptTrade, rejectTrade
+  acceptTrade, rejectTrade, finalStandings
 } from './engine.js'
+import { blankProfile, applyMatch } from './profile.js'
 import {
   createRoom, joinRoom, startRoom, sendAction, waitSnapshot, openEventStream,
-  kickSeat, passHost, addCpu, loadSession, saveSession, savedSeat, savedSeats, forgetSeat, pingPresence, fetchLobby
+  kickSeat, passHost, addCpu, loadSession, saveSession, savedSeat, savedSeats, forgetSeat, pingPresence, fetchLobby, fetchProfile
 } from './net.js'
 import { PERSONAS, CPU_NAMES, chooseAction, describeAction } from './ai.js'
 import { t, setLang, currentLang, LANGS } from './i18n.js'
@@ -60,6 +61,8 @@ let hallStats = { visits: 0, online: 0, playing: 0 }
 let clockTimer = 0
 let openTables = []
 let visitorId = ''
+let myProfile = null
+let profileSeq = 0
 let presenceOn = false
 let sideTab = 'farmers'
 let tradeDraft = { to: '', cashGive: '', cashTake: '', landGive: '', landTake: '', debtGive: '', debtTake: '' }
@@ -75,6 +78,23 @@ function visitorKey() {
     return id
   } catch {
     return 'anon-' + Date.now()
+  }
+}
+
+function myVisitor() {
+  if (!visitorId) visitorId = visitorKey()
+  return visitorId
+}
+
+async function loadProfile() {
+  const seq = ++profileSeq
+  try {
+    const data = await fetchProfile(myVisitor())
+    if (seq !== profileSeq) return
+    myProfile = data
+    paintProfile()
+  } catch {
+    /* ignore */
   }
 }
 
@@ -147,11 +167,101 @@ function statsHtml() {
     </div>`
 }
 
+function localRecord() {
+  try {
+    return JSON.parse(localStorage.getItem('hk-record') || 'null')
+  } catch {
+    return null
+  }
+}
+
+function saveLocalRecord(prof) {
+  try {
+    localStorage.setItem('hk-record', JSON.stringify(prof))
+  } catch {
+    /* ignore */
+  }
+}
+
+function recordLocalResult() {
+  if (!state || state.phase !== 'over' || online()) return
+  const mine = humanSeat
+  const rows = finalStandings(state)
+  const row = rows.find((r) => r.id === mine)
+  if (!row) return
+  const prof = applyMatch(localRecord() || blankProfile(myVisitor(), draftName), {
+    at: Date.now(),
+    code: 'LOCAL',
+    seats: state.players.length,
+    rank: row.rank,
+    net: row.net,
+    won: row.won,
+    bankrupt: row.bankrupt,
+    name: draftName,
+    seasons: (state.seasonIndex || 0) + 1
+  })
+  saveLocalRecord(prof)
+}
+
+function mergeRecord(server, local) {
+  const a = server || {}
+  const b = local || {}
+  if (!a.games && !b.games) return { games: 0, wins: 0, insolvencies: 0, bestNet: 0, recent: [] }
+  return {
+    games: (a.games || 0) + (b.games || 0),
+    wins: (a.wins || 0) + (b.wins || 0),
+    insolvencies: (a.insolvencies || 0) + (b.insolvencies || 0),
+    bestNet: Math.max(a.bestNet || 0, b.bestNet || 0),
+    recent: [...(a.recent || []), ...(b.recent || [])]
+      .sort((x, y) => (y.at || 0) - (x.at || 0))
+      .slice(0, 5)
+  }
+}
+
+function profileHtml() {
+  const p = mergeRecord(myProfile, localRecord())
+  if (!p.games) {
+    return `
+      <article class="mode-card record-card">
+        <div class="mode-kicker">${t('myRecord')}</div>
+        <h2>${t('myRecord')}</h2>
+        <p>${t('recordEmpty')}</p>
+        <p class="record-hint">${t('recordHint')}</p>
+      </article>`
+  }
+  const rate = Math.round((p.wins / Math.max(1, p.games)) * 100)
+  const rows = (p.recent || []).map((m) => `
+    <div class="record-row">
+      <span class="record-badge${m.won ? ' on' : ''}">${m.won ? t('recordWon') : t('recordPlayed')}</span>
+      <span class="record-code">${m.code}</span>
+      <span class="record-meta">${t('recordRank', m.rank, m.seats)}</span>
+      <span class="record-net">${rs(m.net)}</span>
+    </div>`).join('')
+  return `
+    <article class="mode-card record-card">
+      <div class="mode-kicker">${t('myRecord')}</div>
+      <h2>${t('myRecord')}</h2>
+      <div class="record-stats">
+        <div class="record-stat"><b>${fmtCount(p.games)}</b><span>${t('recordGames')}</span></div>
+        <div class="record-stat"><b>${fmtCount(p.wins)}</b><span>${t('recordWins')}</span></div>
+        <div class="record-stat"><b>${rate}%</b><span>${t('recordWins')}</span></div>
+        <div class="record-stat"><b>${rs(p.bestNet)}</b><span>${t('recordBest')}</span></div>
+        <div class="record-stat"><b>${fmtCount(p.insolvencies)}</b><span>${t('recordInsolvent')}</span></div>
+      </div>
+      ${rows ? `<div class="record-list"><div class="record-kicker">${t('recentMatches')}</div>${rows}</div>` : ''}
+      <p class="record-hint">${t('recordHint')}</p>
+    </article>`
+}
+
+function paintProfile() {
+  const root = document.getElementById('myrecord')
+  if (root) root.innerHTML = profileHtml()
+}
+
 async function pulsePresence() {
-  if (!visitorId) visitorId = visitorKey()
   const playing = screen === 'game' || screen === 'waiting'
   try {
-    hallStats = await pingPresence(visitorId, playing)
+    hallStats = await pingPresence(myVisitor(), playing)
     paintHallStats()
     if (screen === 'lobby' && !state) {
       openTables = await fetchLobby()
@@ -405,6 +515,7 @@ function leaveSession(opts = {}) {
   cpuGen += 1
   humanSeat = 0
   saveSession(null)
+  loadProfile()
   if (opts.forget !== false && code) forgetSeat(code)
 }
 
@@ -422,7 +533,7 @@ function enterOnline(snap, extra = {}) {
 }
 
 async function resumeSeat(code, token, name) {
-  const snap = await joinRoom(code, name || '', { token })
+  const snap = await joinRoom(code, name || '', { token, visitor: visitorKey() })
   enterOnline(snap, { name: name || (snap.players && snap.players[snap.you] && snap.players[snap.you].name) })
   return snap
 }
@@ -614,7 +725,10 @@ function applyCpuAction(action) {
 
 function maybePlayWin() {
   const over = !!(state && state.phase === 'over')
-  if (over && !wasOver) playCue('win')
+  if (over && !wasOver) {
+    recordLocalResult()
+    playCue('win')
+  }
   wasOver = over
 }
 
@@ -669,6 +783,7 @@ function lobbyHtml() {
       </div>
       ${resumeTablesHtml()}
       <div id="opentables">${openTablesHtml()}</div>
+      <div id="myrecord">${profileHtml()}</div>
       <div class="mode-grid">
         <article class="mode-card mode-online">
           <div class="mode-kicker">${t('onlineTable')}</div>
@@ -810,7 +925,7 @@ function bindOpenTables() {
           await resumeSeat(code, seat.token, seat.name || name)
           return
         }
-        const snap = await joinRoom(code, name)
+        const snap = await joinRoom(code, name, { visitor: visitorKey() })
         enterOnline(snap, { name })
       } catch (err) {
         notice = err.message
@@ -945,7 +1060,7 @@ function bindLobby() {
     try {
       notice = ''
       const password = (document.getElementById('roompass').value || '').trim()
-      const snap = await createRoom(name, { password })
+      const snap = await createRoom(name, { password, visitor: visitorKey() })
       enterOnline(snap, { name })
     } catch (err) {
       notice = err.message
@@ -964,7 +1079,7 @@ function bindLobby() {
       const name = requireFarmerName()
       if (!name) return
       const password = (document.getElementById('roompass').value || '').trim()
-      const snap = await joinRoom(code, name, { password })
+      const snap = await joinRoom(code, name, { password, visitor: visitorKey() })
       enterOnline(snap, { name })
     } catch (err) {
       if (seat) forgetSeat(code)
@@ -983,7 +1098,7 @@ function bindLobby() {
         return
       }
       const password = (document.getElementById('roompass').value || '').trim()
-      const snap = await joinRoom(code, name, { watch: true, password })
+      const snap = await joinRoom(code, name, { watch: true, password, visitor: visitorKey() })
       enterOnline(snap, { name })
     } catch (err) {
       notice = err.message
@@ -1012,6 +1127,7 @@ function bindLobby() {
     })
   })
   bindOpenTables()
+  loadProfile()
   fetchLobby().then((tables) => {
     openTables = tables
     paintOpenTables()

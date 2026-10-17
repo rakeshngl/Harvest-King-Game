@@ -10,7 +10,8 @@ Future development roadmap. Mirrors `public/roadmap.html`. Items marked **done**
 4. CPU in online rooms — done (host seats computer farmers)
 5. Mobile board layout — done (compact board, tabbed side, sticky roll dock)
 6. Trading + auctions — done (end-phase offers, Village Hall auctions)
-7. Accounts / history — next (rooms now survive restarts)
+7. Match history + personal stats — done per device (visitor id + `/api/profile`)
+8. Accounts / login — next (rooms now survive restarts)
 
 ## Ops (after Vercel + Coolify)
 
@@ -26,7 +27,7 @@ Done: SSE transport, fast-forward missed dice + landing pop-ups, authoritative e
 
 - Optional login (Google / email magic link)
 - Named farmer profiles, avatar and coin color unlocks
-- Match history, personal stats (harvests, insolvencies, king wins)
+- Match history, personal stats (harvests, insolvencies, king wins) — done per device (visitor id, lobby "Your record" panel, `/api/profile`); real accounts still open
 - Leaderboards: fastest king, highest net worth, season win rate
 - Friends / recent players / rematch
 - Daily challenge seed (same board RNG for everyone)

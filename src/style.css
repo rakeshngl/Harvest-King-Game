@@ -262,6 +262,109 @@ html, body {
   font-weight: 800;
 }
 
+.record-card::before { background: linear-gradient(90deg, #7C3AED, #C4B5FD); }
+
+.record-card p.record-hint {
+  flex: 0 0 auto;
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: #8B7355;
+}
+
+.record-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(94px, 1fr));
+  gap: 10px;
+  margin: 4px 0 14px;
+}
+
+.record-stat {
+  background: rgba(245, 222, 179, 0.35);
+  border: 1px solid #E8D5A8;
+  border-radius: 10px;
+  padding: 10px 8px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.record-stat b {
+  font-family: Cinzel, serif;
+  font-size: 20px;
+  color: var(--navy);
+}
+
+.record-stat span {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8B7355;
+  font-weight: 700;
+}
+
+.record-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.record-kicker {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--saffron-deep);
+  font-weight: 800;
+  margin-bottom: 2px;
+}
+
+.record-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid #E8D5A8;
+  border-radius: 10px;
+  padding: 7px 10px;
+  font-size: 13px;
+}
+
+.record-badge {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #E5E7EB;
+  color: #4B5563;
+}
+
+.record-badge.on {
+  background: #15803D;
+  color: #F0FDF4;
+}
+
+.record-code {
+  font-family: Cinzel, serif;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--navy);
+}
+
+.record-meta {
+  color: #8B7355;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.record-net {
+  margin-left: auto;
+  font-weight: 800;
+  color: var(--saffron-deep);
+}
+
 .lobby .en {
   font-family: Cinzel, serif;
   font-size: 13px;

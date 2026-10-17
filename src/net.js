@@ -85,7 +85,7 @@ async function post(path, body) {
 }
 
 export function createRoom(name, opts = {}) {
-  return post('/api/create', { name, password: opts.password || '' })
+  return post('/api/create', { name, password: opts.password || '', visitor: opts.visitor || '' })
 }
 
 export function joinRoom(code, name, opts = {}) {
@@ -94,14 +94,16 @@ export function joinRoom(code, name, opts = {}) {
     name,
     token: opts.token || undefined,
     watch: !!opts.watch,
-    password: opts.password || undefined
+    password: opts.password || undefined,
+    visitor: opts.visitor || ''
   })
 }
 
-export function rejoinRoom(code, token) {
+export function rejoinRoom(code, token, visitor) {
   return post('/api/join', {
     code: String(code || '').toUpperCase(),
-    token
+    token,
+    visitor: visitor || ''
   })
 }
 
@@ -137,6 +139,14 @@ export async function fetchLobby() {
   const data = await res.json().catch(() => null)
   if (!res.ok || !data) return []
   return Array.isArray(data.rooms) ? data.rooms : []
+}
+
+export async function fetchProfile(visitor) {
+  const q = new URLSearchParams({ visitor: visitor || '' })
+  const res = await fetch(apiUrl(`/api/profile?${q}`))
+  const data = await res.json().catch(() => null)
+  if (!res.ok || !data) return { games: 0, wins: 0, insolvencies: 0, bestNet: 0, recent: [] }
+  return data
 }
 
 export async function pingPresence(visitor, playing) {

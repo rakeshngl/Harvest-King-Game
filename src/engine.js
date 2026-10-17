@@ -124,6 +124,23 @@ export function netWorth(state, player) {
   return worth
 }
 
+export function finalStandings(state) {
+  const rows = state.players.map((p) => ({
+    id: p.id,
+    name: p.name,
+    net: Math.round(netWorth(state, p)),
+    bankrupt: !!p.bankrupt
+  }))
+  const order = [...rows].sort((a, b) => b.net - a.net)
+  const rankOf = new Map()
+  order.forEach((r, i) => rankOf.set(r.id, i + 1))
+  return rows.map((r) => ({
+    ...r,
+    rank: rankOf.get(r.id),
+    won: state.winner != null ? state.winner === r.id : rankOf.get(r.id) === 1
+  }))
+}
+
 export function farmsOf(state, pid) {
   return Object.entries(state.farms)
     .filter(([, f]) => f.owner === pid || f.leasee === pid)

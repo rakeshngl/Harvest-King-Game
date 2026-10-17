@@ -108,6 +108,8 @@
 data/stats.json
 data/rooms.json
 data/rooms.json.tmp
+data/profiles.json
+data/profiles.json.tmp
 
 # Environment and secrets
 **/.env

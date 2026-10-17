@@ -313,6 +313,14 @@ npm test
 - **Pass-and-play**: 2 to 4 named farmers on one device; every seat is human.
 - **Vs computer**: enter your name, pick 1 to 3 rivals and a difficulty, then **Play vs computer**. You always sit first.
 
+### Your record
+
+The lobby shows a **Your record** panel: games, wins, win rate, best net worth, times insolvent, and the last few results. No sign-up is needed.
+
+- Online games are recorded server-side when the match ends, keyed by the `hk-visitor` id kept in `localStorage` (`GET /api/profile?visitor=...`). The server stores them in `data/profiles.json` and caps the file at 5,000 profiles, keeping the most recently active.
+- Local pass-and-play and vs-computer games are recorded on the device (`hk-record` in `localStorage`) and merged into the same panel.
+- Clearing site data resets the visitor id, so the server-side history is no longer reachable. Real accounts are still on the roadmap.
+
 ## Architecture Notes
 
 ### Shared rules engine
@@ -356,8 +364,10 @@ Base URL: `/api` (proxied to port 3001).
 | --- | --- | --- | --- |
 | GET | `/api/health` | - | Health. `{ ok, rooms, roomsBy, persist, persistWritable, streams, uptimeMs, memory, draining }`. 503 while draining. |
 | GET | `/api/lobby` | - | Unlocked waiting rooms (`code`, `seats`, `host`, `names`). Locked rooms are omitted. |
-| POST | `/api/create` | `{ name, password? }` | Create a room. Optional password locks join/watch. Returns a snapshot plus your `token`. |
-| POST | `/api/join` | `{ code, name, watch?, password?, token? }` | Join an unstarted room, or spectate a started one. Resume with `token` skips the password. |
+| GET | `/api/profile` | `?visitor` | Per-device match history and stats (`games`, `wins`, `insolvencies`, `bestNet`, `recent[]`). Keyed by the `hk-visitor` id; empty for unknown ids. |
+| POST | `/api/presence` | `{ visitor, playing? }` | Heartbeat. Tracks online players and returns hall counters. |
+| POST | `/api/create` | `{ name, password?, visitor? }` | Create a room. Optional password locks join/watch. Returns a snapshot plus your `token`. |
+| POST | `/api/join` | `{ code, name, watch?, password?, token?, visitor? }` | Join an unstarted room, or spectate a started one. Resume with `token` skips the password. |
 | POST | `/api/start` | `{ code, token }` | Host-only. Starts the game; requires at least 2 players. |
 | POST | `/api/kick` | `{ code, token, seat }` | Host-only, waiting room. Remove a farmer and compact seats. |
 | POST | `/api/host` | `{ code, token, seat }` | Host-only. Pass the gavel to another seated farmer. Humans only. |

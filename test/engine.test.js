@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {
   createGame, harvest, forcePay, buyFarm, prepareLand, seedLand, skipTurn,
   nextTurn, netWorth, applyMove, takeLoan, declineAction, bidAuction, passAuction,
-  offerTrade, acceptTrade, rejectTrade, actingSeat
+  offerTrade, acceptTrade, rejectTrade, actingSeat, finalStandings
 } from '../src/engine.js'
 import { START_CASH, WIN_NET, PASS_GO, WEATHER, TILES, CROPS, INTEREST } from '../src/data.js'
 
@@ -224,4 +224,31 @@ test('owned farm counts toward net worth until mortgaged', () => {
   assert.equal(withLand, START_CASH + TILES[1].price)
   s.farms[1].mortgaged = true
   assert.equal(netWorth(s, s.players[0]), START_CASH)
+})
+
+test('finalStandings ranks by net worth and flags the winner', () => {
+  const s = createGame(3, ['A', 'B', 'C'])
+  s.phase = 'over'
+  s.farms[1].owner = 2
+  s.players[1].bankrupt = true
+  s.players[1].cash = 0
+  s.players[1].debt = 0
+  const rows = finalStandings(s)
+  assert.equal(rows[2].rank, 1)
+  assert.equal(rows[2].won, true)
+  assert.equal(rows[0].rank, 2)
+  assert.equal(rows[0].won, false)
+  assert.equal(rows[1].bankrupt, true)
+  assert.equal(rows[1].rank, 3)
+})
+
+test('finalStandings honours an explicit winner over raw net worth', () => {
+  const s = createGame(2, ['A', 'B'])
+  s.phase = 'over'
+  s.farms[1].owner = 1
+  s.winner = 0
+  const rows = finalStandings(s)
+  assert.equal(rows[0].won, true)
+  assert.equal(rows[1].won, false)
+  assert.equal(rows[1].rank, 1)
 })

@@ -6,8 +6,11 @@ import {
   createGame, applyMove, rollDice, buyFarm, leaseFarm, buyInfra, prepareLand,
   seedLand, irrigate, insure, harvest, tendCrop, sellToFci, takeLoan, repayLoan,
   declineAction, nextTurn, skipTurn, unmortgage, openFarmWork, actingSeat,
-  bidAuction, passAuction, offerTrade, acceptTrade, rejectTrade
+  bidAuction, passAuction, offerTrade, acceptTrade, rejectTrade, finalStandings
 } from '../src/engine.js'
+import {
+  blankProfile, normalizeProfile, applyMatch, publicProfile as buildPublicProfile
+} from '../src/profile.js'
 import { LOAN_STEP } from '../src/data.js'
 import { PERSONAS, CPU_NAMES, chooseAction } from '../src/ai.js'
 
@@ -18,6 +21,7 @@ const ONLINE_MS = 25000
 const DATA_DIR = path.join(process.cwd(), 'data')
 const STATS_FILE = path.join(DATA_DIR, 'stats.json')
 const ROOMS_FILE = path.join(DATA_DIR, 'rooms.json')
+const PROFILES_FILE = path.join(DATA_DIR, 'profiles.json')
 const KEEP_OVER_MS = 24 * 60 * 60 * 1000
 const KEEP_WAIT_MS = 6 * 60 * 60 * 1000
 const KEEP_IDLE_MS = 48 * 60 * 60 * 1000
@@ -29,6 +33,7 @@ const CREATE_LIMIT = 8
 const JOIN_LIMIT = 20
 const RATE_WINDOW_MS = 10 * 60 * 1000
 const DRAIN_MS = Math.max(3, Number(process.env.DRAIN_MS) || 25) * 1000
+const PROFILE_CAP = 5000
 const presence = new Map()
 const rateBuckets = new Map()
 let persistOk = true
@@ -99,6 +104,82 @@ function saveStats() {
   }
 }
 
+const profiles = new Map()
+
+function loadProfiles() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(PROFILES_FILE, 'utf8'))
+    const list = Array.isArray(raw.profiles) ? raw.profiles : []
+    list.forEach((p) => {
+      if (p && p.id) profiles.set(String(p.id), normalizeProfile(p))
+    })
+  } catch {
+    /* empty store */
+  }
+}
+
+function pruneProfiles() {
+  if (profiles.size <= PROFILE_CAP) return
+  const ordered = [...profiles.values()].sort((a, b) => (a.updatedAt || 0) - (b.updatedAt || 0))
+  const drop = profiles.size - PROFILE_CAP
+  for (let i = 0; i < drop; i++) profiles.delete(ordered[i].id)
+}
+
+function saveProfiles() {
+  try {
+    pruneProfiles()
+    fs.mkdirSync(DATA_DIR, { recursive: true })
+    const payload = { savedAt: Date.now(), profiles: [...profiles.values()] }
+    const tmp = `${PROFILES_FILE}.tmp`
+    fs.writeFileSync(tmp, JSON.stringify(payload))
+    fs.renameSync(tmp, PROFILES_FILE)
+  } catch {
+    /* ignore */
+  }
+}
+
+function ensureProfile(id, name) {
+  const key = String(id || '').slice(0, 64)
+  let prof = profiles.get(key)
+  if (!prof) {
+    prof = blankProfile(key, name || 'Farmer')
+    profiles.set(key, prof)
+  }
+  return prof
+}
+
+function recordMatch(room) {
+  if (!room || room.recorded) return
+  const state = room.state
+  if (!state || state.phase !== 'over') return
+  room.recorded = true
+  const bySeat = new Map()
+  room.players.forEach((p) => bySeat.set(p.seat, p))
+  const standings = finalStandings(state)
+  let changed = false
+  standings.forEach((row) => {
+    const member = bySeat.get(row.id)
+    const visitor = member && member.visitor
+    if (!visitor) return
+    const prof = ensureProfile(visitor, member.name)
+    profiles.set(prof.id, applyMatch(prof, {
+      at: Date.now(),
+      code: room.code,
+      seats: state.players.length,
+      rank: row.rank,
+      net: row.net,
+      won: row.won,
+      bankrupt: row.bankrupt,
+      name: member.name,
+      seasons: (state.seasonIndex || 0) + 1
+    }))
+    changed = true
+  })
+  if (changed) saveProfiles()
+}
+
+loadProfiles()
+
 function serializableRoom(room) {
   return {
     code: room.code,
@@ -113,7 +194,8 @@ function serializableRoom(room) {
       token: p.token,
       seen: p.seen,
       cpu: !!p.cpu,
-      persona: p.persona || null
+      persona: p.persona || null,
+      visitor: p.visitor || null
     })),
     spectators: (room.spectators || []).map((p) => ({
       seat: -1,
@@ -126,6 +208,7 @@ function serializableRoom(room) {
     passHash: room.passHash || '',
     turnEndsAt: room.turnEndsAt || 0,
     cpuDifficulty: room.cpuDifficulty || 'normal',
+    recorded: !!room.recorded,
     updatedAt: room.updatedAt || Date.now()
   }
 }
@@ -186,7 +269,8 @@ function loadRooms() {
           token: String(p.token || ''),
           seen: Number(p.seen) || 0,
           cpu: !!p.cpu,
-          persona: p.persona ? String(p.persona) : null
+          persona: p.persona ? String(p.persona) : null,
+          visitor: p.visitor ? String(p.visitor).slice(0, 64) : null
         })) : [],
         spectators: Array.isArray(r.spectators) ? r.spectators.map((p) => ({
           seat: -1,
@@ -199,6 +283,7 @@ function loadRooms() {
         passHash: String(r.passHash || ''),
         turnEndsAt: Number(r.turnEndsAt) || 0,
         cpuDifficulty: ['easy', 'normal', 'hard'].includes(r.cpuDifficulty) ? r.cpuDifficulty : 'normal',
+        recorded: !!r.recorded,
         updatedAt: Number(r.updatedAt) || now
       })
     })
@@ -226,6 +311,12 @@ function publicStats() {
   return { visits: statsStore.visits, online, playing }
 }
 
+function publicProfile(raw) {
+  const id = visitorId(raw)
+  const prof = id ? profiles.get(id) : null
+  return buildPublicProfile(prof || { id: id || '', name: '' })
+}
+
 function publicLobby() {
   pruneRooms()
   return [...rooms.values()]
@@ -242,6 +333,11 @@ function publicLobby() {
         names: room.players.map((p) => p.cpu ? `${p.name} (computer)` : p.name)
       }
     })
+}
+
+function visitorId(raw) {
+  const id = String(raw || '').trim().slice(0, 64)
+  return id || null
 }
 
 function touchPresence(visitor, playing) {
@@ -356,6 +452,7 @@ function writeSse(res, event, body) {
 }
 
 function bump(room) {
+  recordMatch(room)
   room.seq += 1
   room.updatedAt = Date.now()
   const waiters = (room.waiters || []).splice(0)
@@ -664,6 +761,11 @@ const server = http.createServer(async (req, res) => {
       return
     }
 
+    if (req.method === 'GET' && path === '/api/profile') {
+      json(res, 200, publicProfile(url.searchParams.get('visitor') || url.searchParams.get('id')))
+      return
+    }
+
     if (req.method === 'POST' && path === '/api/presence') {
       const body = await readBody(req)
       json(res, 200, touchPresence(body.visitor, body.playing))
@@ -681,6 +783,7 @@ const server = http.createServer(async (req, res) => {
       }
       const body = await readBody(req)
       const name = String(body.name || '').trim().slice(0, 16) || 'Saffron'
+      const visitor = visitorId(body.visitor)
       const room = {
         code: code(),
         started: false,
@@ -695,7 +798,7 @@ const server = http.createServer(async (req, res) => {
         passHash: passHash(body.password || body.pass),
         players: []
       }
-      room.players.push({ seat: 0, name, token: token(), seen: Date.now() })
+      room.players.push({ seat: 0, name, token: token(), seen: Date.now(), visitor })
       room.updatedAt = Date.now()
       rooms.set(room.code, room)
       saveRooms()
@@ -722,6 +825,7 @@ const server = http.createServer(async (req, res) => {
       }
       if (existing) {
         existing.seen = Date.now()
+        if (body.visitor) existing.visitor = visitorId(body.visitor)
         if (body.name) existing.name = String(body.name).trim().slice(0, 16) || existing.name
         maybePassHost(room)
         bump(room)
@@ -755,7 +859,7 @@ const server = http.createServer(async (req, res) => {
         return
       }
       const name = String(body.name || '').trim().slice(0, 16) || `Farmer ${room.players.length + 1}`
-      const p = { seat: room.players.length, name, token: token(), seen: Date.now() }
+      const p = { seat: room.players.length, name, token: token(), seen: Date.now(), visitor: visitorId(body.visitor) }
       room.players.push(p)
       bump(room)
       json(res, 200, { ...snapshot(room, p.seat), token: p.token })
