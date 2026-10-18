@@ -300,6 +300,18 @@ npm run preview
 npm test
 ```
 
+```bash
+# Lint every source file
+npm run lint
+```
+
+```bash
+# Lint and apply safe autofixes
+npm run lint:fix
+```
+
+CI runs on every push and pull request (`.github/workflows/ci.yml`): Node 20 and 22, then `npm ci`, lint, tests, build, and an API health smoke check.
+
 ## How to Play Online
 
 1. One player opens the game and **creates a room**. A 4-letter code is generated.

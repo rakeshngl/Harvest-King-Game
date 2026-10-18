@@ -157,17 +157,6 @@ function log(state, msg, kind = 'info', meta = null) {
   state.log.unshift({ id: state.logId, kind, text: msg, meta })
 }
 
-function pay(state, player, amount, reason) {
-  const a = Math.round(amount)
-  if (a <= 0) return true
-  if (player.cash >= a) {
-    player.cash -= a
-    log(state, `${player.name} pays Rs ${a}${reason ? ' — ' + reason : ''}.`, 'loss', { amount: a, pid: player.id })
-    return true
-  }
-  return false
-}
-
 function gain(state, player, amount, reason) {
   const a = Math.round(amount)
   if (a <= 0) return

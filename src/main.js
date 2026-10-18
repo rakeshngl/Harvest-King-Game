@@ -1,4 +1,4 @@
-import { TILES, CROPS, GROUPS, PLAYER_PALETTE, WIN_NET, MAX_SEASONS, LOAN_STEP, LOAN_CAP } from './data.js'
+import { TILES, CROPS, GROUPS, PLAYER_PALETTE, MAX_SEASONS, LOAN_STEP, LOAN_CAP } from './data.js'
 import { iconHtml } from './icons.js'
 import { diceHtml, animateDice, setDiceFace } from './dice.js'
 import {

@@ -17,7 +17,6 @@ function stubRandom(value) {
 
 function expectedHarvest(state, tileId) {
   const f = state.farms[tileId]
-  const t = TILES[tileId]
   const crop = CROPS[f.crop]
   const w = state.weather
   let y = crop.yield * f.fertility * w.mod

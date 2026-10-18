@@ -100,7 +100,7 @@ Done: English / Hindi / Tamil toggle; full mobile layout; sound effects with a m
 - TypeScript on engine + server
 - OpenAPI for `/api/*`
 - Docker Compose for local API + Vite
-- CI: lint, test, build on push
+- CI: lint, test, build on push — done (GitHub Actions, Node 20 + 22, health smoke check)
 - Replace in-memory Map with a room store interface (memory now, Redis later)
 
 Done: automated engine tests.
