@@ -17,6 +17,7 @@ import { PERSONAS, CPU_NAMES, chooseAction, describeAction } from './ai.js'
 import { t, setLang, currentLang, LANGS } from './i18n.js'
 import { playCue, isMuted, toggleMute, isMusicOn, toggleMusic, startMusic, stopMusic, setMusicScene } from './sound.js'
 import { inrShort, fmtCount } from './format.js'
+import { todayKey, dailyCode } from './rng.js'
 
 const app = document.getElementById('app')
 
@@ -205,7 +206,7 @@ function recordLocalResult() {
   if (!row) return
   const prof = applyMatch(localRecord() || blankProfile(myVisitor(), draftName), {
     at: Date.now(),
-    code: 'LOCAL',
+    code: state.daily ? dailyCode(state.daily) : 'LOCAL',
     seats: state.players.length,
     rank: row.rank,
     net: row.net,
@@ -680,7 +681,7 @@ function applyCpuAction(action) {
   if (action.type === 'roll') {
     cpuGuard = 0
     rolling = true
-    const dice = rollDice()
+    const dice = rollDice(state)
     const prevCash = state.players.map((p) => p.cash)
     render()
     const gen = cpuGen
@@ -834,6 +835,12 @@ function lobbyHtml() {
           </div>
           <div class="names" id="names">${nameInputs(2)}</div>
           <button class="primary" id="start">${t('passPlayBtn')}</button>
+        </article>
+        <article class="mode-card mode-daily">
+          <div class="mode-kicker">${t('daily')}</div>
+          <h2>${t('dailyTitle')}</h2>
+          <p>${t('dailyHint', todayKey())}</p>
+          <button class="primary" id="daily">${t('playDaily')}</button>
         </article>
       </div>
       <section class="guide">
@@ -1077,6 +1084,18 @@ function bindLobby() {
       return typed || PLAYER_PALETTE[idx].name
     })
     startLocalGame(n, list)
+  })
+  document.getElementById('daily').addEventListener('click', () => {
+    const you = requireFarmerName()
+    if (!you) return
+    cpuDifficulty = 'normal'
+    const per = PERSONAS[0]
+    startLocalGame(2, [you, CPU_NAMES[per.id] || per.name], {
+      cpu: [false, true],
+      persona: [null, per.id],
+      daily: todayKey(),
+      preset: 'classic'
+    })
   })
   document.getElementById('create').addEventListener('click', async () => {
     const name = requireFarmerName()
@@ -1336,6 +1355,7 @@ function gameHtml() {
           <span class="chip s">${season.name} · ${season.hint}</span>
           <span class="chip g">${state.weather.name}</span>
           <span class="chip n">${t('seasonN', Math.min(state.seasonIndex + 1, state.maxSeasons || MAX_SEASONS), state.maxSeasons || MAX_SEASONS)}</span>
+          ${state.daily ? `<span class="chip">${t('daily')} ${state.daily}</span>` : ''}
           <span class="chip">${t('marketX', state.marketMod.toFixed(2))}</span>
           ${online() ? `<span class="chip">${session.spectator ? t('watching') : t('youName', me ? me.name : '')}</span>` : (state.players.some((x) => x.cpu) ? '<span class="chip">' + t('vsCpuChip') + '</span>' : '')}
         </div>
@@ -1822,7 +1842,7 @@ function bindGame() {
       if (await netAct({ type: 'roll' })) return
       rolling = true
       roll.disabled = true
-      const dice = rollDice()
+      const dice = rollDice(state)
       const prevCash = state.players.map((p) => p.cash)
       playCue('dice')
       animateDice(dice[0], dice[1], () => {

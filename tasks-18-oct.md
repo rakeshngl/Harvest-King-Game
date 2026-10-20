@@ -19,13 +19,12 @@ Accounts/login stay deferred (needs OAuth or email credentials).
 - HUD season chip uses `state.maxSeasons`; public lobby lists the chosen length.
 - Tests cover default, each preset, the 12-season cutoff and the short winNet.
 
-## 3. Daily seed
+## 3. Daily seed (done)
 
-- Replace `Math.random` in `engine.js` (12 sites) plus `ai.js` and server with a seeded PRNG stored in `state`.
-- Seed from `YYYY-MM-DD`, so board, weather, market and card order match for everyone.
-- Add a "Daily challenge" lobby entry (local or vs CPU); tag results as `daily` in the profile record.
-- Update tests to stub the PRNG instead of `Math.random`.
-- Follow-on (separate): per-day leaderboard from profile data.
+- Engine and CPU miss chance use mulberry32 stored on `state.rng`; dice, weather, markets, cards and harvest luck replay from a seed.
+- Daily challenge seeds from the IST calendar date (`harvest-king:YYYY-MM-DD`).
+- Lobby card starts a classic 1v1 vs Thrifty; HUD shows the date; results are tagged `DYYMMDD`.
+- Tests stub `state._rng` instead of `Math.random`. Per-day leaderboard is still deferred.
 
 ## 4. PWA
 

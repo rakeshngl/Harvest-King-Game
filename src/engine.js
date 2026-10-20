@@ -3,13 +3,14 @@ import {
   PLAYER_PALETTE, SEASONS, START_CASH, PASS_GO, WIN_NET, MAX_SEASONS,
   LOAN_STEP, LOAN_CAP, INTEREST, SEASON_PRESETS, DEFAULT_PRESET
 } from './data.js'
+import { rngNext, freshSeed, dailySeed } from './rng.js'
 
 const clone = (x) => JSON.parse(JSON.stringify(x))
 
-function shuffle(arr) {
+function shuffle(arr, state) {
   const a = arr.slice()
   for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
+    const j = Math.floor(rngNext(state) * (i + 1))
     ;[a[i], a[j]] = [a[j], a[i]]
   }
   return a
@@ -50,6 +51,8 @@ export function createGame(playerCount = 2, names = [], opts = {}) {
   const preset = presetById(opts.preset)
   const maxSeasons = Math.max(1, Number(opts.seasons) || preset.seasons)
   const winNet = Math.max(1, Number(opts.winNet) || preset.winNet)
+  const daily = opts.daily ? String(opts.daily) : null
+  const seed = daily ? dailySeed(daily) : (Number.isFinite(Number(opts.seed)) ? (Number(opts.seed) >>> 0) : freshSeed())
   const players = Array.from({ length: n }, (_, i) => ({
     id: i,
     name: names[i] || PLAYER_PALETTE[i].name,
@@ -88,10 +91,13 @@ export function createGame(playerCount = 2, names = [], opts = {}) {
     preset: preset.id,
     maxSeasons,
     winNet,
+    seed,
+    daily,
+    rng: seed,
     turn: 0,
     weather: WEATHER[0],
-    kisan: shuffle(KISAN_CARDS),
-    mandi: shuffle(MANDI_CARDS),
+    kisan: [],
+    mandi: [],
     kisanI: 0,
     mandiI: 0,
     log: [],
@@ -104,6 +110,8 @@ export function createGame(playerCount = 2, names = [], opts = {}) {
     started: true,
     labourUsed: false
   }
+  state.kisan = shuffle(KISAN_CARDS, state)
+  state.mandi = shuffle(MANDI_CARDS, state)
   log(state, 'Village Hall opens. May your granaries fill.', 'info')
   return state
 }
@@ -184,8 +192,11 @@ function drawCard(state, kind) {
   return card
 }
 
-export function rollDice() {
-  return [1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)]
+export function rollDice(state) {
+  return [
+    1 + Math.floor(rngNext(state) * 6),
+    1 + Math.floor(rngNext(state) * 6)
+  ]
 }
 
 export function applyMove(state, dice) {
@@ -228,12 +239,12 @@ function tickLeases(state, p) {
 
 function advanceSeasonMaybe(state) {
   state.seasonIndex += 1
-  const w = WEATHER[Math.floor(Math.random() * WEATHER.length)]
+  const w = WEATHER[Math.floor(rngNext(state) * WEATHER.length)]
   state.weather = w
-  state.marketMod = clamp(state.marketMod + (Math.random() * 0.16 - 0.08), 0.7, 1.4)
+  state.marketMod = clamp(state.marketMod + (rngNext(state) * 0.16 - 0.08), 0.7, 1.4)
   Object.keys(state.prices).forEach((cid) => {
     const base = CROPS[cid].price
-    const drift = 1 + (Math.random() * 0.2 - 0.1)
+    const drift = 1 + (rngNext(state) * 0.2 - 0.1)
     state.prices[cid] = Math.round(base * state.marketMod * drift)
   })
   log(state, `${seasonOf(state).name} season. Weather: ${w.name}. ${w.text}`, 'season')
@@ -283,9 +294,9 @@ function resolveTile(state, p, tile, diceTotal) {
     return
   }
   if (tile.type === 'mela') {
-    const bonus = 400 + Math.floor(Math.random() * 900)
+    const bonus = 400 + Math.floor(rngNext(state) * 900)
     gain(state, p, bonus, 'Farm Fair prize')
-    if (Math.random() < 0.45) {
+    if (rngNext(state) < 0.45) {
       const f = farmsOf(state, p.id).find((x) => x.stage === 'idle' && !x.mortgaged)
       if (f) {
         state.farms[f.id].fertility = clamp(state.farms[f.id].fertility + 0.25, 0.5, 2)
@@ -572,7 +583,7 @@ function applyCard(state, p, card) {
       break
     case 'rot':
       farmsOf(state, p.id).forEach((f) => {
-        if (f.stage === 'ripe' && Math.random() < 0.4) wipeCrop(state, f.id, 'rot')
+        if (f.stage === 'ripe' && rngNext(state) < 0.4) wipeCrop(state, f.id, 'rot')
       })
       break
     case 'enam':
@@ -742,10 +753,10 @@ export function harvest(state, tileId) {
   if (groupOwned(state, p.id, t.group)) y *= 1.15
   const ownsSeed = state.infra[25] === p.id
   if (ownsSeed) y *= 1.08
-  const vol = 1 + (Math.random() * 2 - 1) * crop.vol
+  const vol = 1 + (rngNext(state) * 2 - 1) * crop.vol
   y *= vol
   let disaster = false
-  if (w.id === 'hail' && (t.soil === 'hill' || t.group === 'orchard') && Math.random() < 0.35) {
+  if (w.id === 'hail' && (t.soil === 'hill' || t.group === 'orchard') && rngNext(state) < 0.35) {
     y *= 0.4
     disaster = true
     log(state, `Hail shredded part of the ${t.name} harvest.`, 'loss', { tileId })
@@ -754,7 +765,7 @@ export function harvest(state, tileId) {
     y *= 0.7
     disaster = true
   }
-  if (Math.random() < 0.16) {
+  if (rngNext(state) < 0.16) {
     disaster = true
     if (f.insured) {
       log(state, `Pests hit ${t.name}; crop insurance covers the loss.`, 'gain', { amount: 800, pid: p.id, tileId })
@@ -773,7 +784,7 @@ export function harvest(state, tileId) {
   const ownsTractor = state.infra[5] === p.id
   if (ownsTractor) y *= 1.06
   const ownsCold = state.infra[15] === p.id
-  if (!ownsCold && Math.random() < 0.12) {
+  if (!ownsCold && rngNext(state) < 0.12) {
     y *= 0.75
     log(state, `Spoilage without cold storage at ${t.name}.`, 'loss', { tileId })
   }

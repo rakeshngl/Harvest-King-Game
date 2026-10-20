@@ -1,5 +1,6 @@
 import { TILES, CROPS, GROUPS, LOAN_STEP, LOAN_CAP } from './data.js'
 import { currentPlayer, farmsOf, seasonOf, groupOwned, actingSeat } from './engine.js'
+import { rngNext } from './rng.js'
 
 export const PERSONAS = [
   { id: 'thrifty', name: 'Thrifty', hint: 'Leases, millets, fat cash buffer' },
@@ -268,7 +269,7 @@ export function chooseAction(state, difficulty = 'normal') {
   if (state.phase === 'action' && pending && pending.kind === 'trade') return tradeReply(state)
   if (state.turn !== actorId) return { type: 'skip' }
   if (state.phase === 'roll') return { type: 'roll' }
-  if (knobs.miss && Math.random() < knobs.miss) {
+  if (knobs.miss && rngNext(state) < knobs.miss) {
     if (state.phase === 'action') return { type: 'skip' }
     if (state.phase === 'end') return { type: 'endTurn' }
   }

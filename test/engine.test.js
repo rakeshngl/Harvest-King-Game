@@ -6,13 +6,14 @@ import {
   offerTrade, acceptTrade, rejectTrade, actingSeat, finalStandings, presetById
 } from '../src/engine.js'
 import { START_CASH, WIN_NET, PASS_GO, WEATHER, TILES, CROPS, INTEREST, SEASON_PRESETS, DEFAULT_PRESET } from '../src/data.js'
+import { dailySeed } from '../src/rng.js'
 
 const FAIR = WEATHER.find((w) => w.id === 'normal')
 
-function stubRandom(value) {
-  const orig = Math.random
-  Math.random = () => value
-  return () => { Math.random = orig }
+function stubRandom(state, value) {
+  const orig = state._rng
+  state._rng = () => value
+  return () => { state._rng = orig }
 }
 
 function expectedHarvest(state, tileId) {
@@ -52,7 +53,7 @@ test('new game seats farmers with village cash', () => {
 
 test('buy prepare sow then harvest pays yield times price', () => {
   const s = createGame(2, ['A', 'B'])
-  const restore = stubRandom(0.5)
+  const restore = stubRandom(s, 0.5)
   s.weather = FAIR
   s.marketMod = 1
   s.prices.bajra = CROPS.bajra.price
@@ -105,7 +106,7 @@ test('insolvency returns owned land to the village', () => {
 
 test('net worth at WIN_NET after harvest ends the match', () => {
   const s = createGame(2, ['A', 'B'])
-  const restore = stubRandom(0.5)
+  const restore = stubRandom(s, 0.5)
   s.weather = FAIR
   s.marketMod = 1
   ripeField(s, 1, 'bajra')
@@ -118,7 +119,7 @@ test('net worth at WIN_NET after harvest ends the match', () => {
 
 test('passing Village Hall pays harvest dues', () => {
   const s = createGame(2, ['A', 'B'])
-  const restore = stubRandom(0.5)
+  const restore = stubRandom(s, 0.5)
   s.players[0].pos = 38
   const cash = s.players[0].cash
   applyMove(s, [1, 1])
@@ -209,7 +210,7 @@ test('crop loan adds INTEREST when a season ticks', () => {
   const s = createGame(2, ['A', 'B'])
   assert.equal(takeLoan(s), true)
   const debt = s.players[0].debt
-  const restore = stubRandom(0.5)
+  const restore = stubRandom(s, 0.5)
   s.players[0].pos = 38
   applyMove(s, [1, 1])
   restore()
@@ -273,7 +274,7 @@ test('short preset ends the match after 12 seasons', () => {
   const s = createGame(2, ['A', 'B'], { preset: 'short' })
   s.players[0].pos = 38
   s.seasonIndex = 11
-  const restore = stubRandom(0.5)
+  const restore = stubRandom(s, 0.5)
   applyMove(s, [1, 1])
   restore()
   assert.equal(s.phase, 'over')
@@ -284,7 +285,7 @@ test('classic preset does not end after 12 seasons', () => {
   const s = createGame(2, ['A', 'B'])
   s.players[0].pos = 38
   s.seasonIndex = 11
-  const restore = stubRandom(0.5)
+  const restore = stubRandom(s, 0.5)
   applyMove(s, [1, 1])
   restore()
   assert.notEqual(s.phase, 'over')
@@ -293,7 +294,7 @@ test('classic preset does not end after 12 seasons', () => {
 
 test('short preset crowns a farmer at the lower winNet', () => {
   const s = createGame(2, ['A', 'B'], { preset: 'short' })
-  const restore = stubRandom(0.5)
+  const restore = stubRandom(s, 0.5)
   s.weather = FAIR
   s.marketMod = 1
   ripeField(s, 1, 'bajra')
@@ -306,7 +307,7 @@ test('short preset crowns a farmer at the lower winNet', () => {
 
 test('classic winNet is not reached at the short target', () => {
   const s = createGame(2, ['A', 'B'])
-  const restore = stubRandom(0.5)
+  const restore = stubRandom(s, 0.5)
   s.weather = FAIR
   s.marketMod = 1
   ripeField(s, 1, 'bajra')
@@ -315,4 +316,34 @@ test('classic winNet is not reached at the short target', () => {
   restore()
   assert.equal(s.winner, null)
   assert.notEqual(s.phase, 'over')
+})
+
+test('the same daily seed shuffles the same decks', () => {
+  const a = createGame(2, ['A', 'B'], { daily: '2026-10-18' })
+  const b = createGame(2, ['A', 'B'], { daily: '2026-10-18' })
+  assert.equal(a.daily, '2026-10-18')
+  assert.equal(a.seed, dailySeed('2026-10-18'))
+  assert.deepEqual(a.kisan.map((c) => c.id), b.kisan.map((c) => c.id))
+  assert.deepEqual(a.mandi.map((c) => c.id), b.mandi.map((c) => c.id))
+})
+
+test('a different daily seed shuffles a different farmer deck', () => {
+  const a = createGame(2, ['A', 'B'], { daily: '2026-10-18' })
+  const b = createGame(2, ['A', 'B'], { daily: '2026-10-19' })
+  assert.notDeepEqual(a.kisan.map((c) => c.id), b.kisan.map((c) => c.id))
+})
+
+test('numeric seeds replay the same harvest luck', () => {
+  const a = createGame(2, ['A', 'B'], { seed: 42 })
+  const b = createGame(2, ['A', 'B'], { seed: 42 })
+  ripeField(a, 1, 'bajra')
+  ripeField(b, 1, 'bajra')
+  a.weather = FAIR
+  b.weather = FAIR
+  a.marketMod = 1
+  b.marketMod = 1
+  harvest(a, 1)
+  harvest(b, 1)
+  assert.equal(a.players[0].cash, b.players[0].cash)
+  assert.equal(a.farms[1].lastYield, b.farms[1].lastYield)
 })

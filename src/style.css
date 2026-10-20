@@ -178,7 +178,7 @@ html, body {
 
 .mode-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -212,6 +212,7 @@ html, body {
 .mode-online::before { background: linear-gradient(90deg, #EA580C, #F59E0B); }
 .mode-cpu::before { background: linear-gradient(90deg, #15803D, #4ADE80); }
 .mode-local::before { background: linear-gradient(90deg, #1D4ED8, #93C5FD); }
+.mode-daily::before { background: linear-gradient(90deg, #7C3AED, #F59E0B); }
 
 .mode-kicker {
   font-family: Cinzel, serif;

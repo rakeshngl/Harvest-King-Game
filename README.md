@@ -334,6 +334,7 @@ CI runs on every push and pull request (`.github/workflows/ci.yml`): Node 20 and
 
 - **Pass-and-play**: 2 to 4 named farmers on one device; every seat is human.
 - **Vs computer**: enter your name, pick 1 to 3 rivals and a difficulty, then **Play vs computer**. You always sit first.
+- **Daily challenge**: same board, weather and card order for everyone on the IST calendar date. Classic length, you vs Thrifty. Results are tagged `DYYMMDD` in your record.
 
 ### Your record
 

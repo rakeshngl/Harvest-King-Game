@@ -13,6 +13,7 @@ import {
   blankProfile, normalizeProfile, applyMatch, publicProfile as buildPublicProfile
 } from '../src/profile.js'
 import { LOAN_STEP, DEFAULT_PRESET } from '../src/data.js'
+import { dailyCode } from '../src/rng.js'
 import { PERSONAS, CPU_NAMES, chooseAction } from '../src/ai.js'
 
 const PORT = Number(process.env.PORT) || 3001
@@ -165,7 +166,7 @@ function recordMatch(room) {
     const prof = ensureProfile(visitor, member.name)
     profiles.set(prof.id, applyMatch(prof, {
       at: Date.now(),
-      code: room.code,
+      code: state.daily ? dailyCode(state.daily) : room.code,
       seats: state.players.length,
       rank: row.rank,
       net: row.net,
@@ -624,7 +625,7 @@ function applyAction(room, seat, action) {
   switch (action.type) {
     case 'roll': {
       if (state.phase !== 'roll') return { error: 'Cannot roll now' }
-      const dice = rollDice()
+      const dice = rollDice(state)
       applyMove(state, dice)
       room.lastDice = dice
       room.rollSeq += 1

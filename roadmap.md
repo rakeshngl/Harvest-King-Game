@@ -30,7 +30,7 @@ Done: SSE transport, fast-forward missed dice + landing pop-ups, authoritative e
 - Match history, personal stats (harvests, insolvencies, king wins) — done per device (visitor id, lobby "Your record" panel, `/api/profile`); real accounts still open
 - Leaderboards: fastest king, highest net worth, season win rate
 - Friends / recent players / rematch
-- Daily challenge seed (same board RNG for everyone)
+- Daily challenge seed (same board RNG for everyone) — done (IST date seed, lobby card, results tagged DYYMMDD)
 
 ## Vs computer / AI
 
