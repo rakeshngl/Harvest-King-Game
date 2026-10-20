@@ -57,7 +57,7 @@ Done: online mixed tables (1 human + 1 to 3 CPUs).
 - Water table: over-irrigation lowers future yield on canal/borewell belts
 - Soil carbon / organic cert as a slow investment (card exists; make it a track)
 - 5 to 6 players (needs more coins, more belts, or a bigger board)
-- Shorter / longer match presets (12 / 18 / 24 seasons, different WIN_NET)
+- Shorter / longer match presets (12 / 18 / 24 seasons, different WIN_NET) — done (lobby + host waiting-room selector)
 - Sandbox / tutor match with forced good monsoon
 
 Done: player trading (land, cash, debt); auctions when someone declines to buy.

@@ -147,6 +147,12 @@ export const START_CASH = 12000
 export const PASS_GO = 1500
 export const WIN_NET = 75000
 export const MAX_SEASONS = 18
+export const SEASON_PRESETS = [
+  { id: 'short', seasons: 12, winNet: 55000 },
+  { id: 'classic', seasons: 18, winNet: 75000 },
+  { id: 'long', seasons: 24, winNet: 105000 }
+]
+export const DEFAULT_PRESET = 'classic'
 export const LOAN_STEP = 3000
 export const LOAN_CAP = 9000
 export const INTEREST = 0.12

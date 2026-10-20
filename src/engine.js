@@ -1,7 +1,7 @@
 import {
   TILES, CROPS, GROUPS, KISAN_CARDS, MANDI_CARDS, WEATHER,
   PLAYER_PALETTE, SEASONS, START_CASH, PASS_GO, WIN_NET, MAX_SEASONS,
-  LOAN_STEP, LOAN_CAP, INTEREST
+  LOAN_STEP, LOAN_CAP, INTEREST, SEASON_PRESETS, DEFAULT_PRESET
 } from './data.js'
 
 const clone = (x) => JSON.parse(JSON.stringify(x))
@@ -37,10 +37,19 @@ export function createFarmState() {
   }
 }
 
+export function presetById(id) {
+  return SEASON_PRESETS.find((p) => p.id === id)
+    || SEASON_PRESETS.find((p) => p.id === DEFAULT_PRESET)
+    || SEASON_PRESETS[0]
+}
+
 export function createGame(playerCount = 2, names = [], opts = {}) {
   const n = clamp(playerCount, 2, 4)
   const cpu = opts.cpu || []
   const persona = opts.persona || []
+  const preset = presetById(opts.preset)
+  const maxSeasons = Math.max(1, Number(opts.seasons) || preset.seasons)
+  const winNet = Math.max(1, Number(opts.winNet) || preset.winNet)
   const players = Array.from({ length: n }, (_, i) => ({
     id: i,
     name: names[i] || PLAYER_PALETTE[i].name,
@@ -76,6 +85,9 @@ export function createGame(playerCount = 2, names = [], opts = {}) {
     prices,
     marketMod: 1,
     seasonIndex: 0,
+    preset: preset.id,
+    maxSeasons,
+    winNet,
     turn: 0,
     weather: WEATHER[0],
     kisan: shuffle(KISAN_CARDS),
@@ -234,7 +246,7 @@ function advanceSeasonMaybe(state) {
       log(state, `${pl.name} accrues Rs ${interest} rural bank interest.`, 'loss', { amount: interest, pid: pl.id })
     }
   })
-  if (state.seasonIndex >= MAX_SEASONS) finishByNet(state)
+  if (state.seasonIndex >= (state.maxSeasons || MAX_SEASONS)) finishByNet(state)
 }
 
 function resolveTile(state, p, tile, diceTotal) {
@@ -1175,7 +1187,7 @@ function growCrops(state, p) {
 function checkWin(state) {
   if (state.winner != null) return
   state.players.forEach((p) => {
-    if (!p.bankrupt && netWorth(state, p) >= WIN_NET) {
+    if (!p.bankrupt && netWorth(state, p) >= (state.winNet || WIN_NET)) {
       state.winner = p.id
       state.phase = 'over'
       log(state, `${p.name} becomes Harvest King with net worth Rs ${netWorth(state, p)}.`, 'gain', { pid: p.id })

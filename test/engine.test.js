@@ -3,9 +3,9 @@ import assert from 'node:assert/strict'
 import {
   createGame, harvest, forcePay, buyFarm, prepareLand, seedLand, skipTurn,
   nextTurn, netWorth, applyMove, takeLoan, declineAction, bidAuction, passAuction,
-  offerTrade, acceptTrade, rejectTrade, actingSeat, finalStandings
+  offerTrade, acceptTrade, rejectTrade, actingSeat, finalStandings, presetById
 } from '../src/engine.js'
-import { START_CASH, WIN_NET, PASS_GO, WEATHER, TILES, CROPS, INTEREST } from '../src/data.js'
+import { START_CASH, WIN_NET, PASS_GO, WEATHER, TILES, CROPS, INTEREST, SEASON_PRESETS, DEFAULT_PRESET } from '../src/data.js'
 
 const FAIR = WEATHER.find((w) => w.id === 'normal')
 
@@ -250,4 +250,69 @@ test('finalStandings honours an explicit winner over raw net worth', () => {
   assert.equal(rows[0].won, true)
   assert.equal(rows[1].won, false)
   assert.equal(rows[1].rank, 1)
+})
+
+test('createGame stores classic preset by default', () => {
+  const s = createGame(2, ['A', 'B'])
+  const classic = presetById(DEFAULT_PRESET)
+  assert.equal(s.preset, classic.id)
+  assert.equal(s.maxSeasons, classic.seasons)
+  assert.equal(s.winNet, classic.winNet)
+})
+
+test('createGame applies short and long presets', () => {
+  for (const p of SEASON_PRESETS) {
+    const s = createGame(2, ['A', 'B'], { preset: p.id })
+    assert.equal(s.preset, p.id)
+    assert.equal(s.maxSeasons, p.seasons)
+    assert.equal(s.winNet, p.winNet)
+  }
+})
+
+test('short preset ends the match after 12 seasons', () => {
+  const s = createGame(2, ['A', 'B'], { preset: 'short' })
+  s.players[0].pos = 38
+  s.seasonIndex = 11
+  const restore = stubRandom(0.5)
+  applyMove(s, [1, 1])
+  restore()
+  assert.equal(s.phase, 'over')
+  assert.equal(s.winner, 0)
+})
+
+test('classic preset does not end after 12 seasons', () => {
+  const s = createGame(2, ['A', 'B'])
+  s.players[0].pos = 38
+  s.seasonIndex = 11
+  const restore = stubRandom(0.5)
+  applyMove(s, [1, 1])
+  restore()
+  assert.notEqual(s.phase, 'over')
+  assert.equal(s.seasonIndex, 12)
+})
+
+test('short preset crowns a farmer at the lower winNet', () => {
+  const s = createGame(2, ['A', 'B'], { preset: 'short' })
+  const restore = stubRandom(0.5)
+  s.weather = FAIR
+  s.marketMod = 1
+  ripeField(s, 1, 'bajra')
+  s.players[0].cash = 55000
+  harvest(s, 1)
+  restore()
+  assert.equal(s.winner, 0)
+  assert.equal(s.phase, 'over')
+})
+
+test('classic winNet is not reached at the short target', () => {
+  const s = createGame(2, ['A', 'B'])
+  const restore = stubRandom(0.5)
+  s.weather = FAIR
+  s.marketMod = 1
+  ripeField(s, 1, 'bajra')
+  s.players[0].cash = 55000
+  harvest(s, 1)
+  restore()
+  assert.equal(s.winner, null)
+  assert.notEqual(s.phase, 'over')
 })

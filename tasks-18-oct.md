@@ -11,14 +11,13 @@ Accounts/login stay deferred (needs OAuth or email credentials).
 - Added `.github/workflows/ci.yml`: Node 20 + 22, `npm ci`, lint, test, build, API health smoke check.
 - Outcome: every push/PR is checked before Vercel/Coolify deploy.
 
-## 2. Season presets (12 / 18 / 24)
+## 2. Season presets (12 / 18 / 24) (done)
 
-- Move `MAX_SEASONS` and `WIN_NET` into per-game config (`createGame` options), stored on `state`.
-- Use the configured values in season advance, `checkWin`, and `finishByNet`.
-- Rebalance target net worth per length so 12 is punchy and 24 does not drag.
-- Lobby selector for local and vs-CPU; host-only selector in online waiting rooms.
-- Carry the preset through `/api/start` and snapshots; show length in the HUD.
-- Tests for each preset boundary.
+- `createGame` stores `preset`, `maxSeasons` and `winNet` from `SEASON_PRESETS`.
+- Short 12 / Rs 55k, classic 18 / Rs 75k, long 24 / Rs 1.05 lakh.
+- Lobby selector for local, vs-CPU and new online rooms; host can change it in the waiting room (`POST /api/preset`).
+- HUD season chip uses `state.maxSeasons`; public lobby lists the chosen length.
+- Tests cover default, each preset, the 12-season cutoff and the short winNet.
 
 ## 3. Daily seed
 

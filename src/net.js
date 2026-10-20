@@ -85,7 +85,12 @@ async function post(path, body) {
 }
 
 export function createRoom(name, opts = {}) {
-  return post('/api/create', { name, password: opts.password || '', visitor: opts.visitor || '' })
+  return post('/api/create', {
+    name,
+    password: opts.password || '',
+    visitor: opts.visitor || '',
+    preset: opts.preset || undefined
+  })
 }
 
 export function joinRoom(code, name, opts = {}) {
@@ -121,6 +126,10 @@ export function kickSeat(sess, seat) {
 
 export function passHost(sess, seat) {
   return post('/api/host', { code: sess.code, token: sess.token, seat })
+}
+
+export function setPreset(sess, preset) {
+  return post('/api/preset', { code: sess.code, token: sess.token, preset })
 }
 
 export function addCpu(sess, difficulty) {

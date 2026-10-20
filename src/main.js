@@ -1,4 +1,4 @@
-import { TILES, CROPS, GROUPS, PLAYER_PALETTE, MAX_SEASONS, LOAN_STEP, LOAN_CAP } from './data.js'
+import { TILES, CROPS, GROUPS, PLAYER_PALETTE, MAX_SEASONS, LOAN_STEP, LOAN_CAP, DEFAULT_PRESET, SEASON_PRESETS } from './data.js'
 import { iconHtml } from './icons.js'
 import { diceHtml, animateDice, setDiceFace } from './dice.js'
 import {
@@ -6,12 +6,12 @@ import {
   buyFarm, leaseFarm, buyInfra, prepareLand, seedLand, irrigate, insure,
   harvest, tendCrop, sellToFci, takeLoan, repayLoan, declineAction, nextTurn,
   unmortgage, openFarmWork, actingSeat, bidAuction, passAuction, offerTrade,
-  acceptTrade, rejectTrade, finalStandings
+  acceptTrade, rejectTrade, finalStandings, presetById
 } from './engine.js'
 import { blankProfile, applyMatch } from './profile.js'
 import {
   createRoom, joinRoom, startRoom, sendAction, waitSnapshot, openEventStream,
-  kickSeat, passHost, addCpu, loadSession, saveSession, savedSeat, savedSeats, forgetSeat, pingPresence, fetchLobby, fetchProfile
+  kickSeat, passHost, setPreset, addCpu, loadSession, saveSession, savedSeat, savedSeats, forgetSeat, pingPresence, fetchLobby, fetchProfile
 } from './net.js'
 import { PERSONAS, CPU_NAMES, chooseAction, describeAction } from './ai.js'
 import { t, setLang, currentLang, LANGS } from './i18n.js'
@@ -53,6 +53,7 @@ let cpuGuard = 0
 let cpuGen = 0
 let humanSeat = 0
 let cpuDifficulty = 'normal'
+let presetChoice = DEFAULT_PRESET
 let draftName = ''
 let diaryPage = 0
 let wasOver = false
@@ -147,6 +148,19 @@ function syncMusic() {
   }
   setMusicScene(seasonOf(state).id, state.weather.id)
   startMusic()
+}
+
+function presetLabel(id) {
+  const p = presetById(id)
+  return `${t('preset_' + p.id)} · ${t('seasonsN', p.seasons)}`
+}
+
+function presetRowHtml({ id = 'presets', active = presetChoice, dataAttr = 'preset', label = true } = {}) {
+  return `
+    <div class="preset-row"${id ? ` id="${id}"` : ''}>
+      ${label ? `<span class="preset-label">${t('matchLength')}</span>` : ''}
+      ${SEASON_PRESETS.map((p) => `<button class="count-btn${p.id === active ? ' on' : ''}" data-${dataAttr}="${p.id}">${t('preset_' + p.id)}<small>${t('seasonsN', p.seasons)}</small></button>`).join('')}
+    </div>`
 }
 
 function statsHtml() {
@@ -784,6 +798,7 @@ function lobbyHtml() {
       ${resumeTablesHtml()}
       <div id="opentables">${openTablesHtml()}</div>
       <div id="myrecord">${profileHtml()}</div>
+      ${presetRowHtml()}
       <div class="mode-grid">
         <article class="mode-card mode-online">
           <div class="mode-kicker">${t('onlineTable')}</div>
@@ -899,7 +914,7 @@ function openTablesHtml() {
         ${openTables.map((table) => `
           <div class="names">
             <span class="session-code" style="font-size:20px;padding:8px 12px">${table.code}</span>
-            <span class="pcash">${table.seats}/4 · ${t('hostOf')} ${table.host}</span>
+            <span class="pcash">${table.seats}/4 · ${t('hostOf')} ${table.host} · ${presetLabel(table.preset)}</span>
             <button class="primary" data-halljoin="${table.code}">${t('sit')}</button>
           </div>`).join('')}
       </article>`
@@ -975,7 +990,7 @@ function startLocalGame(n, list, opts = {}) {
   landing = null
   diaryPage = 0
   notice = ''
-  state = createGame(n, list, opts)
+  state = createGame(n, list, { ...opts, preset: opts.preset || presetChoice })
   screen = 'game'
   syncLog()
   render()
@@ -1006,6 +1021,15 @@ function bindLobby() {
   if (myname) {
     myname.addEventListener('input', () => {
       draftName = myname.value
+    })
+  }
+  const presets = document.getElementById('presets')
+  if (presets) {
+    presets.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-preset]')
+      if (!b) return
+      presetChoice = presetById(b.getAttribute('data-preset')).id
+      presets.querySelectorAll('[data-preset]').forEach((x) => x.classList.toggle('on', x === b))
     })
   }
   counts.addEventListener('click', (e) => {
@@ -1060,7 +1084,7 @@ function bindLobby() {
     try {
       notice = ''
       const password = (document.getElementById('roompass').value || '').trim()
-      const snap = await createRoom(name, { password, visitor: visitorKey() })
+      const snap = await createRoom(name, { password, visitor: visitorKey(), preset: presetChoice })
       enterOnline(snap, { name })
     } catch (err) {
       notice = err.message
@@ -1169,6 +1193,9 @@ function waitingHtml() {
           </div>`).join('')}
       </div>
       ${notice ? `<p class="notice">${notice}</p>` : ''}
+      ${host
+        ? presetRowHtml({ id: 'onlinepreset', active: presetById(room && room.preset).id, dataAttr: 'onlinepreset' })
+        : `<p class="pcash">${t('matchLength')}: ${presetLabel(room && room.preset)}</p>`}
       <div class="actions">
         ${host && players.length < 4 ? `<div class="count-row" id="onlinediff">
           ${['easy', 'normal', 'hard'].map((d) => `<button class="count-btn${d === (room.cpuDifficulty || 'normal') ? ' on' : ''}" data-onlinediff="${d}">${t(d)}</button>`).join('')}
@@ -1221,6 +1248,21 @@ function bindWaiting() {
       const b = e.target.closest('[data-onlinediff]')
       if (!b) return
       diffs.querySelectorAll('.count-btn').forEach((x) => x.classList.toggle('on', x === b))
+    })
+  }
+  const onlinePreset = document.getElementById('onlinepreset')
+  if (onlinePreset) {
+    onlinePreset.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-onlinepreset]')
+      if (!b) return
+      try {
+        notice = ''
+        const snap = await setPreset(session, b.getAttribute('data-onlinepreset'))
+        applySnap(snap)
+      } catch (err) {
+        notice = err.message
+        render()
+      }
     })
   }
   document.querySelectorAll('[data-kick]').forEach((btn) => {
@@ -1293,7 +1335,7 @@ function gameHtml() {
           ${chromeToggleHtml()}
           <span class="chip s">${season.name} · ${season.hint}</span>
           <span class="chip g">${state.weather.name}</span>
-          <span class="chip n">${t('seasonN', state.seasonIndex + 1, MAX_SEASONS)}</span>
+          <span class="chip n">${t('seasonN', Math.min(state.seasonIndex + 1, state.maxSeasons || MAX_SEASONS), state.maxSeasons || MAX_SEASONS)}</span>
           <span class="chip">${t('marketX', state.marketMod.toFixed(2))}</span>
           ${online() ? `<span class="chip">${session.spectator ? t('watching') : t('youName', me ? me.name : '')}</span>` : (state.players.some((x) => x.cpu) ? '<span class="chip">' + t('vsCpuChip') + '</span>' : '')}
         </div>

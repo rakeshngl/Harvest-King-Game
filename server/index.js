@@ -6,12 +6,13 @@ import {
   createGame, applyMove, rollDice, buyFarm, leaseFarm, buyInfra, prepareLand,
   seedLand, irrigate, insure, harvest, tendCrop, sellToFci, takeLoan, repayLoan,
   declineAction, nextTurn, skipTurn, unmortgage, openFarmWork, actingSeat,
-  bidAuction, passAuction, offerTrade, acceptTrade, rejectTrade, finalStandings
+  bidAuction, passAuction, offerTrade, acceptTrade, rejectTrade, finalStandings,
+  presetById
 } from '../src/engine.js'
 import {
   blankProfile, normalizeProfile, applyMatch, publicProfile as buildPublicProfile
 } from '../src/profile.js'
-import { LOAN_STEP } from '../src/data.js'
+import { LOAN_STEP, DEFAULT_PRESET } from '../src/data.js'
 import { PERSONAS, CPU_NAMES, chooseAction } from '../src/ai.js'
 
 const PORT = Number(process.env.PORT) || 3001
@@ -208,6 +209,7 @@ function serializableRoom(room) {
     passHash: room.passHash || '',
     turnEndsAt: room.turnEndsAt || 0,
     cpuDifficulty: room.cpuDifficulty || 'normal',
+    preset: room.preset || DEFAULT_PRESET,
     recorded: !!room.recorded,
     updatedAt: room.updatedAt || Date.now()
   }
@@ -283,6 +285,7 @@ function loadRooms() {
         passHash: String(r.passHash || ''),
         turnEndsAt: Number(r.turnEndsAt) || 0,
         cpuDifficulty: ['easy', 'normal', 'hard'].includes(r.cpuDifficulty) ? r.cpuDifficulty : 'normal',
+        preset: presetById(r.preset).id,
         recorded: !!r.recorded,
         updatedAt: Number(r.updatedAt) || now
       })
@@ -330,7 +333,8 @@ function publicLobby() {
         code: room.code,
         seats: room.players.length,
         host: host ? host.name : 'Host',
-        names: room.players.map((p) => p.cpu ? `${p.name} (computer)` : p.name)
+        names: room.players.map((p) => p.cpu ? `${p.name} (computer)` : p.name),
+        preset: room.preset || DEFAULT_PRESET
       }
     })
 }
@@ -425,6 +429,7 @@ function snapshot(room, seat) {
     lastDice: room.lastDice,
     rollSeq: room.rollSeq,
     locked: !!room.passHash,
+    preset: room.preset || DEFAULT_PRESET,
     turnEndsAt: room.turnEndsAt || 0,
     turnMs: TURN_MS,
     cpuDifficulty: room.cpuDifficulty || 'normal',
@@ -796,6 +801,7 @@ const server = http.createServer(async (req, res) => {
         spectators: [],
         hostSeat: 0,
         passHash: passHash(body.password || body.pass),
+        preset: presetById(body.preset).id,
         players: []
       }
       room.players.push({ seat: 0, name, token: token(), seen: Date.now(), visitor })
@@ -897,14 +903,20 @@ const server = http.createServer(async (req, res) => {
       }
       room.state = createGame(room.players.length, room.players.map((x) => x.name), {
         cpu: room.players.map((x) => !!x.cpu),
-        persona: room.players.map((x) => x.persona || null)
+        persona: room.players.map((x) => x.persona || null),
+        preset: room.preset || DEFAULT_PRESET
       })
       room.started = true
       room.lastDice = room.state.lastDice
       armTurn(room)
       bump(room)
       playCpuSoon(room)
-      logEvent('room.start', { code: room.code, seats: room.players.length, cpu: room.players.filter((x) => x.cpu).length })
+      logEvent('room.start', {
+        code: room.code,
+        seats: room.players.length,
+        cpu: room.players.filter((x) => x.cpu).length,
+        preset: room.preset || DEFAULT_PRESET
+      })
       json(res, 200, snapshot(room, p.seat))
       return
     }
@@ -1008,6 +1020,30 @@ const server = http.createServer(async (req, res) => {
         return
       }
       room.hostSeat = next.seat
+      bump(room)
+      json(res, 200, snapshot(room, p.seat))
+      return
+    }
+
+    if (req.method === 'POST' && path === '/api/preset') {
+      const body = await readBody(req)
+      const room = rooms.get(String(body.code || '').toUpperCase())
+      const p = room && playerByToken(room, body.token)
+      if (!room || !p) {
+        json(res, 404, { error: 'Session not found' })
+        return
+      }
+      maybePassHost(room)
+      if (!isHost(room, p)) {
+        json(res, 403, { error: 'Only the host may choose the match length' })
+        return
+      }
+      if (room.started) {
+        json(res, 400, { error: 'The match has already begun' })
+        return
+      }
+      room.preset = presetById(body.preset).id
+      room.updatedAt = Date.now()
       bump(room)
       json(res, 200, snapshot(room, p.seat))
       return

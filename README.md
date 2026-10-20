@@ -109,7 +109,17 @@ Every full circuit updates the season and rolls new weather. Weather scales both
 
 ### Seasons
 
-Seasons cycle **Monsoon -> Winter -> Summer** (kharif, rabi, zaid). Each crop has a natural season and a water requirement. Off-season sowing is allowed but penalized. The match ends after **18 seasons**, at which point the highest net worth wins.
+Seasons cycle **Monsoon -> Winter -> Summer** (kharif, rabi, zaid). Each crop has a natural season and a water requirement. Off-season sowing is allowed but penalized.
+
+Match length is a lobby choice:
+
+| Preset | Seasons | Instant win |
+| --- | --- | --- |
+| Short | 12 | Rs 55,000 |
+| Classic | 18 | Rs 75,000 |
+| Long | 24 | Rs 1,05,000 |
+
+The richest living farmer wins if nobody hits the target by the last season.
 
 ### Infrastructure and utilities
 
@@ -162,9 +172,9 @@ Eighteen crops are modeled, each with a season, seed cost, grow time (in turns),
 
 ## Winning
 
-A player wins immediately by reaching a **net worth of Rs 75,000**. Net worth counts cash minus debt, plus farm value, plus infrastructure and utility value, with bonuses for irrigated fields, insured fields, and fields holding a standing crop.
+A player wins immediately by reaching the **preset target net worth** (Rs 55,000 / 75,000 / 1,05,000). Net worth counts cash minus debt, plus farm value, plus infrastructure and utility value, with bonuses for irrigated fields, insured fields, and fields holding a standing crop.
 
-If no one reaches that threshold, the game ends after **18 seasons** and the richest living player is crowned Harvest King. Becoming the last solvent farmer also wins.
+If no one reaches that threshold, the game ends after the chosen number of seasons and the richest living player is crowned Harvest King. Becoming the last solvent farmer also wins.
 
 ## Landing Pop-up and Farm Diary
 
@@ -378,12 +388,13 @@ Base URL: `/api` (proxied to port 3001).
 | GET | `/api/lobby` | - | Unlocked waiting rooms (`code`, `seats`, `host`, `names`). Locked rooms are omitted. |
 | GET | `/api/profile` | `?visitor` | Per-device match history and stats (`games`, `wins`, `insolvencies`, `bestNet`, `recent[]`). Keyed by the `hk-visitor` id; empty for unknown ids. |
 | POST | `/api/presence` | `{ visitor, playing? }` | Heartbeat. Tracks online players and returns hall counters. |
-| POST | `/api/create` | `{ name, password?, visitor? }` | Create a room. Optional password locks join/watch. Returns a snapshot plus your `token`. |
+| POST | `/api/create` | `{ name, password?, visitor?, preset? }` | Create a room. Optional password locks join/watch. Optional `preset` is `short` / `classic` / `long`. Returns a snapshot plus your `token`. |
 | POST | `/api/join` | `{ code, name, watch?, password?, token?, visitor? }` | Join an unstarted room, or spectate a started one. Resume with `token` skips the password. |
 | POST | `/api/start` | `{ code, token }` | Host-only. Starts the game; requires at least 2 players. |
 | POST | `/api/kick` | `{ code, token, seat }` | Host-only, waiting room. Remove a farmer and compact seats. |
 | POST | `/api/host` | `{ code, token, seat }` | Host-only. Pass the gavel to another seated farmer. Humans only. |
 | POST | `/api/cpu` | `{ code, token, difficulty? }` | Host-only, waiting room. Seat a computer farmer (`easy` / `normal` / `hard`). |
+| POST | `/api/preset` | `{ code, token, preset }` | Host-only, waiting room. Set match length (`short` / `classic` / `long`). |
 | POST | `/api/action` | `{ code, token, action }` | Submit a validated game action for the current turn. Spectators are rejected. |
 | GET | `/api/session` | `?code&token` | Current snapshot (boot / restore). |
 | GET | `/api/events` | `?code&token` | SSE stream of `snapshot` events. |
@@ -402,8 +413,9 @@ All defined in `src/data.js` and used by the engine:
 | --- | --- | --- |
 | `START_CASH` | 12000 | Starting cash per player |
 | `PASS_GO` | 1500 | Payment for passing Village Hall |
-| `WIN_NET` | 75000 | Net worth needed for an instant win |
-| `MAX_SEASONS` | 18 | Season limit before net-worth tiebreak |
+| `WIN_NET` | 75000 | Default instant-win net worth (classic) |
+| `MAX_SEASONS` | 18 | Default season limit (classic) |
+| `SEASON_PRESETS` | short / classic / long | 12 / 18 / 24 seasons with Rs 55k / 75k / 1.05 lakh targets |
 | `LOAN_STEP` | 3000 | Crop loan increment |
 | `LOAN_CAP` | 9000 | Maximum outstanding debt |
 | `INTEREST` | 0.12 | Per-season interest on debt |
