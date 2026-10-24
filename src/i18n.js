@@ -237,6 +237,7 @@ const PACK = {
     soundOff: 'Sound off',
     musicOn: 'Music on',
     musicOff: 'Music off',
+    offline: 'You are offline. Pass-and-play and vs computer still work. Online rooms need a connection.',
     rs: 'Rs '
   },
   hi: {
@@ -469,6 +470,7 @@ const PACK = {
     soundOff: 'ध्वनि बंद',
     musicOn: 'संगीत चालू',
     musicOff: 'संगीत बंद',
+    offline: 'आप ऑफ़लाइन हैं। बारी-बारी और कंप्यूटर के विरुद्ध चलते रहेंगे। ऑनलाइन कक्ष के लिए नेट चाहिए।',
     rs: '₹'
   },
   ta: {
@@ -701,6 +703,7 @@ const PACK = {
     soundOff: 'ஒலி அணை',
     musicOn: 'இசை இயக்கம்',
     musicOff: 'இசை அணை',
+    offline: 'நீங்கள் இணையமில்லாமல் உள்ளீர்கள். முறை மாறி மற்றும் கணினிக்கு எதிராக இன்னும் இயங்கும். ஆன்லைன் அறைக்கு இணைப்பு தேவை.',
     rs: '₹'
   }
 }

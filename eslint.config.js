@@ -25,6 +25,17 @@ export default [
   },
   {
     ...shared,
+    files: ['public/sw.js'],
+    languageOptions: {
+      ...shared.languageOptions,
+      sourceType: 'script',
+      globals: {
+        ...globals.serviceworker
+      }
+    }
+  },
+  {
+    ...shared,
     files: ['server/**/*.js', 'start.mjs', 'test/**/*.js'],
     languageOptions: {
       ...shared.languageOptions,

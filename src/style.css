@@ -416,6 +416,16 @@ html, body {
   font-weight: 700;
 }
 
+.offline-banner {
+  background: #1E293B;
+  border-left-color: var(--gold);
+  color: #F8FAFC;
+}
+
+.board-wrap > .offline-banner {
+  margin: 0;
+}
+
 .cpu-note {
   background: #ecfdf5;
   border-left: 4px solid var(--green);

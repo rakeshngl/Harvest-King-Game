@@ -26,12 +26,12 @@ Accounts/login stay deferred (needs OAuth or email credentials).
 - Lobby card starts a classic 1v1 vs Thrifty; HUD shows the date; results are tagged `DYYMMDD`.
 - Tests stub `state._rng` instead of `Math.random`. Per-day leaderboard is still deferred.
 
-## 4. PWA
+## 4. PWA (done)
 
 - `public/manifest.webmanifest` with maskable icons, theme colour, standalone display.
 - Hand-written `public/sw.js` (no new dependency): precache shell, cache-first hashed assets, network-first `/api` with offline fallback.
-- Register from `src/main.js` in the production build only, with a cache version string.
-- Support offline lobby and local pass-and-play; online play still needs the network.
+- Register from `src/pwa.js` in the production build only (`CACHE_VERSION` = `hk-shell-1`).
+- Offline banner on lobby, waiting room and board; pass-and-play and vs computer still work. Online rooms still need the network.
 
 ## Suggested order
 

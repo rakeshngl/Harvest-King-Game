@@ -18,6 +18,7 @@ import { t, setLang, currentLang, LANGS } from './i18n.js'
 import { playCue, isMuted, toggleMute, isMusicOn, toggleMusic, startMusic, stopMusic, setMusicScene } from './sound.js'
 import { inrShort, fmtCount } from './format.js'
 import { todayKey, dailyCode } from './rng.js'
+import { registerPwa } from './pwa.js'
 
 const app = document.getElementById('app')
 
@@ -66,6 +67,7 @@ let visitorId = ''
 let myProfile = null
 let profileSeq = 0
 let presenceOn = false
+let lineOn = typeof navigator === 'undefined' || navigator.onLine !== false
 let sideTab = 'farmers'
 let tradeDraft = { to: '', cashGive: '', cashTake: '', landGive: '', landTake: '', debtGive: '', debtTake: '' }
 let tradeOpen = false
@@ -98,6 +100,11 @@ async function loadProfile() {
   } catch {
     /* ignore */
   }
+}
+
+function offlineBannerHtml() {
+  if (lineOn) return ''
+  return `<p class="notice offline-banner" role="status">${t('offline')}</p>`
 }
 
 function chromeToggleHtml() {
@@ -301,6 +308,18 @@ function startPresence() {
   presenceOn = true
   pulsePresence()
   setInterval(pulsePresence, 12000)
+}
+
+function watchLine() {
+  if (typeof window === 'undefined') return
+  const paint = () => {
+    const next = navigator.onLine !== false
+    if (next === lineOn) return
+    lineOn = next
+    render()
+  }
+  window.addEventListener('online', paint)
+  window.addEventListener('offline', paint)
 }
 
 function rs(n) {
@@ -787,6 +806,7 @@ function lobbyHtml() {
     </header>
     <main class="lobby-table">
       ${chromeToggleHtml()}
+      ${offlineBannerHtml()}
       ${notice ? `<p class="notice">${notice}</p>` : ''}
       ${statsHtml()}
       <div class="farmer-bar">
@@ -1187,6 +1207,7 @@ function waitingHtml() {
   <div class="lobby">
     <div class="lobby-card">
       ${chromeToggleHtml()}
+      ${offlineBannerHtml()}
       <div class="en">${t('waiting')}</div>
       <h1>${t('room')} ${session ? session.code : ''}</h1>
       <p class="lead">${t('waitingLead', !!(room && room.locked), pal.name, host)}</p>
@@ -1345,6 +1366,7 @@ function gameHtml() {
   return `
   <div class="game-shell">
     <div class="board-wrap">
+      ${offlineBannerHtml()}
       <div class="topbar">
         <div>
           <div class="brand">Harvest King</div>
@@ -2135,4 +2157,6 @@ async function boot() {
   startPresence()
 }
 
+watchLine()
+registerPwa()
 boot()

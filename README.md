@@ -23,6 +23,7 @@ There is no jail. Instead, the board is loaded with agricultural complications: 
 - **Seasonal music bed**: a synthesized ambient loop that shifts tempo and scale with the season and weather, with its own **Music on / off** toggle (`localStorage` `hk-music`).
 - **Indian number formatting**: money uses lakh/crore shorthand (Rs 12,000 / Rs 1.2 lakh / Rs 1.5 crore) and `en-IN` digit grouping for counts.
 - **Phone layout**: the 40-tile board shrinks to the viewport, side panels tab, and the roll dock stays under the board.
+- **Installable PWA**: Add to Home Screen. The production service worker precaches the shell so the lobby, pass-and-play and vs computer still open offline. Online rooms still need the network.
 
 ## Board
 
@@ -250,10 +251,15 @@ The only dependency is Vite (dev dependency). The server runs on the Node standa
 
 ```
 .
-├── index.html          # Entry HTML, fonts, title
+├── index.html          # Entry HTML, fonts, title, PWA head tags
 ├── start.mjs           # Runs backend + frontend together
 ├── vite.config.js      # Dev server, allowedHosts, /api reverse proxy
 ├── package.json
+├── public/
+│   ├── manifest.webmanifest
+│   ├── sw.js           # Precache shell, cache-first assets, network-first /api
+│   ├── hero.webp
+│   └── icons/          # 192/512 any + maskable, apple-touch, favicon
 ├── server/
 │   └── index.js        # Session rooms, REST API, SSE sync, action validation
 └── src/
@@ -262,6 +268,7 @@ The only dependency is Vite (dev dependency). The server runs on the Node standa
     ├── ai.js           # Heuristic farmer: personas, difficulty, chooseAction
     ├── data.js         # Tiles, crops, groups, cards, weather, constants
     ├── net.js          # Client fetch wrappers for the session API
+    ├── pwa.js          # Production-only service worker registration
     ├── dice.js         # CSS 3D dice rendering and animation
     ├── icons.js        # Inline SVG tile icons
     └── style.css       # Layout, board, special fills, coin tokens, sidebar, dice, modals

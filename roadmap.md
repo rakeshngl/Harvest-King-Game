@@ -76,7 +76,7 @@ Done: player trading (land, cash, debt); auctions when someone declines to buy.
 - Telugu, Marathi, Bengali UI chrome (Hindi / Tamil done)
 - Reduced-motion mode (dice 3D + token bob)
 - Dark board / high-contrast / color-blind palettes
-- PWA / Add to Home Screen
+- PWA / Add to Home Screen — done (manifest, maskable icons, production SW, offline lobby + local play)
 - Spectator-friendly big-board TV mode
 - Tutorial overlay for the farming cycle
 - Undo last local action (not online)
@@ -84,7 +84,7 @@ Done: player trading (land, cash, debt); auctions when someone declines to buy.
 - Animated crop growth on owned tiles
 - Map of India inset highlighting the tile's state
 
-Done: English / Hindi / Tamil toggle; full mobile layout; sound effects with a mute toggle; seasonal music bed; Indian number formatting (lakh/crore shorthand).
+Done: English / Hindi / Tamil toggle; full mobile layout; sound effects with a mute toggle; seasonal music bed; Indian number formatting (lakh/crore shorthand); PWA / Add to Home Screen.
 
 ## Economy / balance tools
 
