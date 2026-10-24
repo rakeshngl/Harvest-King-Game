@@ -1,4 +1,4 @@
-export const CACHE_VERSION = 'hk-shell-1'
+export const CACHE_VERSION = 'hk-shell-2'
 
 function isProd() {
   try {

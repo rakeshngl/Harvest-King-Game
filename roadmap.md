@@ -78,13 +78,13 @@ Done: player trading (land, cash, debt); auctions when someone declines to buy.
 - Dark board / high-contrast / color-blind palettes
 - PWA / Add to Home Screen — done (manifest, maskable icons, production SW, offline lobby + local play)
 - Spectator-friendly big-board TV mode
-- Tutorial overlay for the farming cycle
+- Tutorial overlay for the farming cycle — done (6 steps, first visit + How to farm)
 - Undo last local action (not online)
 - Farm diary export / share image of the win screen
 - Animated crop growth on owned tiles
 - Map of India inset highlighting the tile's state
 
-Done: English / Hindi / Tamil toggle; full mobile layout; sound effects with a mute toggle; seasonal music bed; Indian number formatting (lakh/crore shorthand); PWA / Add to Home Screen.
+Done: English / Hindi / Tamil toggle; full mobile layout; sound effects with a mute toggle; seasonal music bed; Indian number formatting (lakh/crore shorthand); PWA / Add to Home Screen; farming-cycle tutorial overlay.
 
 ## Economy / balance tools
 

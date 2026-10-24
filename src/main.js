@@ -19,6 +19,7 @@ import { playCue, isMuted, toggleMute, isMusicOn, toggleMusic, startMusic, stopM
 import { inrShort, fmtCount } from './format.js'
 import { todayKey, dailyCode } from './rng.js'
 import { registerPwa } from './pwa.js'
+import { TUTORIAL_STEPS, loadTutorialSeen, saveTutorialSeen, clampTutorialStep } from './tutorial.js'
 
 const app = document.getElementById('app')
 
@@ -71,6 +72,8 @@ let lineOn = typeof navigator === 'undefined' || navigator.onLine !== false
 let sideTab = 'farmers'
 let tradeDraft = { to: '', cashGive: '', cashTake: '', landGive: '', landTake: '', debtGive: '', debtTake: '' }
 let tradeOpen = false
+let tutorialOn = !loadTutorialSeen()
+let tutorialStep = 0
 
 function visitorKey() {
   try {
@@ -107,6 +110,79 @@ function offlineBannerHtml() {
   return `<p class="notice offline-banner" role="status">${t('offline')}</p>`
 }
 
+function closeTutorial() {
+  tutorialOn = false
+  tutorialStep = 0
+  saveTutorialSeen()
+}
+
+function tutorialHtml() {
+  if (!tutorialOn) return ''
+  const step = TUTORIAL_STEPS[clampTutorialStep(tutorialStep)]
+  const i = clampTutorialStep(tutorialStep)
+  const last = i === TUTORIAL_STEPS.length - 1
+  const dots = TUTORIAL_STEPS.map((_, n) =>
+    `<button type="button" class="tut-dot${n === i ? ' on' : ''}" data-tutstep="${n}" aria-label="${t('tutStep', n + 1, TUTORIAL_STEPS.length)}"></button>`
+  ).join('')
+  return `
+    <div class="modal-back tutorial-back" id="tutorial" role="dialog" aria-modal="true" aria-labelledby="tuttitle">
+      <div class="modal tutorial">
+        <div class="tut-kicker">${t('tutKicker')} · ${t('tutStep', i + 1, TUTORIAL_STEPS.length)}</div>
+        <div class="tut-head">
+          <div class="tut-icon">${iconHtml(step.icon)}</div>
+          <h2 id="tuttitle">${t(step.title)}</h2>
+        </div>
+        <p>${t(step.body)}</p>
+        <div class="tut-dots" role="tablist">${dots}</div>
+        <div class="actions">
+          <button class="ghost" id="tutskip" type="button">${t('tutSkip')}</button>
+          ${i > 0 ? `<button class="ghost" id="tutback" type="button">${t('tutBack')}</button>` : ''}
+          <button class="primary" id="tutnext" type="button">${last ? t('tutStart') : t('tutNext')}</button>
+        </div>
+      </div>
+    </div>`
+}
+
+function bindTutorial() {
+  const root = document.getElementById('tutorial')
+  if (!root) return
+  const skip = document.getElementById('tutskip')
+  const next = document.getElementById('tutnext')
+  const back = document.getElementById('tutback')
+  if (skip) skip.addEventListener('click', () => { closeTutorial(); render() })
+  if (next) {
+    next.addEventListener('click', () => {
+      if (tutorialStep >= TUTORIAL_STEPS.length - 1) {
+        closeTutorial()
+      } else {
+        tutorialStep = clampTutorialStep(tutorialStep + 1)
+      }
+      render()
+    })
+  }
+  if (back) {
+    back.addEventListener('click', () => {
+      tutorialStep = clampTutorialStep(tutorialStep - 1)
+      render()
+    })
+  }
+  root.querySelectorAll('[data-tutstep]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      tutorialStep = clampTutorialStep(Number(btn.getAttribute('data-tutstep')))
+      render()
+    })
+  })
+}
+
+function finishPaint() {
+  bindLang()
+  if (tutorialOn) {
+    app.insertAdjacentHTML('beforeend', tutorialHtml())
+    bindTutorial()
+  }
+  maybePlayWin()
+}
+
 function chromeToggleHtml() {
   const off = isMuted()
   const musicOff = !isMusicOn()
@@ -117,6 +193,7 @@ function chromeToggleHtml() {
       ).join('')}</div>
       <button class="count-btn sound-btn${off ? ' off' : ''}" id="soundtoggle" type="button" aria-pressed="${off ? 'false' : 'true'}">${off ? t('soundOff') : t('soundOn')}</button>
       <button class="count-btn sound-btn${musicOff ? ' off' : ''}" id="musictoggle" type="button" aria-pressed="${musicOff ? 'false' : 'true'}">${musicOff ? t('musicOff') : t('musicOn')}</button>
+      <button class="count-btn sound-btn" id="helptoggle" type="button">${t('howToFarm')}</button>
     </div>`
 }
 
@@ -143,6 +220,14 @@ function bindLang() {
   if (music) {
     music.addEventListener('click', () => {
       toggleMusic()
+      render()
+    })
+  }
+  const help = document.getElementById('helptoggle')
+  if (help) {
+    help.addEventListener('click', () => {
+      tutorialStep = 0
+      tutorialOn = true
       render()
     })
   }
@@ -772,21 +857,18 @@ function render() {
   if (screen === 'lobby' && !state) {
     app.innerHTML = lobbyHtml()
     bindLobby()
-    bindLang()
-    maybePlayWin()
+    finishPaint()
     return
   }
   if (screen === 'waiting') {
     app.innerHTML = waitingHtml()
     bindWaiting()
-    bindLang()
-    maybePlayWin()
+    finishPaint()
     return
   }
   app.innerHTML = gameHtml()
   bindGame()
-  bindLang()
-  maybePlayWin()
+  finishPaint()
   if (state) setDiceFace(state.lastDice[0], state.lastDice[1])
   if (online() && state && state.phase !== 'over') {
     startClock()

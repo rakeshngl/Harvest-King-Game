@@ -33,12 +33,19 @@ Accounts/login stay deferred (needs OAuth or email credentials).
 - Register from `src/pwa.js` in the production build only (`CACHE_VERSION` = `hk-shell-1`).
 - Offline banner on lobby, waiting room and board; pass-and-play and vs computer still work. Online rooms still need the network.
 
+## 5. Tutorial overlay (done)
+
+- Six-step farming-cycle overlay on first visit (`hk-tutorial`).
+- Chrome **How to farm** reopens it on lobby, waiting room and board.
+- Skip / next / back / dots; EN / HI / TA copy. Does not block later landings.
+
 ## Suggested order
 
 1. CI with ESLint
 2. Season presets
 3. Daily seed
 4. PWA
+5. Tutorial overlay
 
 ## Deferred
 

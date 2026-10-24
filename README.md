@@ -24,6 +24,7 @@ There is no jail. Instead, the board is loaded with agricultural complications: 
 - **Indian number formatting**: money uses lakh/crore shorthand (Rs 12,000 / Rs 1.2 lakh / Rs 1.5 crore) and `en-IN` digit grouping for counts.
 - **Phone layout**: the 40-tile board shrinks to the viewport, side panels tab, and the roll dock stays under the board.
 - **Installable PWA**: Add to Home Screen. The production service worker precaches the shell so the lobby, pass-and-play and vs computer still open offline. Online rooms still need the network.
+- **Farming-cycle tutorial**: six-step overlay on first visit (`localStorage` `hk-tutorial`). Reopen it from **How to farm** in the chrome.
 
 ## Board
 
@@ -269,6 +270,7 @@ The only dependency is Vite (dev dependency). The server runs on the Node standa
     ├── data.js         # Tiles, crops, groups, cards, weather, constants
     ├── net.js          # Client fetch wrappers for the session API
     ├── pwa.js          # Production-only service worker registration
+    ├── tutorial.js     # First-visit farming-cycle overlay steps
     ├── dice.js         # CSS 3D dice rendering and animation
     ├── icons.js        # Inline SVG tile icons
     └── style.css       # Layout, board, special fills, coin tokens, sidebar, dice, modals

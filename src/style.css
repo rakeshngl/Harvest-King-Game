@@ -1441,6 +1441,69 @@ html, body {
 
 .modal p { color: #4a3724; margin-bottom: 12px; }
 
+.tutorial-back {
+  z-index: 30;
+}
+
+.modal.tutorial {
+  width: min(480px, 100%);
+}
+
+.tut-kicker {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--saffron-deep);
+  margin-bottom: 10px;
+}
+
+.tut-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.tut-icon {
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
+  background: #fff8e8;
+  border: 2px solid var(--gold);
+  display: grid;
+  place-items: center;
+}
+
+.tut-icon svg {
+  width: 40px;
+  height: 40px;
+}
+
+.tut-head h2 {
+  margin: 0;
+}
+
+.tut-dots {
+  display: flex;
+  gap: 8px;
+  margin: 4px 0 14px;
+}
+
+.tut-dot {
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #d7c4a3;
+  cursor: pointer;
+}
+
+.tut-dot.on {
+  background: var(--saffron);
+}
+
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
 .work-btn {
