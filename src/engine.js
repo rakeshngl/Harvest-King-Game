@@ -390,7 +390,7 @@ function handleFarm(state, p, tile) {
   state.phase = 'end'
 }
 
-function transfer(state, from, to, amount, reason) {
+export function transfer(state, from, to, amount, reason) {
   const a = Math.round(amount)
   if (a <= 0) return
   if (from.cash >= a) {
@@ -399,12 +399,7 @@ function transfer(state, from, to, amount, reason) {
     log(state, `${from.name} pays ${to.name} Rs ${a} for ${reason}.`, 'loss', { amount: a, pid: from.id })
     return
   }
-  forcePay(state, from, a, reason)
-  if (!from.bankrupt) {
-    const paid = Math.min(a, from.cash)
-    from.cash -= paid
-    to.cash += paid
-  }
+  if (forcePay(state, from, a, reason)) to.cash += a
 }
 
 export function forcePay(state, player, amount, reason) {
@@ -843,6 +838,7 @@ export function sellToFci(state) {
   })
   state.phase = 'end'
   state.pending = null
+  checkWin(state)
   return true
 }
 

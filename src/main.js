@@ -16,7 +16,7 @@ import {
 import { PERSONAS, CPU_NAMES, chooseAction, describeAction } from './ai.js'
 import { t, setLang, currentLang, LANGS } from './i18n.js'
 import { playCue, isMuted, toggleMute, isMusicOn, toggleMusic, startMusic, stopMusic, setMusicScene } from './sound.js'
-import { inrShort, fmtCount } from './format.js'
+import { inrShort, fmtCount, escapeHtml } from './format.js'
 import { todayKey, dailyCode } from './rng.js'
 import { registerPwa } from './pwa.js'
 import { TUTORIAL_STEPS, loadTutorialSeen, saveTutorialSeen, clampTutorialStep } from './tutorial.js'
@@ -507,7 +507,7 @@ function cueForLanding(item) {
 function diaryRow(e) {
   const kind = typeof e === 'string' ? 'info' : (e.kind || 'info')
   const text = typeof e === 'string' ? e : e.text
-  return `<div class="log-line ${kind}"><span class="dot"></span><span class="txt">${text}</span></div>`
+  return `<div class="log-line ${kind}"><span class="dot"></span><span class="txt">${escapeHtml(text)}</span></div>`
 }
 
 function diaryPages() {
@@ -889,14 +889,14 @@ function lobbyHtml() {
     <main class="lobby-table">
       ${chromeToggleHtml()}
       ${offlineBannerHtml()}
-      ${notice ? `<p class="notice">${notice}</p>` : ''}
+      ${notice ? `<p class="notice">${escapeHtml(notice)}</p>` : ''}
       ${statsHtml()}
       <div class="farmer-bar">
         <div>
           <div class="en">${t('takeSeat')}</div>
           <p>${t('takeSeatHint')}</p>
         </div>
-        <input id="myname" maxlength="16" placeholder="${t('farmerName')}" value="${draftName}" required />
+        <input id="myname" maxlength="16" placeholder="${t('farmerName')}" value="${escapeHtml(draftName)}" required />
       </div>
       ${resumeTablesHtml()}
       <div id="opentables">${openTablesHtml()}</div>
@@ -1023,7 +1023,7 @@ function openTablesHtml() {
         ${openTables.map((table) => `
           <div class="names">
             <span class="session-code" style="font-size:20px;padding:8px 12px">${table.code}</span>
-            <span class="pcash">${table.seats}/4 · ${t('hostOf')} ${table.host} · ${presetLabel(table.preset)}</span>
+            <span class="pcash">${table.seats}/4 · ${t('hostOf')} ${escapeHtml(table.host)} · ${presetLabel(table.preset)}</span>
             <button class="primary" data-halljoin="${table.code}">${t('sit')}</button>
           </div>`).join('')}
       </article>`
@@ -1072,9 +1072,9 @@ function resumeTablesHtml() {
           const s = seats[code]
           const who = s.spectator ? t('watcher') : (s.name || t('farmer'))
           return `<div class="names">
-            <span class="session-code" style="font-size:20px;padding:8px 12px">${code}</span>
-            <button class="primary" data-resume="${code}">${t('resumeWho', who)}</button>
-            <button class="ghost" data-forget="${code}">${t('forget')}</button>
+            <span class="session-code" style="font-size:20px;padding:8px 12px">${escapeHtml(code)}</span>
+            <button class="primary" data-resume="${escapeHtml(code)}">${t('resumeWho', escapeHtml(who))}</button>
+            <button class="ghost" data-forget="${escapeHtml(code)}">${t('forget')}</button>
           </div>`
         }).join('')}
       </article>`
@@ -1300,7 +1300,7 @@ function waitingHtml() {
           <div class="player-card${p.seat === session.you ? ' turn' : ''}">
             <div class="swatch" style="background:${PLAYER_PALETTE[p.seat].color}"></div>
             <div>
-              <div class="pname">${p.name}${p.cpu ? ' · ' + t('computer') : ''}${p.seat === hostSeat ? ' · ' + t('hostTag') : ''}${p.seat === session.you ? ' · ' + t('youTag') : ''}${!p.cpu && !p.connected ? ' · ' + t('away') : ''}</div>
+              <div class="pname">${escapeHtml(p.name)}${p.cpu ? ' · ' + t('computer') : ''}${p.seat === hostSeat ? ' · ' + t('hostTag') : ''}${p.seat === session.you ? ' · ' + t('youTag') : ''}${!p.cpu && !p.connected ? ' · ' + t('away') : ''}</div>
               <div class="pcash">${p.cpu ? (PERSONAS.find((x) => x.id === p.persona)?.name || t('cpu')) : (p.connected ? t('seated') : t('away'))}</div>
               ${host && p.seat !== session.you ? `<div class="names" style="margin-top:8px">
                 <button class="ghost" data-kick="${p.seat}">${t('remove')}</button>
@@ -1314,7 +1314,7 @@ function waitingHtml() {
             <div class="pname">${t('openSeat', players.length + i + 1)}</div>
           </div>`).join('')}
       </div>
-      ${notice ? `<p class="notice">${notice}</p>` : ''}
+      ${notice ? `<p class="notice">${escapeHtml(notice)}</p>` : ''}
       ${host
         ? presetRowHtml({ id: 'onlinepreset', active: presetById(room && room.preset).id, dataAttr: 'onlinepreset' })
         : `<p class="pcash">${t('matchLength')}: ${presetLabel(room && room.preset)}</p>`}
@@ -1461,7 +1461,7 @@ function gameHtml() {
           <span class="chip n">${t('seasonN', Math.min(state.seasonIndex + 1, state.maxSeasons || MAX_SEASONS), state.maxSeasons || MAX_SEASONS)}</span>
           ${state.daily ? `<span class="chip">${t('daily')} ${state.daily}</span>` : ''}
           <span class="chip">${t('marketX', state.marketMod.toFixed(2))}</span>
-          ${online() ? `<span class="chip">${session.spectator ? t('watching') : t('youName', me ? me.name : '')}</span>` : (state.players.some((x) => x.cpu) ? '<span class="chip">' + t('vsCpuChip') + '</span>' : '')}
+          ${online() ? `<span class="chip">${session.spectator ? t('watching') : t('youName', me ? escapeHtml(me.name) : '')}</span>` : (state.players.some((x) => x.cpu) ? '<span class="chip">' + t('vsCpuChip') + '</span>' : '')}
         </div>
       </div>
       <div class="board-stage">
@@ -1489,8 +1489,8 @@ function gameHtml() {
         ${mine && state.phase === 'end' && !state.labourUsed && farmsOf(state, mySeat()).length
           ? '<div class="tsub labour-hint">' + t('extraLabour') + '</div>'
           : ''}
-        ${cpuNote ? `<p class="cpu-note">${cpuNote}</p>` : ''}
-        ${notice ? `<p class="notice">${notice}</p>` : ''}
+        ${cpuNote ? `<p class="cpu-note">${escapeHtml(cpuNote)}</p>` : ''}
+        ${notice ? `<p class="notice">${escapeHtml(notice)}</p>` : ''}
         ${online() && state.phase !== 'over' ? '<div class="turn-clock" id="turnclock" hidden></div>' : ''}
         <button class="ghost" id="leavegame">${online() ? t('leaveSession') : t('leaveTable')}</button>
       </div>
@@ -1553,7 +1553,7 @@ function playerCard(p) {
     <div class="player-card${on ? ' turn' : ''}${p.bankrupt ? ' out' : ''}">
       <div class="swatch" style="background:${p.color}"></div>
       <div>
-        <div class="pname">${p.name}${tag ? ' · ' + tag : ''}${state.winner === p.id ? ' · ' + t('harvestKing') : ''}</div>
+        <div class="pname">${escapeHtml(p.name)}${tag ? ' · ' + escapeHtml(tag) : ''}${state.winner === p.id ? ' · ' + t('harvestKing') : ''}</div>
         <div class="pcash">${rs(p.cash)} · ${t('debt')} ${rs(p.debt)}</div>
       </div>
       <div class="pnet">${rs(nw)}</div>
@@ -1592,7 +1592,7 @@ function tileHtml(t) {
     .map((p) => {
   const on = actingSeat(state) === p.id && state.phase !== 'over'
       const letter = (p.name || '?').trim().charAt(0).toUpperCase()
-      return `<div class="coin${on ? ' active' : ''}" style="--pc:${p.color}" title="${p.name}">${letter}</div>`
+      return `<div class="coin${on ? ' active' : ''}" style="--pc:${p.color}" title="${escapeHtml(p.name)}">${escapeHtml(letter)}</div>`
     })
     .join('')
   const stage = farm && farm.stage !== 'idle'
@@ -1630,7 +1630,7 @@ function modalHtml() {
       <div class="modal-back">
         <div class="modal win">
           <div class="tag">${t('villageDeclares')}</div>
-          <h2>${w ? t('isKing', w.name) : t('landKing')}</h2>
+          <h2>${w ? t('isKing', escapeHtml(w.name)) : t('landKing')}</h2>
           <p>${t('granaries', w ? rs(netWorth(state, w)) : '')}</p>
           <button class="primary" id="again">${t('playAgain')}</button>
         </div>
@@ -1686,7 +1686,7 @@ function tradePanel() {
       <p class="pcash">${t('tradeHint')}</p>
       <label>${t('tradeWith')}
         <select id="tradeto"${mine ? '' : ' disabled'}>
-          ${others.map((p) => `<option value="${p.id}"${p.id === to ? ' selected' : ''}>${p.name}</option>`).join('')}
+           ${others.map((p) => `<option value="${p.id}"${p.id === to ? ' selected' : ''}>${escapeHtml(p.name)}</option>`).join('')}
         </select>
       </label>
       <label>${t('youPay')}
@@ -1735,7 +1735,7 @@ function landingModal() {
     <div class="modal-back">
       <div class="modal landing">
         <div class="land-tag" style="color:${player.color}">
-          <span class="pin" style="--pc:${player.color}"></span>${player.name} ${t('landsOn')}
+          <span class="pin" style="--pc:${player.color}"></span>${escapeHtml(player.name)} ${t('landsOn')}
         </div>
         <div class="land-head">
           <div class="land-icon" style="border-color:${player.color}">${tile ? iconHtml(tile.icon) : ''}</div>
@@ -1828,8 +1828,8 @@ function auctionModal(pending) {
     <h2>${t('auction')}</h2>
     <p>${t('auctionLot', tile ? tile.name : '', rs(pending.minBid))}</p>
     <div class="farm-meta">
-      ${bidder ? t('highBid', bidder.name, rs(pending.highBid)) : t('noBids')}
-      <br/>${t('toBid', actor ? actor.name : '', rs(floor))}
+      ${bidder ? t('highBid', escapeHtml(bidder.name), rs(pending.highBid)) : t('noBids')}
+      <br/>${t('toBid', actor ? escapeHtml(actor.name) : '', rs(floor))}
     </div>
     ${mine ? `<div class="actions">
       <button class="work-btn gold" data-act="bid" ${canBid ? '' : 'disabled'}>${t('bidNow', rs(floor))}</button>
@@ -1850,7 +1850,7 @@ function tradeModal(pending) {
   const mine = isMyTurn()
   return wrapModal(`
     <h2>${t('trade')}</h2>
-    <p>${t('tradeOffer', from ? from.name : '', to ? to.name : '')}</p>
+    <p>${t('tradeOffer', from ? escapeHtml(from.name) : '', to ? escapeHtml(to.name) : '')}</p>
     <div class="farm-meta">
       ${t('theyGive')}: ${tradeLine(pending.cashGive, pending.landGive)}${pending.debtGive ? ' · ' + t('debt') + ' ' + rs(pending.debtGive) : ''}<br/>
       ${t('theyAsk')}: ${tradeLine(pending.cashTake, pending.landTake)}${pending.debtTake ? ' · ' + t('debt') + ' ' + rs(pending.debtTake) : ''}

@@ -1,8 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  createGame, harvest, forcePay, buyFarm, prepareLand, seedLand, skipTurn,
-  nextTurn, netWorth, applyMove, takeLoan, declineAction, bidAuction, passAuction,
+  createGame, harvest, forcePay, transfer, buyFarm, prepareLand, seedLand, skipTurn,
+  nextTurn, netWorth, applyMove, takeLoan, sellToFci, declineAction, bidAuction, passAuction,
   offerTrade, acceptTrade, rejectTrade, actingSeat, finalStandings, presetById
 } from '../src/engine.js'
 import { START_CASH, WIN_NET, PASS_GO, WEATHER, TILES, CROPS, INTEREST, SEASON_PRESETS, DEFAULT_PRESET } from '../src/data.js'
@@ -331,6 +331,36 @@ test('a different daily seed shuffles a different farmer deck', () => {
   const a = createGame(2, ['A', 'B'], { daily: '2026-10-18' })
   const b = createGame(2, ['A', 'B'], { daily: '2026-10-19' })
   assert.notDeepEqual(a.kisan.map((c) => c.id), b.kisan.map((c) => c.id))
+})
+
+test('transfer after a mortgage pays the owner the full rent', () => {
+  const s = createGame(2, ['A', 'B'])
+  s.farms[1].owner = 0
+  s.players[0].cash = 500
+  s.players[1].cash = 100
+  transfer(s, s.players[0], s.players[1], 1000, 'crossing Barmer Millet')
+  assert.equal(s.players[0].bankrupt, false)
+  assert.equal(s.farms[1].mortgaged, true)
+  assert.equal(s.players[0].cash, 100)
+  assert.equal(s.players[1].cash, 1100)
+})
+
+test('transfer that bankrupts the payer does not credit the owner', () => {
+  const s = createGame(2, ['A', 'B'])
+  s.players[0].cash = 40
+  s.players[1].cash = 500
+  transfer(s, s.players[0], s.players[1], 800, 'crossing Barmer Millet')
+  assert.equal(s.players[0].bankrupt, true)
+  assert.equal(s.players[1].cash, 500)
+})
+
+test('sellToFci crowns a farmer who crosses winNet', () => {
+  const s = createGame(2, ['A', 'B'])
+  ripeField(s, 1, 'bajra')
+  s.players[0].cash = WIN_NET
+  assert.equal(sellToFci(s), true)
+  assert.equal(s.winner, 0)
+  assert.equal(s.phase, 'over')
 })
 
 test('numeric seeds replay the same harvest luck', () => {

@@ -1,5 +1,5 @@
 /* Harvest King service worker. Bump VERSION when the shell changes. */
-const VERSION = 'hk-shell-2'
+const VERSION = 'hk-shell-3'
 const SHELL = 'hk-shell-' + VERSION
 const ASSETS = 'hk-assets-' + VERSION
 const API_CACHE = 'hk-api-' + VERSION

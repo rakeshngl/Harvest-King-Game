@@ -36,6 +36,9 @@ const JOIN_LIMIT = 20
 const RATE_WINDOW_MS = 10 * 60 * 1000
 const DRAIN_MS = Math.max(3, Number(process.env.DRAIN_MS) || 25) * 1000
 const PROFILE_CAP = 5000
+const MAX_BODY = 64 * 1024
+const TRUST_PROXY = process.env.TRUST_PROXY !== '0' && process.env.TRUST_PROXY !== 'false'
+const CORS_ORIGIN = process.env.CORS_ORIGIN || '*'
 const presence = new Map()
 const rateBuckets = new Map()
 let persistOk = true
@@ -268,7 +271,7 @@ function loadRooms() {
         streams: [],
         players: Array.isArray(r.players) ? r.players.map((p) => ({
           seat: Number(p.seat),
-          name: String(p.name || 'Farmer').slice(0, 16),
+          name: farmerName(p.name, 'Farmer'),
           token: String(p.token || ''),
           seen: Number(p.seen) || 0,
           cpu: !!p.cpu,
@@ -277,7 +280,7 @@ function loadRooms() {
         })) : [],
         spectators: Array.isArray(r.spectators) ? r.spectators.map((p) => ({
           seat: -1,
-          name: String(p.name || 'Watcher').slice(0, 16),
+          name: farmerName(p.name, 'Watcher'),
           token: String(p.token || ''),
           seen: Number(p.seen) || 0,
           spectator: true
@@ -372,7 +375,7 @@ function json(res, status, body) {
   const data = JSON.stringify(body)
   res.writeHead(status, {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': CORS_ORIGIN,
     'Cache-Control': 'no-store'
   })
   res.end(data)
@@ -381,7 +384,16 @@ function json(res, status, body) {
 function readBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = []
-    req.on('data', (c) => chunks.push(c))
+    let size = 0
+    req.on('data', (c) => {
+      size += c.length
+      if (size > MAX_BODY) {
+        req.destroy()
+        reject(new Error('body too large'))
+        return
+      }
+      chunks.push(c)
+    })
     req.on('end', () => {
       try {
         const raw = Buffer.concat(chunks).toString('utf8') || '{}'
@@ -395,8 +407,11 @@ function readBody(req) {
 }
 
 function clientIp(req) {
-  const fwd = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim()
-  return fwd || req.socket.remoteAddress || 'unknown'
+  if (TRUST_PROXY) {
+    const fwd = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim()
+    if (fwd) return fwd.slice(0, 64)
+  }
+  return req.socket.remoteAddress || 'unknown'
 }
 
 function rateLimited(key, limit) {
@@ -436,6 +451,11 @@ function snapshot(room, seat) {
     cpuDifficulty: room.cpuDifficulty || 'normal',
     draining
   }
+}
+
+function farmerName(value, fallback) {
+  const raw = String(value || '').replace(/[<>]/g, '').trim().slice(0, 16)
+  return raw || fallback
 }
 
 function passHash(value) {
@@ -676,13 +696,16 @@ function applyAction(room, seat, action) {
       if (!unmortgage(state, pending.tileId)) return { error: 'Cannot redeem' }
       return { ok: true }
     case 'fci':
+      if (!pending || pending.kind !== 'fci') return { error: 'Not at the warehouse' }
       if (!sellToFci(state)) return { error: 'The warehouse has no grain from you' }
       return { ok: true }
     case 'loan':
+      if (!pending || pending.kind !== 'nabard') return { error: 'Not at the rural bank' }
       if (!takeLoan(state)) return { error: 'Loan refused' }
       declineAction(state)
       return { ok: true }
     case 'repay':
+      if (!pending || pending.kind !== 'nabard') return { error: 'Not at the rural bank' }
       if (!repayLoan(state, LOAN_STEP)) return { error: 'Nothing to repay' }
       declineAction(state)
       return { ok: true }
@@ -727,7 +750,7 @@ function applyAction(room, seat, action) {
 const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': CORS_ORIGIN,
       'Access-Control-Allow-Headers': 'Content-Type',
       'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
     })
@@ -788,7 +811,7 @@ const server = http.createServer(async (req, res) => {
         return
       }
       const body = await readBody(req)
-      const name = String(body.name || '').trim().slice(0, 16) || 'Saffron'
+      const name = farmerName(body.name, 'Saffron')
       const visitor = visitorId(body.visitor)
       const room = {
         code: code(),
@@ -833,7 +856,7 @@ const server = http.createServer(async (req, res) => {
       if (existing) {
         existing.seen = Date.now()
         if (body.visitor) existing.visitor = visitorId(body.visitor)
-        if (body.name) existing.name = String(body.name).trim().slice(0, 16) || existing.name
+        if (body.name) existing.name = farmerName(body.name, existing.name)
         maybePassHost(room)
         bump(room)
         json(res, 200, { ...snapshot(room, existing.seat), token: existing.token, resumed: true })
@@ -854,7 +877,7 @@ const server = http.createServer(async (req, res) => {
           json(res, 400, { error: 'Too many watchers on this table' })
           return
         }
-        const name = String(body.name || '').trim().slice(0, 16) || 'Watcher'
+        const name = farmerName(body.name, 'Watcher')
         const p = { seat: -1, name, token: token(), seen: Date.now(), spectator: true }
         room.spectators.push(p)
         bump(room)
@@ -865,7 +888,7 @@ const server = http.createServer(async (req, res) => {
         json(res, 400, { error: 'Session is full (4 farmers)' })
         return
       }
-      const name = String(body.name || '').trim().slice(0, 16) || `Farmer ${room.players.length + 1}`
+      const name = farmerName(body.name, `Farmer ${room.players.length + 1}`)
       const p = { seat: room.players.length, name, token: token(), seen: Date.now(), visitor: visitorId(body.visitor) }
       room.players.push(p)
       bump(room)
@@ -1107,7 +1130,7 @@ const server = http.createServer(async (req, res) => {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-store',
         Connection: 'keep-alive',
-        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Origin': CORS_ORIGIN,
         'X-Accel-Buffering': 'no'
       })
       if (typeof res.flushHeaders === 'function') res.flushHeaders()

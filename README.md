@@ -371,6 +371,8 @@ Each online turn has a 90 second clock (`TURN_MS`, seconds). The timer covers th
 
 On SIGTERM/SIGINT the server drains for up to 25 seconds (`DRAIN_MS`): no new rooms, no new joins except resume, no new starts. CPU seats finish the current turn. Then rooms are written to `data/rooms.json` and the process exits.
 
+JSON bodies are capped at 64 KB. Rate limits use `x-forwarded-for` when `TRUST_PROXY` is not `0` (Coolify sits behind a proxy). Set `CORS_ORIGIN` to the Vercel origin in production; it defaults to `*`.
+
 The process writes one JSON object per line to stdout (`ts`, `event`, fields). Tokens are never logged. Coolify can scrape these. `/api/health` is 503 while draining so a load balancer can stop sending new traffic.
 
 ### Reverse proxy

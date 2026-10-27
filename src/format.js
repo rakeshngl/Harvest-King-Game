@@ -21,3 +21,12 @@ export function inrShort(n) {
 export function fmtCount(n) {
   return Number(n || 0).toLocaleString('en-IN')
 }
+
+export function escapeHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
