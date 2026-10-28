@@ -7,7 +7,7 @@ import {
   seedLand, irrigate, insure, harvest, tendCrop, sellToFci, takeLoan, repayLoan,
   declineAction, nextTurn, skipTurn, unmortgage, openFarmWork, actingSeat,
   bidAuction, passAuction, offerTrade, acceptTrade, rejectTrade, finalStandings,
-  presetById
+  presetById, LOG_CAP
 } from '../src/engine.js'
 import {
   blankProfile, normalizeProfile, applyMatch, publicProfile as buildPublicProfile
@@ -102,10 +102,12 @@ const knownVisitors = new Set(statsStore.ids)
 function saveStats() {
   try {
     fs.mkdirSync(DATA_DIR, { recursive: true })
-    fs.writeFileSync(STATS_FILE, JSON.stringify({
+    const tmp = `${STATS_FILE}.tmp`
+    fs.writeFileSync(tmp, JSON.stringify({
       visits: statsStore.visits,
       ids: [...knownVisitors].slice(-20000)
     }))
+    fs.renameSync(tmp, STATS_FILE)
   } catch {
     /* ignore */
   }
@@ -187,6 +189,13 @@ function recordMatch(room) {
 
 loadProfiles()
 
+function capRoomLog(state) {
+  if (state && Array.isArray(state.log) && state.log.length > LOG_CAP) {
+    state.log.length = LOG_CAP
+  }
+  return state
+}
+
 function serializableRoom(room) {
   return {
     code: room.code,
@@ -194,11 +203,11 @@ function serializableRoom(room) {
     seq: room.seq,
     rollSeq: room.rollSeq,
     lastDice: room.lastDice,
-    state: room.state,
+    state: capRoomLog(room.state),
     players: room.players.map((p) => ({
       seat: p.seat,
       name: p.name,
-      token: p.token,
+      token: p.cpu ? '' : p.token,
       seen: p.seen,
       cpu: !!p.cpu,
       persona: p.persona || null,
@@ -254,6 +263,26 @@ function saveRooms() {
   }
 }
 
+let saveRoomsTimer = 0
+const SAVE_ROOMS_MS = 250
+
+function scheduleSaveRooms() {
+  if (saveRoomsTimer) return
+  saveRoomsTimer = setTimeout(() => {
+    saveRoomsTimer = 0
+    saveRooms()
+  }, SAVE_ROOMS_MS)
+  if (saveRoomsTimer.unref) saveRoomsTimer.unref()
+}
+
+function flushSaveRooms() {
+  if (saveRoomsTimer) {
+    clearTimeout(saveRoomsTimer)
+    saveRoomsTimer = 0
+  }
+  saveRooms()
+}
+
 function loadRooms() {
   try {
     const raw = JSON.parse(fs.readFileSync(ROOMS_FILE, 'utf8'))
@@ -268,13 +297,13 @@ function loadRooms() {
         seq: Number(r.seq) || 1,
         rollSeq: Number(r.rollSeq) || 0,
         lastDice: Array.isArray(r.lastDice) ? r.lastDice : [1, 1],
-        state: r.state || null,
+        state: capRoomLog(r.state || null),
         waiters: [],
         streams: [],
         players: Array.isArray(r.players) ? r.players.map((p) => ({
           seat: Number(p.seat),
           name: farmerName(p.name, 'Farmer'),
-          token: String(p.token || ''),
+          token: p.cpu ? token() : String(p.token || ''),
           seen: Number(p.seen) || 0,
           cpu: !!p.cpu,
           persona: p.persona ? String(p.persona) : null,
@@ -498,7 +527,7 @@ function bump(room) {
     live.push(s)
   })
   room.streams = live
-  saveRooms()
+  scheduleSaveRooms()
 }
 
 function memberByToken(room, tok) {
@@ -1182,7 +1211,7 @@ function finishDrain() {
       room.cpuTimer = 0
     }
   })
-  saveRooms()
+  flushSaveRooms()
   logEvent('server.exit', { rooms: rooms.size, persist: persistOk })
   server.close(() => process.exit(0))
   setTimeout(() => process.exit(0), 1500).unref()

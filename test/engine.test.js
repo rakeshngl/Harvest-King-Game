@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {
   createGame, harvest, forcePay, transfer, buyFarm, prepareLand, seedLand, skipTurn,
   nextTurn, netWorth, applyMove, takeLoan, sellToFci, declineAction, bidAuction, passAuction,
-  offerTrade, acceptTrade, rejectTrade, actingSeat, finalStandings, presetById
+  offerTrade, acceptTrade, rejectTrade, actingSeat, finalStandings, presetById, rollDice, LOG_CAP
 } from '../src/engine.js'
 import { START_CASH, WIN_NET, PASS_GO, WEATHER, TILES, CROPS, INTEREST, SEASON_PRESETS, DEFAULT_PRESET } from '../src/data.js'
 import { dailySeed } from '../src/rng.js'
@@ -376,4 +376,21 @@ test('numeric seeds replay the same harvest luck', () => {
   harvest(b, 1)
   assert.equal(a.players[0].cash, b.players[0].cash)
   assert.equal(a.farms[1].lastYield, b.farms[1].lastYield)
+})
+
+test('farm diary keeps the newest LOG_CAP entries', () => {
+  const s = createGame(2, ['A', 'B'], { seed: 1, seasons: 18, winNet: 999999 })
+  let steps = 0
+  while (s.phase !== 'over' && steps < 5000) {
+    steps += 1
+    if (s.phase === 'roll') applyMove(s, rollDice(s))
+    else if (s.phase === 'action') declineAction(s)
+    else if (s.phase === 'end') nextTurn(s)
+    else break
+  }
+  assert.equal(s.phase, 'over')
+  assert.ok(s.logId > LOG_CAP)
+  assert.equal(s.log.length, LOG_CAP)
+  assert.equal(s.log[0].id, s.logId)
+  assert.equal(s.log[s.log.length - 1].id, s.logId - LOG_CAP + 1)
 })

@@ -172,9 +172,12 @@ export function groupOwned(state, pid, group) {
   return ids.every((id) => state.farms[id].owner === pid)
 }
 
+export const LOG_CAP = 200
+
 function log(state, msg, kind = 'info', meta = null) {
   state.logId += 1
   state.log.unshift({ id: state.logId, kind, text: msg, meta })
+  if (state.log.length > LOG_CAP) state.log.length = LOG_CAP
 }
 
 function gain(state, player, amount, reason) {

@@ -1,7 +1,7 @@
 import { describe, test, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, readFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -120,6 +120,36 @@ test('create join start and action drive a seeded table', async () => {
   const session = await api('GET', `/api/session?code=${code}&token=${hostTok}`)
   assert.equal(session.status, 200)
   assert.equal(session.json.code, code)
+})
+
+test('cpu seats persist without tokens and stats write atomically', async () => {
+  const created = await api('POST', '/api/create', { name: 'Host', visitor: 'persist-a' })
+  assert.equal(created.status, 200)
+  const code = created.json.code
+  const hostTok = created.json.token
+  const onDisk = JSON.parse(readFileSync(join(dataDir, 'rooms.json'), 'utf8'))
+  assert.ok(onDisk.rooms.some((r) => r.code === code))
+
+  const cpu = await api('POST', '/api/cpu', { code, token: hostTok })
+  assert.equal(cpu.status, 200)
+  assert.ok(cpu.json.players.some((p) => p.cpu))
+  await delay(400)
+  const saved = JSON.parse(readFileSync(join(dataDir, 'rooms.json'), 'utf8'))
+  const room = saved.rooms.find((r) => r.code === code)
+  assert.ok(room)
+  const bot = room.players.find((p) => p.cpu)
+  assert.ok(bot)
+  assert.equal(bot.token, '')
+  const human = room.players.find((p) => !p.cpu)
+  assert.ok(human.token)
+
+  const presence = await api('POST', '/api/presence', { visitor: 'stat-a' })
+  assert.equal(presence.status, 200)
+  assert.ok(presence.json.visits >= 1)
+  const stats = JSON.parse(readFileSync(join(dataDir, 'stats.json'), 'utf8'))
+  assert.ok(stats.visits >= 1)
+  assert.ok(stats.ids.includes('stat-a'))
+  assert.equal(existsSync(join(dataDir, 'stats.json.tmp')), false)
 })
 
 test('SIGTERM drains then health is 503', async () => {
