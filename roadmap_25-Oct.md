@@ -13,7 +13,7 @@ Grounded in the tree at `e5fbb56`. Already shipped and not re-proposed: rooms + 
 ## Suggested sequence
 
 1. Security + engine correctness (must-fix items 1–5). Small diffs, real fairness/exploit. — done except seat-token-at-rest (sequence 3).
-2. Golden replays (`seed + actions → log/winner`) + HTTP tests for create/join/action/drain.
+2. Golden replays (`seed + actions → log/winner`) + HTTP tests for create/join/action/drain. — done
 3. Cap `state.log`, debounce `saveRooms`, tmp+rename `saveStats`. Drop CPU tokens from disk.
 4. Split `main.js` (~2244 lines, full `innerHTML` each render).
 5. Reduced-motion, keyboard tiles, `:focus-visible`, Escape/focus-trap.

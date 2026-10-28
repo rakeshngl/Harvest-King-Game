@@ -1,0 +1,49 @@
+{
+  "seed": 42,
+  "seasons": 2,
+  "winNet": 999999,
+  "preset": "short",
+  "policy": "buy",
+  "winner": 1,
+  "logId": 41,
+  "cash": [
+    4160,
+    3240
+  ],
+  "pos": [
+    6,
+    3
+  ],
+  "seasonIndex": 2,
+  "lastDice": [
+    1,
+    6
+  ],
+  "logHead": "Seasons end. B is Harvest King with Rs 13640.",
+  "farms": [
+    [
+      6,
+      0
+    ],
+    [
+      8,
+      1
+    ],
+    [
+      13,
+      0
+    ],
+    [
+      21,
+      1
+    ],
+    [
+      31,
+      1
+    ],
+    [
+      32,
+      0
+    ]
+  ]
+}

@@ -20,7 +20,9 @@ const PORT = Number(process.env.PORT) || 3001
 const rooms = new Map()
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 const ONLINE_MS = 25000
-const DATA_DIR = path.join(process.cwd(), 'data')
+const DATA_DIR = process.env.DATA_DIR
+  ? path.resolve(process.env.DATA_DIR)
+  : path.join(process.cwd(), 'data')
 const STATS_FILE = path.join(DATA_DIR, 'stats.json')
 const ROOMS_FILE = path.join(DATA_DIR, 'rooms.json')
 const PROFILES_FILE = path.join(DATA_DIR, 'profiles.json')
