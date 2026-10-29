@@ -1,12 +1,11 @@
-import { TILES, CROPS, GROUPS, PLAYER_PALETTE, MAX_SEASONS, LOAN_STEP, LOAN_CAP, DEFAULT_PRESET, SEASON_PRESETS } from './data.js'
-import { iconHtml } from './icons.js'
-import { diceHtml, animateDice, setDiceFace } from './dice.js'
+import { PLAYER_PALETTE, LOAN_STEP, DEFAULT_PRESET } from './data.js'
+import { animateDice, setDiceFace } from './dice.js'
 import {
-  createGame, currentPlayer, netWorth, farmsOf, seasonOf, applyMove, rollDice,
+  createGame, currentPlayer, applyMove, rollDice,
   buyFarm, leaseFarm, buyInfra, prepareLand, seedLand, irrigate, insure,
   harvest, tendCrop, sellToFci, takeLoan, repayLoan, declineAction, nextTurn,
   unmortgage, openFarmWork, actingSeat, bidAuction, passAuction, offerTrade,
-  acceptTrade, rejectTrade, finalStandings, presetById
+  acceptTrade, rejectTrade, finalStandings, presetById, seasonOf
 } from './engine.js'
 import { blankProfile, applyMatch } from './profile.js'
 import {
@@ -14,27 +13,17 @@ import {
   kickSeat, passHost, setPreset, addCpu, loadSession, saveSession, savedSeat, savedSeats, forgetSeat, pingPresence, fetchLobby, fetchProfile
 } from './net.js'
 import { PERSONAS, CPU_NAMES, chooseAction, describeAction } from './ai.js'
-import { t, setLang, currentLang, LANGS } from './i18n.js'
-import { playCue, isMuted, toggleMute, isMusicOn, toggleMusic, startMusic, stopMusic, setMusicScene } from './sound.js'
-import { inrShort, fmtCount, escapeHtml } from './format.js'
+import { t, setLang, currentLang } from './i18n.js'
+import { playCue, isMuted, toggleMute, toggleMusic, startMusic, stopMusic, setMusicScene } from './sound.js'
+import { fmtCount } from './format.js'
 import { todayKey, dailyCode } from './rng.js'
 import { registerPwa } from './pwa.js'
 import { TUTORIAL_STEPS, loadTutorialSeen, saveTutorialSeen, clampTutorialStep } from './tutorial.js'
+import { tutorialHtml } from './chrome.js'
+import { lobbyHtml as lobbyView, waitingHtml as waitingView, openTablesHtml, profileHtml, nameInputs } from './lobby.js'
+import { gameHtml as gameView, diaryPages } from './hud.js'
 
 const app = document.getElementById('app')
-
-const PLACE = (() => {
-  const m = {}
-  m[0] = { c: 11, r: 11 }
-  for (let i = 1; i <= 9; i++) m[i] = { c: 11 - i, r: 11 }
-  m[10] = { c: 1, r: 11 }
-  for (let i = 11; i <= 19; i++) m[i] = { c: 1, r: 11 - (i - 10) }
-  m[20] = { c: 1, r: 1 }
-  for (let i = 21; i <= 29; i++) m[i] = { c: i - 19, r: 1 }
-  m[30] = { c: 11, r: 1 }
-  for (let i = 31; i <= 39; i++) m[i] = { c: 11, r: i - 29 }
-  return m
-})()
 
 let screen = 'lobby'
 let state = null
@@ -60,7 +49,6 @@ let presetChoice = DEFAULT_PRESET
 let draftName = ''
 let diaryPage = 0
 let wasOver = false
-const DIARY_PAGE = 20
 let hallStats = { visits: 0, online: 0, playing: 0 }
 let clockTimer = 0
 let openTables = []
@@ -94,10 +82,10 @@ function myVisitor() {
 }
 
 async function loadProfile() {
-  const seq = ++profileSeq
+  const seqNow = ++profileSeq
   try {
     const data = await fetchProfile(myVisitor())
-    if (seq !== profileSeq) return
+    if (seqNow !== profileSeq) return
     myProfile = data
     paintProfile()
   } catch {
@@ -105,42 +93,10 @@ async function loadProfile() {
   }
 }
 
-function offlineBannerHtml() {
-  if (lineOn) return ''
-  return `<p class="notice offline-banner" role="status">${t('offline')}</p>`
-}
-
 function closeTutorial() {
   tutorialOn = false
   tutorialStep = 0
   saveTutorialSeen()
-}
-
-function tutorialHtml() {
-  if (!tutorialOn) return ''
-  const step = TUTORIAL_STEPS[clampTutorialStep(tutorialStep)]
-  const i = clampTutorialStep(tutorialStep)
-  const last = i === TUTORIAL_STEPS.length - 1
-  const dots = TUTORIAL_STEPS.map((_, n) =>
-    `<button type="button" class="tut-dot${n === i ? ' on' : ''}" data-tutstep="${n}" aria-label="${t('tutStep', n + 1, TUTORIAL_STEPS.length)}"></button>`
-  ).join('')
-  return `
-    <div class="modal-back tutorial-back" id="tutorial" role="dialog" aria-modal="true" aria-labelledby="tuttitle">
-      <div class="modal tutorial">
-        <div class="tut-kicker">${t('tutKicker')} · ${t('tutStep', i + 1, TUTORIAL_STEPS.length)}</div>
-        <div class="tut-head">
-          <div class="tut-icon">${iconHtml(step.icon)}</div>
-          <h2 id="tuttitle">${t(step.title)}</h2>
-        </div>
-        <p>${t(step.body)}</p>
-        <div class="tut-dots" role="tablist">${dots}</div>
-        <div class="actions">
-          <button class="ghost" id="tutskip" type="button">${t('tutSkip')}</button>
-          ${i > 0 ? `<button class="ghost" id="tutback" type="button">${t('tutBack')}</button>` : ''}
-          <button class="primary" id="tutnext" type="button">${last ? t('tutStart') : t('tutNext')}</button>
-        </div>
-      </div>
-    </div>`
 }
 
 function bindTutorial() {
@@ -152,11 +108,8 @@ function bindTutorial() {
   if (skip) skip.addEventListener('click', () => { closeTutorial(); render() })
   if (next) {
     next.addEventListener('click', () => {
-      if (tutorialStep >= TUTORIAL_STEPS.length - 1) {
-        closeTutorial()
-      } else {
-        tutorialStep = clampTutorialStep(tutorialStep + 1)
-      }
+      if (tutorialStep >= TUTORIAL_STEPS.length - 1) closeTutorial()
+      else tutorialStep = clampTutorialStep(tutorialStep + 1)
       render()
     })
   }
@@ -177,24 +130,10 @@ function bindTutorial() {
 function finishPaint() {
   bindLang()
   if (tutorialOn) {
-    app.insertAdjacentHTML('beforeend', tutorialHtml())
+    app.insertAdjacentHTML('beforeend', tutorialHtml(tutorialOn, tutorialStep))
     bindTutorial()
   }
   maybePlayWin()
-}
-
-function chromeToggleHtml() {
-  const off = isMuted()
-  const musicOff = !isMusicOn()
-  return `
-    <div class="chrome-toggles">
-      <div class="lang-toggle" id="langtoggle">${LANGS.map((l) =>
-        `<button class="count-btn${currentLang() === l.id ? ' on' : ''}" data-lang="${l.id}">${l.label}</button>`
-      ).join('')}</div>
-      <button class="count-btn sound-btn${off ? ' off' : ''}" id="soundtoggle" type="button" aria-pressed="${off ? 'false' : 'true'}">${off ? t('soundOff') : t('soundOn')}</button>
-      <button class="count-btn sound-btn${musicOff ? ' off' : ''}" id="musictoggle" type="button" aria-pressed="${musicOff ? 'false' : 'true'}">${musicOff ? t('musicOff') : t('musicOn')}</button>
-      <button class="count-btn sound-btn" id="helptoggle" type="button">${t('howToFarm')}</button>
-    </div>`
 }
 
 function bindLang() {
@@ -243,37 +182,6 @@ function syncMusic() {
   startMusic()
 }
 
-function presetLabel(id) {
-  const p = presetById(id)
-  return `${t('preset_' + p.id)} · ${t('seasonsN', p.seasons)}`
-}
-
-function presetRowHtml({ id = 'presets', active = presetChoice, dataAttr = 'preset', label = true } = {}) {
-  return `
-    <div class="preset-row"${id ? ` id="${id}"` : ''}>
-      ${label ? `<span class="preset-label">${t('matchLength')}</span>` : ''}
-      ${SEASON_PRESETS.map((p) => `<button class="count-btn${p.id === active ? ' on' : ''}" data-${dataAttr}="${p.id}">${t('preset_' + p.id)}<small>${t('seasonsN', p.seasons)}</small></button>`).join('')}
-    </div>`
-}
-
-function statsHtml() {
-  return `
-    <div class="hall-stats">
-      <div class="stat">
-        <b>${fmtCount(hallStats.visits)}</b>
-        <span>${t('visited')}</span>
-      </div>
-      <div class="stat">
-        <b>${fmtCount(hallStats.online)}</b>
-        <span>${t('present')}</span>
-      </div>
-      <div class="stat">
-        <b>${fmtCount(hallStats.playing)}</b>
-        <span>${t('playing')}</span>
-      </div>
-    </div>`
-}
-
 function localRecord() {
   try {
     return JSON.parse(localStorage.getItem('hk-record') || 'null')
@@ -310,59 +218,9 @@ function recordLocalResult() {
   saveLocalRecord(prof)
 }
 
-function mergeRecord(server, local) {
-  const a = server || {}
-  const b = local || {}
-  if (!a.games && !b.games) return { games: 0, wins: 0, insolvencies: 0, bestNet: 0, recent: [] }
-  return {
-    games: (a.games || 0) + (b.games || 0),
-    wins: (a.wins || 0) + (b.wins || 0),
-    insolvencies: (a.insolvencies || 0) + (b.insolvencies || 0),
-    bestNet: Math.max(a.bestNet || 0, b.bestNet || 0),
-    recent: [...(a.recent || []), ...(b.recent || [])]
-      .sort((x, y) => (y.at || 0) - (x.at || 0))
-      .slice(0, 5)
-  }
-}
-
-function profileHtml() {
-  const p = mergeRecord(myProfile, localRecord())
-  if (!p.games) {
-    return `
-      <article class="mode-card record-card">
-        <div class="mode-kicker">${t('myRecord')}</div>
-        <h2>${t('myRecord')}</h2>
-        <p>${t('recordEmpty')}</p>
-        <p class="record-hint">${t('recordHint')}</p>
-      </article>`
-  }
-  const rate = Math.round((p.wins / Math.max(1, p.games)) * 100)
-  const rows = (p.recent || []).map((m) => `
-    <div class="record-row">
-      <span class="record-badge${m.won ? ' on' : ''}">${m.won ? t('recordWon') : t('recordPlayed')}</span>
-      <span class="record-code">${m.code}</span>
-      <span class="record-meta">${t('recordRank', m.rank, m.seats)}</span>
-      <span class="record-net">${rs(m.net)}</span>
-    </div>`).join('')
-  return `
-    <article class="mode-card record-card">
-      <div class="mode-kicker">${t('myRecord')}</div>
-      <h2>${t('myRecord')}</h2>
-      <div class="record-stats">
-        <div class="record-stat"><b>${fmtCount(p.games)}</b><span>${t('recordGames')}</span></div>
-        <div class="record-stat"><b>${fmtCount(p.wins)}</b><span>${t('recordWins')}</span></div>
-        <div class="record-stat"><b>${rate}%</b><span>${t('recordWins')}</span></div>
-        <div class="record-stat"><b>${rs(p.bestNet)}</b><span>${t('recordBest')}</span></div>
-        <div class="record-stat"><b>${fmtCount(p.insolvencies)}</b><span>${t('recordInsolvent')}</span></div>
-      </div>
-      ${rows ? `<div class="record-list"><div class="record-kicker">${t('recentMatches')}</div>${rows}</div>` : ''}
-      <p class="record-hint">${t('recordHint')}</p>
-    </article>`
-}
-
 function paintProfile() {
   const root = document.getElementById('myrecord')
-  if (root) root.innerHTML = profileHtml()
+  if (root) root.innerHTML = profileHtml(myProfile, localRecord())
 }
 
 async function pulsePresence() {
@@ -405,10 +263,6 @@ function watchLine() {
   }
   window.addEventListener('online', paint)
   window.addEventListener('offline', paint)
-}
-
-function rs(n) {
-  return t('rs') + inrShort(n)
 }
 
 function logIdOf(e) {
@@ -502,44 +356,6 @@ function cueForLanding(item) {
     return
   }
   if (item.delta != null && item.delta < 0) playCue('loss')
-}
-
-function diaryRow(e) {
-  const kind = typeof e === 'string' ? 'info' : (e.kind || 'info')
-  const text = typeof e === 'string' ? e : e.text
-  return `<div class="log-line ${kind}"><span class="dot"></span><span class="txt">${escapeHtml(text)}</span></div>`
-}
-
-function diaryPages() {
-  const total = (state && state.log ? state.log.length : 0)
-  return Math.max(1, Math.ceil(total / DIARY_PAGE))
-}
-
-function clampDiaryPage() {
-  const pages = diaryPages()
-  if (diaryPage > pages - 1) diaryPage = pages - 1
-  if (diaryPage < 0) diaryPage = 0
-}
-
-function diaryPanel() {
-  const log = state.log || []
-  clampDiaryPage()
-  const pages = diaryPages()
-  const start = diaryPage * DIARY_PAGE
-  const slice = log.slice(start, start + DIARY_PAGE)
-  const from = log.length ? start + 1 : 0
-  const to = Math.min(start + slice.length, log.length)
-  return `
-    <div class="panel diary-panel">
-      <h3>${t('diary')}</h3>
-      <div class="diary-meta">${log.length ? t('of', from, to, log.length) : t('noEvents')}</div>
-      <div class="log">${slice.length ? slice.map(diaryRow).join('') : '<p class="pcash">' + t('books') + '</p>'}</div>
-      <div class="diary-pager">
-        <button class="ghost" id="diaryprev" ${diaryPage <= 0 ? 'disabled' : ''}>${t('newer')}</button>
-        <span>${t('page', diaryPage + 1, pages)}</span>
-        <button class="ghost" id="diarynext" ${diaryPage >= pages - 1 ? 'disabled' : ''}>${t('older')}</button>
-      </div>
-    </div>`
 }
 
 function online() {
@@ -851,6 +667,45 @@ function maybePlayWin() {
   wasOver = over
 }
 
+function lobbyHtml() {
+  return lobbyView({
+    lineOn,
+    notice,
+    hallStats,
+    draftName,
+    openTables,
+    myProfile,
+    local: localRecord(),
+    presetChoice,
+    seats: savedSeats()
+  })
+}
+
+function waitingHtml() {
+  return waitingView({ lineOn, notice, room, session })
+}
+
+function gameHtml() {
+  return gameView(state, {
+    lineOn,
+    notice,
+    cpuNote,
+    rolling,
+    online: online(),
+    session,
+    mySeat: mySeat(),
+    isMyTurn: isMyTurn(),
+    humanSeat,
+    sideTab,
+    diaryPage,
+    tradeOpen,
+    tradeDraft,
+    landing,
+    landingQueue,
+    inspectId
+  })
+}
+
 function render() {
   document.documentElement.lang = currentLang()
   syncMusic()
@@ -879,160 +734,10 @@ function render() {
   scheduleCpu()
 }
 
-function lobbyHtml() {
-  return `
-  <div class="lobby">
-    <header class="lobby-hero">
-      <img src="/hero.webp" alt="Harvest King — Indian Farming Board Game" />
-      <div class="hero-fade"></div>
-    </header>
-    <main class="lobby-table">
-      ${chromeToggleHtml()}
-      ${offlineBannerHtml()}
-      ${notice ? `<p class="notice">${escapeHtml(notice)}</p>` : ''}
-      ${statsHtml()}
-      <div class="farmer-bar">
-        <div>
-          <div class="en">${t('takeSeat')}</div>
-          <p>${t('takeSeatHint')}</p>
-        </div>
-        <input id="myname" maxlength="16" placeholder="${t('farmerName')}" value="${escapeHtml(draftName)}" required />
-      </div>
-      ${resumeTablesHtml()}
-      <div id="opentables">${openTablesHtml()}</div>
-      <div id="myrecord">${profileHtml()}</div>
-      ${presetRowHtml()}
-      <div class="mode-grid">
-        <article class="mode-card mode-online">
-          <div class="mode-kicker">${t('onlineTable')}</div>
-          <h2>${t('playFriends')}</h2>
-          <p>${t('playFriendsHint')}</p>
-          <input id="roompass" maxlength="24" placeholder="${t('password')}" />
-          <button class="primary" id="create">${t('create')}</button>
-          <div class="mode-split">${t('orJoin')}</div>
-          <div class="names">
-            <input id="joincode" maxlength="6" placeholder="ABCD" />
-            <button class="primary" id="join">${t('join')}</button>
-            <button class="ghost" id="watch">${t('watch')}</button>
-          </div>
-        </article>
-        <article class="mode-card mode-cpu">
-          <div class="mode-kicker">${t('solo')}</div>
-          <h2>${t('vsCpu')}</h2>
-          <p>${t('vsCpuHint')}</p>
-          <div class="count-row" id="cpucounts">
-            ${[2, 3, 4].map((n) => `<button class="count-btn${n === 2 ? ' on' : ''}" data-cpu="${n}">${n === 2 ? t('rival1') : t('rivalsN', n - 1)}</button>`).join('')}
-          </div>
-          <div class="count-row" id="cpudiff">
-            ${['easy', 'normal', 'hard'].map((d) => `<button class="count-btn${d === 'normal' ? ' on' : ''}" data-diff="${d}">${t(d)}</button>`).join('')}
-          </div>
-          <button class="primary" id="vscpu">${t('playVsCpu')}</button>
-        </article>
-        <article class="mode-card mode-local">
-          <div class="mode-kicker">${t('oneDevice')}</div>
-          <h2>${t('passPlay')}</h2>
-          <p>${t('passPlayHint')}</p>
-          <div class="count-row" id="counts">
-            ${[2, 3, 4].map((n) => `<button class="count-btn${n === 2 ? ' on' : ''}" data-n="${n}">${t('farmersN', n)}</button>`).join('')}
-          </div>
-          <div class="names" id="names">${nameInputs(2)}</div>
-          <button class="primary" id="start">${t('passPlayBtn')}</button>
-        </article>
-        <article class="mode-card mode-daily">
-          <div class="mode-kicker">${t('daily')}</div>
-          <h2>${t('dailyTitle')}</h2>
-          <p>${t('dailyHint', todayKey())}</p>
-          <button class="primary" id="daily">${t('playDaily')}</button>
-        </article>
-      </div>
-      <section class="guide">
-        <header class="guide-head">
-          <div class="en">${t('handbook')}</div>
-          <h2>${t('howKing')}</h2>
-          <p>${t('howKingLead')}</p>
-        </header>
-        <div class="guide-grid">
-          <article class="guide-card">
-            <div class="guide-num">01</div>
-            <h3>${t('g1t')}</h3>
-            <p>${t('g1')}</p>
-          </article>
-          <article class="guide-card">
-            <div class="guide-num">02</div>
-            <h3>${t('g2t')}</h3>
-            <p>${t('g2')}</p>
-          </article>
-          <article class="guide-card">
-            <div class="guide-num">03</div>
-            <h3>${t('g3t')}</h3>
-            <p>${t('g3')}</p>
-          </article>
-          <article class="guide-card">
-            <div class="guide-num">04</div>
-            <h3>${t('g4t')}</h3>
-            <p>${t('g4')}</p>
-          </article>
-          <article class="guide-card">
-            <div class="guide-num">05</div>
-            <h3>${t('g5t')}</h3>
-            <p>${t('g5')}</p>
-          </article>
-          <article class="guide-card">
-            <div class="guide-num">06</div>
-            <h3>${t('g6t')}</h3>
-            <p>${t('g6')}</p>
-          </article>
-        </div>
-        <div class="guide-strip">
-          <div>
-            <h4>${t('seasons')}</h4>
-            <p>${t('seasonsP')}</p>
-          </div>
-          <div>
-            <h4>${t('weather')}</h4>
-            <p>${t('weatherP')}</p>
-          </div>
-          <div>
-            <h4>${t('bank')}</h4>
-            <p>${t('bankP')}</p>
-          </div>
-          <div>
-            <h4>${t('infra')}</h4>
-            <p>${t('infraP')}</p>
-          </div>
-        </div>
-      </section>
-    </main>
-  </div>`
-}
-
-function openTablesHtml() {
-  if (!openTables.length) {
-    return `
-      <article class="mode-card">
-        <div class="mode-kicker">${t('hall')}</div>
-        <h2>${t('openTables')}</h2>
-        <p>${t('noOpen')}</p>
-      </article>`
-  }
-  return `
-      <article class="mode-card">
-        <div class="mode-kicker">${t('hall')}</div>
-        <h2>${t('openTables')}</h2>
-        <p>${t('openHint')}</p>
-        ${openTables.map((table) => `
-          <div class="names">
-            <span class="session-code" style="font-size:20px;padding:8px 12px">${table.code}</span>
-            <span class="pcash">${table.seats}/4 · ${t('hostOf')} ${escapeHtml(table.host)} · ${presetLabel(table.preset)}</span>
-            <button class="primary" data-halljoin="${table.code}">${t('sit')}</button>
-          </div>`).join('')}
-      </article>`
-}
-
 function paintOpenTables() {
   const root = document.getElementById('opentables')
   if (!root) return
-  root.innerHTML = openTablesHtml()
+  root.innerHTML = openTablesHtml(openTables)
   bindOpenTables()
 }
 
@@ -1057,34 +762,6 @@ function bindOpenTables() {
       }
     })
   })
-}
-
-function resumeTablesHtml() {
-  const seats = savedSeats()
-  const codes = Object.keys(seats)
-  if (!codes.length) return ''
-  return `
-      <article class="mode-card">
-        <div class="mode-kicker">${t('thisDevice')}</div>
-        <h2>${t('resumeTitle')}</h2>
-        <p>${t('resumeHint')}</p>
-        ${codes.map((code) => {
-          const s = seats[code]
-          const who = s.spectator ? t('watcher') : (s.name || t('farmer'))
-          return `<div class="names">
-            <span class="session-code" style="font-size:20px;padding:8px 12px">${escapeHtml(code)}</span>
-            <button class="primary" data-resume="${escapeHtml(code)}">${t('resumeWho', escapeHtml(who))}</button>
-            <button class="ghost" data-forget="${escapeHtml(code)}">${t('forget')}</button>
-          </div>`
-        }).join('')}
-      </article>`
-}
-
-function nameInputs(n) {
-  return Array.from({ length: n }, (_, i) => {
-    const pal = PLAYER_PALETTE[i]
-    return `<input data-i="${i}" maxlength="16" placeholder="${pal.name}" style="border-color:${pal.color}" />`
-  }).join('')
 }
 
 function startLocalGame(n, list, opts = {}) {
@@ -1279,57 +956,6 @@ function bindLobby() {
   }).catch(() => {})
 }
 
-function waitingHtml() {
-  const players = (room && room.players) || []
-  const hostSeat = room && Number.isInteger(room.hostSeat) ? room.hostSeat : 0
-  const host = session && session.you === hostSeat
-  const pal = PLAYER_PALETTE[session.you] || PLAYER_PALETTE[0]
-  const share = location.origin + location.pathname + '?join=' + (session ? session.code : '')
-  return `
-  <div class="lobby">
-    <div class="lobby-card">
-      ${chromeToggleHtml()}
-      ${offlineBannerHtml()}
-      <div class="en">${t('waiting')}</div>
-      <h1>${t('room')} ${session ? session.code : ''}</h1>
-      <p class="lead">${t('waitingLead', !!(room && room.locked), pal.name, host)}</p>
-      <div class="session-code">${session ? session.code : ''}</div>
-      <p class="pcash" style="margin:8px 0 16px;word-break:break-all">${share}</p>
-      <div class="waiting-list">
-        ${players.map((p) => `
-          <div class="player-card${p.seat === session.you ? ' turn' : ''}">
-            <div class="swatch" style="background:${PLAYER_PALETTE[p.seat].color}"></div>
-            <div>
-              <div class="pname">${escapeHtml(p.name)}${p.cpu ? ' · ' + t('computer') : ''}${p.seat === hostSeat ? ' · ' + t('hostTag') : ''}${p.seat === session.you ? ' · ' + t('youTag') : ''}${!p.cpu && !p.connected ? ' · ' + t('away') : ''}</div>
-              <div class="pcash">${p.cpu ? (PERSONAS.find((x) => x.id === p.persona)?.name || t('cpu')) : (p.connected ? t('seated') : t('away'))}</div>
-              ${host && p.seat !== session.you ? `<div class="names" style="margin-top:8px">
-                <button class="ghost" data-kick="${p.seat}">${t('remove')}</button>
-                ${p.cpu ? '' : `<button class="ghost" data-host="${p.seat}">${t('makeHost')}</button>`}
-              </div>` : ''}
-            </div>
-          </div>`).join('')}
-        ${Array.from({ length: 4 - players.length }, (_, i) => `
-          <div class="player-card" style="opacity:.45">
-            <div class="swatch" style="background:#ccc"></div>
-            <div class="pname">${t('openSeat', players.length + i + 1)}</div>
-          </div>`).join('')}
-      </div>
-      ${notice ? `<p class="notice">${escapeHtml(notice)}</p>` : ''}
-      ${host
-        ? presetRowHtml({ id: 'onlinepreset', active: presetById(room && room.preset).id, dataAttr: 'onlinepreset' })
-        : `<p class="pcash">${t('matchLength')}: ${presetLabel(room && room.preset)}</p>`}
-      <div class="actions">
-        ${host && players.length < 4 ? `<div class="count-row" id="onlinediff">
-          ${['easy', 'normal', 'hard'].map((d) => `<button class="count-btn${d === (room.cpuDifficulty || 'normal') ? ' on' : ''}" data-onlinediff="${d}">${t(d)}</button>`).join('')}
-        </div>
-        <button class="ghost" id="addcpu">${t('addCpu')}</button>` : ''}
-        ${host ? `<button class="primary" id="opengame" ${players.length < 2 ? 'disabled' : ''}>${t('startGame')}</button>` : '<p class="pcash">' + t('waitHost') + '</p>'}
-        <button class="ghost" id="leave">${t('leave')}</button>
-      </div>
-    </div>
-  </div>`
-}
-
 function bindWaiting() {
   const leave = document.getElementById('leave')
   if (leave) leave.addEventListener('click', () => {
@@ -1440,479 +1066,6 @@ async function netAct(action) {
   }
 }
 
-function gameHtml() {
-  const p = currentPlayer(state)
-  const season = seasonOf(state)
-  const mine = isMyTurn() && actingSeat(state) === state.turn
-  const me = state.players[mySeat()]
-  return `
-  <div class="game-shell">
-    <div class="board-wrap">
-      ${offlineBannerHtml()}
-      <div class="topbar">
-        <div>
-          <div class="brand">Harvest King</div>
-          <div class="en" style="letter-spacing:.2em;font-size:10px">${t('farming')}${online() ? ' · ' + session.code : ''}</div>
-        </div>
-        <div class="meta">
-          ${chromeToggleHtml()}
-          <span class="chip s">${season.name} · ${season.hint}</span>
-          <span class="chip g">${state.weather.name}</span>
-          <span class="chip n">${t('seasonN', Math.min(state.seasonIndex + 1, state.maxSeasons || MAX_SEASONS), state.maxSeasons || MAX_SEASONS)}</span>
-          ${state.daily ? `<span class="chip">${t('daily')} ${state.daily}</span>` : ''}
-          <span class="chip">${t('marketX', state.marketMod.toFixed(2))}</span>
-          ${online() ? `<span class="chip">${session.spectator ? t('watching') : t('youName', me ? escapeHtml(me.name) : '')}</span>` : (state.players.some((x) => x.cpu) ? '<span class="chip">' + t('vsCpuChip') + '</span>' : '')}
-        </div>
-      </div>
-      <div class="board-stage">
-        <div class="board">
-          ${TILES.map(tileHtml).join('')}
-          <div class="center">
-            <div class="center-inner">
-              <div class="chakra">${iconHtml('chakra')}</div>
-              <div class="tag">${t('indianFarming')}</div>
-              <h2>Harvest King</h2>
-              <div class="wx">${state.weather.name}<br/>${state.weather.text}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="side">
-      <div class="panel play-dock dice-panel">
-        <h3>${state.phase === 'over' ? t('gameOver') : playHeadline()}</h3>
-        ${diceHtml()}
-        <div class="play-acts">
-          <button class="roll-btn" id="roll" ${!mine || state.phase !== 'roll' || rolling ? 'disabled' : ''}>${mine ? t('roll') : (p.cpu ? t('cpuRolling') : t('waitingAct'))}</button>
-          <button class="ghost" id="endturn" ${!mine || state.phase !== 'end' ? 'disabled' : ''}>${t('endTurn')}</button>
-        </div>
-        ${mine && state.phase === 'end' && !state.labourUsed && farmsOf(state, mySeat()).length
-          ? '<div class="tsub labour-hint">' + t('extraLabour') + '</div>'
-          : ''}
-        ${cpuNote ? `<p class="cpu-note">${escapeHtml(cpuNote)}</p>` : ''}
-        ${notice ? `<p class="notice">${escapeHtml(notice)}</p>` : ''}
-        ${online() && state.phase !== 'over' ? '<div class="turn-clock" id="turnclock" hidden></div>' : ''}
-        <button class="ghost" id="leavegame">${online() ? t('leaveSession') : t('leaveTable')}</button>
-      </div>
-      <div class="side-tabs" role="tablist">
-        ${[['farmers', t('farmers')], ['fields', t('yourFields')], ['prices', t('prices')], ['diary', t('diary')]].map(([id, label]) =>
-          `<button class="count-btn${sideTab === id ? ' on' : ''}" data-sidetab="${id}">${label}</button>`
-        ).join('')}
-      </div>
-      <div class="side-pane${sideTab === 'farmers' ? ' on' : ''}" data-pane="farmers">
-        <div class="panel">
-          <h3>${t('farmers')}</h3>
-          ${state.players.map(playerCard).join('')}
-          ${tradePanel()}
-        </div>
-      </div>
-      <div class="side-pane${sideTab === 'fields' ? ' on' : ''}" data-pane="fields">
-        <div class="panel">
-          <h3>${t('yourFields')}</h3>
-          ${fieldsPanel()}
-        </div>
-      </div>
-      <div class="side-pane${sideTab === 'prices' ? ' on' : ''}" data-pane="prices">
-        <div class="panel">
-          <h3>${t('prices')}</h3>
-          <div class="prices">
-            ${Object.values(CROPS).slice(0, 12).map((c) =>
-              `<span><b>${c.name}</b> ${rs(state.prices[c.id])}</span>`
-            ).join('')}
-          </div>
-        </div>
-      </div>
-      <div class="side-pane${sideTab === 'diary' ? ' on' : ''}" data-pane="diary">
-        ${diaryPanel()}
-      </div>
-    </div>
-  </div>
-  ${modalHtml()}`
-}
-
-function fieldsPanel() {
-  const seat = mySeat()
-  const list = farmsOf(state, seat)
-  if (!list.length) return '<p class="pcash">' + t('noLand') + '</p>'
-  const canWork = isMyTurn() && ((state.phase === 'end' && !state.labourUsed) || (state.pending && state.pending.kind === 'pickFarm'))
-  return list.map((f) => {
-    const crop = f.crop ? CROPS[f.crop].name : t('fallow')
-    return `<button class="seed-btn" data-work="${f.id}" ${canWork && !f.mortgaged ? '' : 'disabled'} style="width:100%;margin-bottom:4px">
-      <b>${f.tile.name}</b> · ${f.stage} · ${crop}
-    </button>`
-  }).join('')
-}
-
-function playerCard(p) {
-  const nw = netWorth(state, p)
-  const on = state.turn === p.id && state.phase !== 'over'
-  const you = (online() && p.id === session.you) || (!online() && state.players.some((x) => x.cpu) && p.id === humanSeat)
-  const persona = p.persona ? PERSONAS.find((x) => x.id === p.persona) : null
-  const tag = p.cpu ? (persona ? persona.name : t('cpu')) : (you ? t('tagYou') : '')
-  return `
-    <div class="player-card${on ? ' turn' : ''}${p.bankrupt ? ' out' : ''}">
-      <div class="swatch" style="background:${p.color}"></div>
-      <div>
-        <div class="pname">${escapeHtml(p.name)}${tag ? ' · ' + escapeHtml(tag) : ''}${state.winner === p.id ? ' · ' + t('harvestKing') : ''}</div>
-        <div class="pcash">${rs(p.cash)} · ${t('debt')} ${rs(p.debt)}</div>
-      </div>
-      <div class="pnet">${rs(nw)}</div>
-    </div>`
-}
-
-function tileTheme(t) {
-  const group = t.group ? GROUPS[t.group] : null
-  if (group) {
-    return { band: group.color, wash: '#FFFFFF', ink: '#0F172A' }
-  }
-  const m = {
-    start: { band: '#FB923C', wash: '#EA580C', ink: '#FFFFFF' },
-    mela: { band: '#4ADE80', wash: '#15803D', ink: '#FFFFFF' },
-    fci: { band: '#93C5FD', wash: '#1D4ED8', ink: '#FFFFFF' },
-    nabard: { band: '#FCD34D', wash: '#B45309', ink: '#FFFFFF' },
-    kisan: { band: '#F9A8D4', wash: '#BE185D', ink: '#FFFFFF' },
-    mandi: { band: '#5EEAD4', wash: '#0F766E', ink: '#FFFFFF' },
-    tax: { band: '#FCA5A5', wash: '#B91C1C', ink: '#FFFFFF' },
-    infra: { band: '#CBD5E1', wash: '#334155', ink: '#FFFFFF' },
-    utility: { band: '#7DD3FC', wash: '#0369A1', ink: '#FFFFFF' }
-  }
-  return m[t.type] || { band: '#94A3B8', wash: '#FFFFFF', ink: '#0F172A' }
-}
-
-function tileHtml(t) {
-  const pos = PLACE[t.id]
-  const theme = tileTheme(t)
-  const farm = t.type === 'farm' ? state.farms[t.id] : null
-  const ownerId = farm
-    ? farm.owner
-    : (t.type === 'infra' ? state.infra[t.id] : t.type === 'utility' ? state.utilities[t.id] : null)
-  const owner = ownerId != null ? state.players[ownerId] : null
-  const pins = state.players
-    .filter((p) => !p.bankrupt && p.pos === t.id)
-    .map((p) => {
-  const on = actingSeat(state) === p.id && state.phase !== 'over'
-      const letter = (p.name || '?').trim().charAt(0).toUpperCase()
-      return `<div class="coin${on ? ' active' : ''}" style="--pc:${p.color}" title="${escapeHtml(p.name)}">${escapeHtml(letter)}</div>`
-    })
-    .join('')
-  const stage = farm && farm.stage !== 'idle'
-    ? `<div class="stage-dot ${farm.stage}" title="${farm.stage}${farm.crop ? ' ' + CROPS[farm.crop].name : ''}"></div>`
-    : ''
-  const ownerBar = owner
-    ? `<div class="owner-bar" style="background:${owner.color}"></div>`
-    : (farm && farm.leasee != null
-      ? `<div class="owner-bar" style="background:${state.players[farm.leasee].color};opacity:.55"></div>`
-      : '')
-  const price = t.price ? `<div class="tprice">${rs(t.price)}</div>` : ''
-  const cls = [
-    'tile',
-    t.id % 10 === 0 ? 'corner' : '',
-    'kind-' + t.type,
-    farm && farm.stage !== 'idle' ? 'has-crop' : ''
-  ].filter(Boolean).join(' ')
-  return `
-    <div class="${cls}" data-tile="${t.id}" title="${t.name}${t.region ? ' · ' + t.region : ''}" style="grid-column:${pos.c};grid-row:${pos.r};--band:${theme.band};--wash:${theme.wash};--ink:${theme.ink}">
-      <div class="band">${iconHtml(t.icon)}</div>
-      <div class="body">
-        <div class="tname">${t.short || t.name}</div>
-        <div class="tsub">${t.region || ''}</div>
-        ${price}
-      </div>
-      ${ownerBar}${stage}
-      <div class="pins">${pins}</div>
-    </div>`
-}
-
-function modalHtml() {
-  if (state.phase === 'over') {
-    const w = state.players[state.winner]
-    return `
-      <div class="modal-back">
-        <div class="modal win">
-          <div class="tag">${t('villageDeclares')}</div>
-          <h2>${w ? t('isKing', escapeHtml(w.name)) : t('landKing')}</h2>
-          <p>${t('granaries', w ? rs(netWorth(state, w)) : '')}</p>
-          <button class="primary" id="again">${t('playAgain')}</button>
-        </div>
-      </div>`
-  }
-  if (landing) return landingModal()
-  if (state.phase === 'action' && state.pending && (state.pending.kind === 'auction' || state.pending.kind === 'trade')) {
-    return actionModal(state.pending)
-  }
-  if (inspectId != null) return inspectModal(inspectId)
-  if (!isMyTurn()) return ''
-  if (state.phase === 'action' && state.pending) return actionModal(state.pending)
-  return ''
-}
-
-function playHeadline() {
-  const pending = state.pending
-  if (pending && pending.kind === 'auction') {
-    const actor = state.players[pending.actor]
-    return t('auctionHead', actor ? actor.name : '')
-  }
-  if (pending && pending.kind === 'trade') {
-    const to = state.players[pending.to]
-    return t('tradeHead', to ? to.name : '')
-  }
-  const p = currentPlayer(state)
-  const mine = isMyTurn() && actingSeat(state) === state.turn
-  return mine ? t('yourTurn', p.name) : t('toAct', p.name, p.cpu)
-}
-
-function ownedLandOptions(pid, selected) {
-  return farmsOf(state, pid)
-    .filter((f) => f.owner === pid)
-    .map((f) => `<option value="${f.id}"${String(selected) === String(f.id) ? ' selected' : ''}>${f.tile.name}</option>`)
-    .join('')
-}
-
-function tradePanel() {
-  const me = mySeat()
-  const mine = isMyTurn() && state.phase === 'end' && !state.pending && actingSeat(state) === me
-  const others = state.players.filter((p) => p.id !== me && !p.bankrupt)
-  if (!others.length) return ''
-  if (!tradeOpen) {
-    return `
-    <div class="trade-box">
-      <button class="primary" id="tradeopen" ${mine ? '' : 'disabled'}>${t('makeADeal')}</button>
-    </div>`
-  }
-  const to = tradeDraft.to === '' ? others[0].id : Number(tradeDraft.to)
-  return `
-    <div class="trade-box">
-      <h4>${t('trade')}</h4>
-      <p class="pcash">${t('tradeHint')}</p>
-      <label>${t('tradeWith')}
-        <select id="tradeto"${mine ? '' : ' disabled'}>
-           ${others.map((p) => `<option value="${p.id}"${p.id === to ? ' selected' : ''}>${escapeHtml(p.name)}</option>`).join('')}
-        </select>
-      </label>
-      <label>${t('youPay')}
-        <input id="tradecashgive" type="number" min="0" step="100" value="${tradeDraft.cashGive}"${mine ? '' : ' disabled'} />
-      </label>
-      <label>${t('youAsk')}
-        <input id="tradecashtake" type="number" min="0" step="100" value="${tradeDraft.cashTake}"${mine ? '' : ' disabled'} />
-      </label>
-      <label>${t('youGiveLand')}
-        <select id="tradelandgive"${mine ? '' : ' disabled'}>
-          <option value="">${t('noLandDeal')}</option>
-          ${ownedLandOptions(me, tradeDraft.landGive)}
-        </select>
-      </label>
-      <label>${t('youWantLand')}
-        <select id="tradelandtake"${mine ? '' : ' disabled'}>
-          <option value="">${t('noLandDeal')}</option>
-          ${ownedLandOptions(to, tradeDraft.landTake)}
-        </select>
-      </label>
-      <label>${t('youGiveDebt')}
-        <input id="tradedebtgive" type="number" min="0" step="100" value="${tradeDraft.debtGive}"${mine ? '' : ' disabled'} />
-      </label>
-      <label>${t('youTakeDebt')}
-        <input id="tradedebttake" type="number" min="0" step="100" value="${tradeDraft.debtTake}"${mine ? '' : ' disabled'} />
-      </label>
-      <div class="trade-acts">
-        <button class="primary" id="tradeoffer" ${mine ? '' : 'disabled'}>${t('offerDeal')}</button>
-        <button class="ghost" id="tradecancel">${t('cancelTrade')}</button>
-      </div>
-    </div>`
-}
-
-function landingModal() {
-  const player = state.players[landing.pid] || currentPlayer(state)
-  const tile = TILES[landing.tileId]
-  const delta = landing.delta
-  const netCls = delta == null || delta === 0 ? 'flat' : delta > 0 ? 'gain' : 'loss'
-  const netTxt = delta == null
-    ? t('settled')
-    : delta === 0
-      ? t('noCash')
-      : (delta > 0 ? '+' : '-') + rs(Math.abs(delta))
-  const sub = tile ? (tile.region || tile.sub || (tile.group ? GROUPS[tile.group].name : '')) : ''
-  return `
-    <div class="modal-back">
-      <div class="modal landing">
-        <div class="land-tag" style="color:${player.color}">
-          <span class="pin" style="--pc:${player.color}"></span>${escapeHtml(player.name)} ${t('landsOn')}
-        </div>
-        <div class="land-head">
-          <div class="land-icon" style="border-color:${player.color}">${tile ? iconHtml(tile.icon) : ''}</div>
-          <div>
-            <h2>${tile ? tile.name : t('theBoard')}</h2>
-            <p class="land-sub">${sub}</p>
-          </div>
-        </div>
-        <div class="land-events">${landing.entries.map(diaryRow).join('')}</div>
-        <div class="land-net ${netCls}">${netTxt}</div>
-         <div class="actions"><button class="primary" id="landok">${landingQueue.length ? t('nextLand', landingQueue.length) : t('continue')}</button></div>
-      </div>
-    </div>`
-}
-
-function actionModal(pending) {
-  const p = currentPlayer(state)
-  if (pending.kind === 'auction') return auctionModal(pending)
-  if (pending.kind === 'trade') return tradeModal(pending)
-  if (pending.kind === 'acquire') {
-    const tile = TILES[pending.tileId]
-    return wrapModal(`
-      <h2>${tile.name}</h2>
-      <p>${t('mustOwn', tile.region, GROUPS[tile.group].name, tile.soil)}</p>
-      <div class="farm-meta">${t('farmMeta', rs(tile.price), rs(tile.lease), rs(tile.prepare), tile.crops.map((c) => CROPS[c].name).join(', ')).replace('\n', '<br/>')}</div>
-      <div class="actions">
-        <button class="work-btn gold" data-act="buy" ${p.cash < tile.price ? 'disabled' : ''}>${t('buyLand')}</button>
-        <button class="work-btn alt" data-act="lease" ${p.cash < tile.lease ? 'disabled' : ''}>${t('leaseLand')}</button>
-        <button class="ghost" data-act="skip">${t('sendAuction')}</button>
-      </div>`)
-  }
-  if (pending.kind === 'buyInfra') {
-    const tile = TILES[pending.tileId]
-    return wrapModal(`
-      <h2>${tile.name}</h2>
-      <p>${tile.sub}. ${t('infraHint')}</p>
-      <div class="actions">
-        <button class="work-btn gold" data-act="buyinfra" ${p.cash < tile.price ? 'disabled' : ''}>${t('buyFor', rs(tile.price))}</button>
-        <button class="ghost" data-act="skip">${t('pass')}</button>
-      </div>`)
-  }
-  if (pending.kind === 'farmWork') return farmWorkModal(pending.tileId)
-  if (pending.kind === 'fci') {
-    const ready = farmsOf(state, p.id).filter((f) => f.stage === 'ripe' || (f.stage === 'seeded' && f.growLeft <= 0))
-    return wrapModal(`
-      <h2>${t('warehouse')}</h2>
-      <p>${t('warehouseP', ready.length)}</p>
-      <div class="actions">
-        <button class="work-btn alt" data-act="fci" ${ready.length ? '' : 'disabled'}>${t('sellWh')}</button>
-        <button class="ghost" data-act="skip">${t('keepGrain')}</button>
-      </div>`)
-  }
-  if (pending.kind === 'nabard') {
-    return wrapModal(`
-      <h2>${t('ruralBank')}</h2>
-      <p>${t('ruralBankP', rs(LOAN_STEP), rs(LOAN_CAP), rs(p.debt))}</p>
-      <div class="actions">
-        <button class="work-btn gold" data-act="loan" ${p.debt >= LOAN_CAP ? 'disabled' : ''}>${t('takeLoan')}</button>
-        <button class="work-btn" data-act="repay" ${p.debt <= 0 || p.cash <= 0 ? 'disabled' : ''}>${t('repay')} ${rs(Math.min(p.debt, p.cash, LOAN_STEP))}</button>
-        <button class="ghost" data-act="skip">${t('leaveDesk')}</button>
-      </div>`)
-  }
-  if (pending.kind === 'card') {
-    return wrapModal(`
-      <h2>${pending.deck}</h2>
-      <p><b>${pending.card.title}</b><br/>${pending.card.text}</p>
-      <div class="actions"><button class="primary" data-act="skip">${t('continue')}</button></div>`)
-  }
-  if (pending.kind === 'pickFarm') {
-    const list = farmsOf(state, p.id)
-    return wrapModal(`
-      <h2>${t('chooseField')}</h2>
-      <p>${pending.reason}</p>
-      <div class="crops">
-        ${list.map((f) => `<button class="seed-btn" data-work="${f.id}"><b>${f.tile.name}</b><br/>${f.stage}${f.crop ? ' · ' + CROPS[f.crop].name : ''}</button>`).join('')}
-      </div>
-      <div class="actions"><button class="ghost" data-act="skip">${t('skipField')}</button></div>`)
-  }
-  return ''
-}
-
-function auctionModal(pending) {
-  const tile = TILES[pending.tileId]
-  const actor = state.players[pending.actor]
-  const bidder = pending.highBidder != null ? state.players[pending.highBidder] : null
-  const floor = pending.highBid > 0 ? pending.highBid + 100 : pending.minBid
-  const mine = isMyTurn()
-  const canBid = mine && actor && actor.cash >= floor
-  return wrapModal(`
-    <h2>${t('auction')}</h2>
-    <p>${t('auctionLot', tile ? tile.name : '', rs(pending.minBid))}</p>
-    <div class="farm-meta">
-      ${bidder ? t('highBid', escapeHtml(bidder.name), rs(pending.highBid)) : t('noBids')}
-      <br/>${t('toBid', actor ? escapeHtml(actor.name) : '', rs(floor))}
-    </div>
-    ${mine ? `<div class="actions">
-      <button class="work-btn gold" data-act="bid" ${canBid ? '' : 'disabled'}>${t('bidNow', rs(floor))}</button>
-      <button class="ghost" data-act="passbid">${t('passBid')}</button>
-    </div>` : `<p class="pcash">${t('waitingBid')}</p>`}`)
-}
-
-function tradeLine(n, landId) {
-  const bits = []
-  if (n) bits.push(rs(n))
-  if (landId != null && TILES[landId]) bits.push(TILES[landId].name)
-  return bits.length ? bits.join(' · ') : t('nothing')
-}
-
-function tradeModal(pending) {
-  const from = state.players[pending.from]
-  const to = state.players[pending.to]
-  const mine = isMyTurn()
-  return wrapModal(`
-    <h2>${t('trade')}</h2>
-    <p>${t('tradeOffer', from ? escapeHtml(from.name) : '', to ? escapeHtml(to.name) : '')}</p>
-    <div class="farm-meta">
-      ${t('theyGive')}: ${tradeLine(pending.cashGive, pending.landGive)}${pending.debtGive ? ' · ' + t('debt') + ' ' + rs(pending.debtGive) : ''}<br/>
-      ${t('theyAsk')}: ${tradeLine(pending.cashTake, pending.landTake)}${pending.debtTake ? ' · ' + t('debt') + ' ' + rs(pending.debtTake) : ''}
-    </div>
-    ${mine ? `<div class="actions">
-      <button class="work-btn gold" data-act="accept">${t('acceptDeal')}</button>
-      <button class="ghost" data-act="reject">${t('rejectDeal')}</button>
-    </div>` : `<p class="pcash">${t('waitingDeal')}</p>`}`)
-}
-
-function farmWorkModal(tileId) {
-  const tile = TILES[tileId]
-  const f = state.farms[tileId]
-  const p = currentPlayer(state)
-  const season = seasonOf(state).id
-  let body = `
-    <h2>${tile.name}</h2>
-    <div class="farm-meta">
-      ${t('stage')}: <b>${f.stage}</b>${f.crop ? ' · ' + CROPS[f.crop].name : ''}
-      · Fertility ${(f.fertility * 100).toFixed(0)}%
-      · ${f.irrigated ? t('irrigated') : t('rainfed')}
-      · ${f.insured ? t('insured') : t('uninsured')}
-      ${f.leasee === p.id ? ' · ' + t('leaseLeft', f.leaseTurns) : ''}
-      ${f.lastPnl ? '<br/>' + t('lastHarvest', rs(f.lastPnl)) : ''}
-    </div>`
-  const acts = []
-  if (f.mortgaged) {
-    body += `<p>${t('mortgaged')}</p>`
-    acts.push(`<button class="work-btn gold" data-act="unmortgage">${t('redeem', rs(Math.round(tile.price * 0.55)))}</button>`)
-  } else {
-    if (f.stage === 'idle') {
-      acts.push(`<button class="work-btn gold" data-act="prepare" ${p.cash < tile.prepare && !p.freePrep ? 'disabled' : ''}>${t('prepare')} ${p.freePrep ? t('free') : rs(tile.prepare)}</button>`)
-    }
-    if (f.stage === 'prepared') {
-      body += `<p>${t('chooseSeed')}</p><div class="crops">`
-      body += tile.crops.map((cid) => {
-        const c = CROPS[cid]
-        const off = c.season !== season
-        const cost = c.seed + (off ? Math.round(c.seed * 0.35) : 0)
-        return `<button class="seed-btn${off ? ' off' : ''}" data-seed="${cid}" ${p.cash < cost ? 'disabled' : ''}>
-          <b>${c.name}</b> · ${c.season}${off ? ' · ' + t('offSeason') : ''}<br/>${t('seedCost', rs(cost), c.yield, c.grow)}
-        </button>`
-      }).join('')
-      body += `</div>`
-    }
-    if (f.stage === 'seeded') {
-      acts.push(`<button class="work-btn alt" data-act="tend">${t('tend')} (${t('toRipe', f.growLeft)})</button>`)
-    }
-    if (f.stage === 'ripe') {
-      acts.push(`<button class="work-btn alt" data-act="harvest">${t('harvestNow')}</button>`)
-    }
-    if (!f.irrigated) acts.push(`<button class="work-btn" data-act="irrigate">${t('irrigate')} ${rs((state.utilities[12] === p.id || state.utilities[28] === p.id) ? 400 : 900)}</button>`)
-    if (!f.insured) acts.push(`<button class="work-btn" data-act="insure">${t('insure')} ${rs(600)}</button>`)
-  }
-  acts.push(`<button class="ghost" data-act="skip">${t('skipField')}</button>`)
-  return wrapModal(body + `<div class="actions">${acts.join('')}</div>`)
-}
-
-function wrapModal(inner) {
-  return `<div class="modal-back"><div class="modal">${inner}</div></div>`
-}
-
 function bindGame() {
   const roll = document.getElementById('roll')
   const end = document.getElementById('endturn')
@@ -1982,7 +1135,7 @@ function bindGame() {
   }
   if (diaryNext) {
     diaryNext.addEventListener('click', () => {
-      if (diaryPage >= diaryPages() - 1) return
+      if (diaryPage >= diaryPages(state) - 1) return
       diaryPage += 1
       render()
     })
@@ -2160,24 +1313,6 @@ async function handleAct(act) {
     declineAction(state)
   }
   render()
-}
-
-function inspectModal(id) {
-  const tile = TILES[id]
-  const f = state.farms[id]
-  let extra = ''
-  if (tile.type === 'farm' && f) {
-    const who = f.owner != null
-      ? state.players[f.owner].name
-      : (f.leasee != null ? t('leasedBy', state.players[f.leasee].name) : t('villageHall'))
-    extra = `<div class="farm-meta">${t('owner')}: ${who}<br/>
-      ${t('stage')} ${f.stage}${f.crop ? ' · ' + CROPS[f.crop].name : ''} · Fertility ${(f.fertility * 100).toFixed(0)}%</div>`
-  }
-  return wrapModal(`
-    <h2>${tile.name}</h2>
-    <p>${tile.region || tile.sub || ''} ${tile.group ? '· ' + GROUPS[tile.group].name : ''}</p>
-    ${extra}
-    <div class="actions"><button class="ghost" data-act="skip">${t('close')}</button></div>`)
 }
 
 function inspectTile(id) {
