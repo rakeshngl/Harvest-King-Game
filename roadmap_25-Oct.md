@@ -16,7 +16,7 @@ Grounded in the tree at `e5fbb56`. Already shipped and not re-proposed: rooms + 
 2. Golden replays (`seed + actions → log/winner`) + HTTP tests for create/join/action/drain. — done
 3. Cap `state.log`, debounce `saveRooms`, tmp+rename `saveStats`. Drop CPU tokens from disk. — done
 4. Split `main.js` (~2244 lines, full `innerHTML` each render). — done (`chrome.js`, `board.js`, `lobby.js`, `hud.js`; `main.js` keeps session/bind/CPU).
-5. Reduced-motion, keyboard tiles, `:focus-visible`, Escape/focus-trap.
+  5. Reduced-motion, keyboard tiles, `:focus-visible`, Escape/focus-trap. — done
 6. Player-chosen mortgage / fire-sale (idle-only auto-mortgage feels random).
 7. Board/diary i18n (chrome is done; tiles, crops, cards, logs still English).
 8. Win standings + rematch (`finalStandings` already exists).

@@ -4,7 +4,7 @@ import { createGame } from '../src/engine.js'
 import { chromeToggleHtml, tutorialHtml } from '../src/chrome.js'
 import { lobbyHtml, waitingHtml, nameInputs } from '../src/lobby.js'
 import { boardTilesHtml, tileHtml } from '../src/board.js'
-import { gameHtml } from '../src/hud.js'
+import { gameHtml, wrapModal } from '../src/hud.js'
 import { TILES } from '../src/data.js'
 
 test('chrome and tutorial markup keep their ids', () => {
@@ -43,7 +43,9 @@ test('lobby and waiting screens keep create/join/start controls', () => {
 test('board and game hud keep tile and roll controls', () => {
   const state = createGame(2, ['A', 'B'], { seed: 1 })
   const tile = tileHtml(TILES[1], state)
+  assert.match(tile, /<button type="button"/)
   assert.match(tile, /data-tile="1"/)
+  assert.match(tile, /aria-label="/)
   assert.match(boardTilesHtml(state), /data-tile="0"/)
   const html = gameHtml(state, {
     lineOn: true,
@@ -66,4 +68,9 @@ test('board and game hud keep tile and roll controls', () => {
   assert.match(html, /id="roll"/)
   assert.match(html, /id="endturn"/)
   assert.match(html, /id="leavegame"/)
+})
+
+test('wrapModal is a labelled dialog', () => {
+  assert.match(wrapModal('<h2>Hi</h2>'), /role="dialog"/)
+  assert.match(wrapModal('<h2>Hi</h2>'), /aria-modal="true"/)
 })

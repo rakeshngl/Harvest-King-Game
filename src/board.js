@@ -67,8 +67,9 @@ export function tileHtml(tile, state) {
     'kind-' + tile.type,
     farm && farm.stage !== 'idle' ? 'has-crop' : ''
   ].filter(Boolean).join(' ')
+  const label = [tile.name, tile.region].filter(Boolean).join(' · ')
   return `
-    <div class="${cls}" data-tile="${tile.id}" title="${tile.name}${tile.region ? ' · ' + tile.region : ''}" style="grid-column:${pos.c};grid-row:${pos.r};--band:${theme.band};--wash:${theme.wash};--ink:${theme.ink}">
+    <button type="button" class="${cls}" data-tile="${tile.id}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" style="grid-column:${pos.c};grid-row:${pos.r};--band:${theme.band};--wash:${theme.wash};--ink:${theme.ink}">
       <div class="band">${iconHtml(tile.icon)}</div>
       <div class="body">
         <div class="tname">${tile.short || tile.name}</div>
@@ -77,7 +78,7 @@ export function tileHtml(tile, state) {
       </div>
       ${ownerBar}${stage}
       <div class="pins">${pins}</div>
-    </div>`
+    </button>`
 }
 
 export function boardTilesHtml(state) {

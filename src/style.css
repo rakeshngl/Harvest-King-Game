@@ -538,6 +538,23 @@ html, body {
 
 .danger { background: #8B1E1E; color: #fff; padding: 8px 14px; }
 
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+
 .rules {
   margin-top: 22px;
   font-size: 14px;
@@ -762,6 +779,14 @@ html, body {
   min-height: 0;
   width: 100%;
   height: 100%;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: center;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
   border-radius: 4px;
   box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.12);
   touch-action: manipulation;
@@ -770,6 +795,15 @@ html, body {
 .tile:hover {
   z-index: 4;
   box-shadow: inset 0 0 0 2px var(--band), 0 6px 14px rgba(15, 23, 42, 0.18);
+}
+
+.tile:focus {
+  outline: none;
+}
+
+.tile:focus-visible {
+  z-index: 5;
+  box-shadow: inset 0 0 0 3px var(--gold), 0 0 0 3px var(--navy);
 }
 
 .tile .band {
@@ -1935,5 +1969,29 @@ html, body {
 
   .tile.corner .tname {
     font-size: 9px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .coin,
+  .coin.active {
+    animation: none;
+  }
+
+  .mode-card:hover {
+    transform: none;
+  }
+
+  .modal.landing {
+    animation: none;
   }
 }

@@ -143,7 +143,7 @@ export function playHeadline(state, mine) {
 }
 
 export function wrapModal(inner) {
-  return `<div class="modal-back"><div class="modal">${inner}</div></div>`
+  return `<div class="modal-back" role="dialog" aria-modal="true"><div class="modal">${inner}</div></div>`
 }
 
 export function landingModal(state, landing, landingQueue) {
@@ -158,7 +158,7 @@ export function landingModal(state, landing, landingQueue) {
       : (delta > 0 ? '+' : '-') + rs(Math.abs(delta))
   const sub = tile ? (tile.region || tile.sub || (tile.group ? GROUPS[tile.group].name : '')) : ''
   return `
-    <div class="modal-back">
+    <div class="modal-back" role="dialog" aria-modal="true">
       <div class="modal landing">
         <div class="land-tag" style="color:${player.color}">
           <span class="pin" style="--pc:${player.color}"></span>${escapeHtml(player.name)} ${t('landsOn')}
@@ -355,7 +355,7 @@ export function modalHtml(state, { landing, landingQueue, inspectId, isMyTurn, n
   if (state.phase === 'over') {
     const w = state.players[state.winner]
     return `
-      <div class="modal-back">
+      <div class="modal-back" role="dialog" aria-modal="true">
         <div class="modal win">
           <div class="tag">${t('villageDeclares')}</div>
           <h2>${w ? t('isKing', escapeHtml(w.name)) : t('landKing')}</h2>
@@ -431,7 +431,7 @@ export function gameHtml(state, ctx) {
       </div>
       <div class="side-tabs" role="tablist">
         ${[['farmers', t('farmers')], ['fields', t('yourFields')], ['prices', t('prices')], ['diary', t('diary')]].map(([id, label]) =>
-          `<button class="count-btn${ctx.sideTab === id ? ' on' : ''}" data-sidetab="${id}">${label}</button>`
+          `<button type="button" class="count-btn${ctx.sideTab === id ? ' on' : ''}" data-sidetab="${id}" role="tab" aria-selected="${ctx.sideTab === id ? 'true' : 'false'}">${label}</button>`
         ).join('')}
       </div>
       <div class="side-pane${ctx.sideTab === 'farmers' ? ' on' : ''}" data-pane="farmers">

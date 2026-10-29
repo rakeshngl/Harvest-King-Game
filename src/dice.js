@@ -1,3 +1,5 @@
+import { prefersReducedMotion } from './a11y.js'
+
 const FACE_ROT = {
   1: 'rotateX(0deg) rotateY(0deg)',
   2: 'rotateX(-90deg) rotateY(0deg)',
@@ -31,6 +33,11 @@ export function diceHtml() {
 }
 
 export function animateDice(a, b, onDone) {
+  if (prefersReducedMotion()) {
+    setDiceFace(a, b)
+    onDone && onDone()
+    return
+  }
   const dieA = document.getElementById('dieA')
   const dieB = document.getElementById('dieB')
   if (!dieA || !dieB) {

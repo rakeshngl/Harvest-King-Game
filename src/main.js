@@ -22,6 +22,7 @@ import { TUTORIAL_STEPS, loadTutorialSeen, saveTutorialSeen, clampTutorialStep }
 import { tutorialHtml } from './chrome.js'
 import { lobbyHtml as lobbyView, waitingHtml as waitingView, openTablesHtml, profileHtml, nameInputs } from './lobby.js'
 import { gameHtml as gameView, diaryPages } from './hud.js'
+import { trapFocus } from './a11y.js'
 
 const app = document.getElementById('app')
 
@@ -62,6 +63,7 @@ let tradeDraft = { to: '', cashGive: '', cashTake: '', landGive: '', landTake: '
 let tradeOpen = false
 let tutorialOn = !loadTutorialSeen()
 let tutorialStep = 0
+let releaseTrap = null
 
 function visitorKey() {
   try {
@@ -127,12 +129,33 @@ function bindTutorial() {
   })
 }
 
+function releaseA11y() {
+  if (releaseTrap) {
+    releaseTrap()
+    releaseTrap = null
+  }
+  if (!app) return
+  ;[...app.children].forEach((el) => el.removeAttribute('inert'))
+}
+
+function bindA11y() {
+  releaseA11y()
+  const backs = app ? [...app.querySelectorAll('.modal-back')] : []
+  const top = backs[backs.length - 1]
+  if (!top) return
+  ;[...app.children].forEach((el) => {
+    if (el !== top) el.setAttribute('inert', '')
+  })
+  releaseTrap = trapFocus(top)
+}
+
 function finishPaint() {
   bindLang()
   if (tutorialOn) {
     app.insertAdjacentHTML('beforeend', tutorialHtml(tutorialOn, tutorialStep))
     bindTutorial()
   }
+  bindA11y()
   maybePlayWin()
 }
 
@@ -707,6 +730,7 @@ function gameHtml() {
 }
 
 function render() {
+  releaseA11y()
   document.documentElement.lang = currentLang()
   syncMusic()
   if (screen === 'lobby' && !state) {
@@ -1373,6 +1397,23 @@ async function boot() {
   render()
   startPresence()
 }
+
+function onEscape(e) {
+  if (e.key !== 'Escape') return
+  if (tutorialOn) {
+    e.preventDefault()
+    closeTutorial()
+    render()
+    return
+  }
+  if (inspectId != null && state && state.phase !== 'over') {
+    e.preventDefault()
+    inspectId = null
+    render()
+  }
+}
+
+if (typeof window !== 'undefined') window.addEventListener('keydown', onEscape)
 
 watchLine()
 registerPwa()
