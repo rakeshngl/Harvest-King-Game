@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
-  createGame, rollDice, applyMove, declineAction, nextTurn, buyFarm
+  createGame, rollDice, applyMove, declineAction, nextTurn, buyFarm, raiseLot, raisableLots
 } from '../src/engine.js'
 
 const skipGold = JSON.parse(readFileSync(new URL('./fixtures/golden-skip-42.json', import.meta.url), 'utf8'))
@@ -16,7 +16,11 @@ function replay(seed, policy) {
     if (s.phase === 'roll') applyMove(s, rollDice(s))
     else if (s.phase === 'action') {
       const pending = s.pending
-      if (policy === 'buy' && pending && pending.kind === 'acquire' && buyFarm(s, pending.tileId)) {
+      if (pending && pending.kind === 'raise') {
+        const lots = raisableLots(s, pending.pid)
+        if (lots[0]) raiseLot(s, lots[0].tileId)
+        else declineAction(s)
+      } else if (policy === 'buy' && pending && pending.kind === 'acquire' && buyFarm(s, pending.tileId)) {
         /* bought */
       } else declineAction(s)
     } else if (s.phase === 'end') nextTurn(s)

@@ -3,7 +3,8 @@ import assert from 'node:assert/strict'
 import {
   createGame, harvest, forcePay, transfer, buyFarm, prepareLand, seedLand, skipTurn,
   nextTurn, netWorth, applyMove, takeLoan, sellToFci, declineAction, bidAuction, passAuction,
-  offerTrade, acceptTrade, rejectTrade, actingSeat, finalStandings, presetById, rollDice, LOG_CAP
+  offerTrade, acceptTrade, rejectTrade, actingSeat, finalStandings, presetById, rollDice, LOG_CAP,
+  raiseLot, giveUpRaise, mortgageFarm, fireSale, raisableLots, mortgageValue
 } from '../src/engine.js'
 import { START_CASH, WIN_NET, PASS_GO, WEATHER, TILES, CROPS, INTEREST, SEASON_PRESETS, DEFAULT_PRESET } from '../src/data.js'
 import { dailySeed } from '../src/rng.js'
@@ -72,15 +73,24 @@ test('buy prepare sow then harvest pays yield times price', () => {
   assert.equal(s.phase, 'end')
 })
 
-test('forcePay mortgages idle land before insolvency', () => {
+test('forcePay opens a raise instead of auto-mortgaging idle land', () => {
   const s = createGame(2, ['A', 'B'])
   s.farms[1].owner = 0
   s.players[0].cash = 100
   const ok = forcePay(s, s.players[0], 700, 'Land Revenue')
-  assert.equal(ok, true)
+  assert.equal(ok, false)
+  assert.equal(s.pending.kind, 'raise')
+  assert.equal(s.pending.pid, 0)
+  assert.equal(s.pending.amount, 700)
+  assert.equal(s.farms[1].mortgaged, false)
+  assert.equal(s.players[0].cash, 100)
+  assert.equal(actingSeat(s), 0)
+  assert.equal(raiseLot(s, 1), true)
   assert.equal(s.farms[1].mortgaged, true)
   assert.equal(s.players[0].bankrupt, false)
   assert.equal(s.players[0].cash, 0)
+  assert.equal(s.pending, null)
+  assert.equal(s.phase, 'end')
 })
 
 test('forcePay with no assets marks insolvent and crowns the rival', () => {
@@ -100,6 +110,9 @@ test('insolvency returns owned land to the village', () => {
   s.farms[1].stage = 'prepared'
   s.players[0].cash = 0
   forcePay(s, s.players[0], 800, 'Market Tax')
+  assert.equal(s.pending.kind, 'raise')
+  giveUpRaise(s)
+  assert.equal(s.players[0].bankrupt, true)
   assert.equal(s.farms[1].owner, null)
   assert.equal(s.farms[1].stage, 'idle')
 })
@@ -339,6 +352,9 @@ test('transfer after a mortgage pays the owner the full rent', () => {
   s.players[0].cash = 500
   s.players[1].cash = 100
   transfer(s, s.players[0], s.players[1], 1000, 'crossing Barmer Millet')
+  assert.equal(s.pending.kind, 'raise')
+  assert.equal(s.pending.to, 1)
+  assert.equal(raiseLot(s, 1), true)
   assert.equal(s.players[0].bankrupt, false)
   assert.equal(s.farms[1].mortgaged, true)
   assert.equal(s.players[0].cash, 100)
@@ -378,14 +394,52 @@ test('numeric seeds replay the same harvest luck', () => {
   assert.equal(a.farms[1].lastYield, b.farms[1].lastYield)
 })
 
+test('mortgageFarm can pledge a ripe field and wipes the crop', () => {
+  const s = createGame(2, ['A', 'B'])
+  ripeField(s, 1, 'bajra')
+  const before = s.players[0].cash
+  assert.equal(mortgageFarm(s, 1), true)
+  assert.equal(s.farms[1].mortgaged, true)
+  assert.equal(s.farms[1].stage, 'idle')
+  assert.equal(s.farms[1].crop, null)
+  assert.equal(s.players[0].cash, before + mortgageValue(1))
+})
+
+test('fire-sale returns a yard to the village', () => {
+  const s = createGame(2, ['A', 'B'])
+  s.infra[5] = 0
+  s.players[0].cash = 0
+  assert.deepEqual(raisableLots(s, 0).map((l) => l.tileId), [5])
+  assert.equal(fireSale(s, 5), true)
+  assert.equal(s.infra[5], undefined)
+  assert.equal(s.players[0].cash, mortgageValue(5))
+})
+
+test('skipTurn on a raise gives up the lands', () => {
+  const s = createGame(2, ['A', 'B'])
+  s.farms[1].owner = 0
+  s.players[0].cash = 0
+  forcePay(s, s.players[0], 800, 'Land Revenue')
+  assert.equal(s.pending.kind, 'raise')
+  skipTurn(s)
+  assert.equal(s.players[0].bankrupt, true)
+  assert.equal(s.farms[1].owner, null)
+  assert.equal(s.winner, 1)
+})
+
 test('farm diary keeps the newest LOG_CAP entries', () => {
   const s = createGame(2, ['A', 'B'], { seed: 1, seasons: 18, winNet: 999999 })
   let steps = 0
   while (s.phase !== 'over' && steps < 5000) {
     steps += 1
     if (s.phase === 'roll') applyMove(s, rollDice(s))
-    else if (s.phase === 'action') declineAction(s)
-    else if (s.phase === 'end') nextTurn(s)
+    else if (s.phase === 'action') {
+      if (s.pending && s.pending.kind === 'raise') {
+        const lots = raisableLots(s, s.pending.pid)
+        if (lots[0]) raiseLot(s, lots[0].tileId)
+        else declineAction(s)
+      } else declineAction(s)
+    } else if (s.phase === 'end') nextTurn(s)
     else break
   }
   assert.equal(s.phase, 'over')

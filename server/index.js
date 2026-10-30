@@ -6,6 +6,7 @@ import {
   createGame, applyMove, rollDice, buyFarm, leaseFarm, buyInfra, prepareLand,
   seedLand, irrigate, insure, harvest, tendCrop, sellToFci, takeLoan, repayLoan,
   declineAction, nextTurn, skipTurn, unmortgage, openFarmWork, actingSeat,
+  raiseLot, giveUpRaise, mortgageFarm,
   bidAuction, passAuction, offerTrade, acceptTrade, rejectTrade, finalStandings,
   presetById, LOG_CAP
 } from '../src/engine.js'
@@ -725,6 +726,21 @@ function applyAction(room, seat, action) {
     case 'unmortgage':
       if (!pending || pending.kind !== 'farmWork') return { error: 'No field selected' }
       if (!unmortgage(state, pending.tileId)) return { error: 'Cannot redeem' }
+      return { ok: true }
+    case 'mortgage':
+      if (!pending || pending.kind !== 'farmWork') return { error: 'No field selected' }
+      if (!mortgageFarm(state, pending.tileId)) return { error: 'Cannot mortgage' }
+      declineAction(state)
+      return { ok: true }
+    case 'raise': {
+      if (!pending || pending.kind !== 'raise') return { error: 'No cash to raise' }
+      const id = Number(action.tileId)
+      if (!raiseLot(state, id)) return { error: 'Cannot raise on that lot' }
+      return { ok: true }
+    }
+    case 'giveup':
+      if (!pending || pending.kind !== 'raise') return { error: 'No cash to raise' }
+      if (!giveUpRaise(state)) return { error: 'Cannot give up' }
       return { ok: true }
     case 'fci':
       if (!pending || pending.kind !== 'fci') return { error: 'Not at the warehouse' }

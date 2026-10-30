@@ -1,5 +1,5 @@
 import { TILES, CROPS, GROUPS, LOAN_STEP, LOAN_CAP } from './data.js'
-import { currentPlayer, farmsOf, seasonOf, groupOwned, actingSeat } from './engine.js'
+import { currentPlayer, farmsOf, seasonOf, groupOwned, actingSeat, raisableLots } from './engine.js'
 import { rngNext } from './rng.js'
 
 export const PERSONAS = [
@@ -128,6 +128,22 @@ function pickWork(state, p, knobs) {
   const needWater = list.find((f) => !f.irrigated && f.stage !== 'idle' && CROPS[f.crop || '']?.water > 0.7)
   if (needWater) return needWater
   return list[0] || null
+}
+
+function raiseAction(state) {
+  const r = state.pending
+  const p = state.players[r.pid]
+  if (!p) return { type: 'giveup' }
+  const lots = raisableLots(state, r.pid)
+  if (!lots.length) return { type: 'giveup' }
+  const need = Math.max(0, r.amount - p.cash)
+  const idle = lots.filter((l) => l.kind === 'farm' && l.stage === 'idle')
+  const yards = lots.filter((l) => l.kind !== 'farm')
+  const crops = lots.filter((l) => l.kind === 'farm' && l.stage !== 'idle')
+  const pick = idle[0] || yards[0] || crops[0]
+  if (!pick) return { type: 'giveup' }
+  if (pick.value + p.cash < r.amount && lots.length === 1 && need > pick.value) return { type: 'giveup' }
+  return { type: 'raise', tileId: pick.tileId }
 }
 
 function farmWorkAction(state, p, tileId, knobs) {
@@ -267,11 +283,14 @@ export function chooseAction(state, difficulty = 'normal') {
   const knobs = DIFF[difficulty] || DIFF.normal
   if (state.phase === 'action' && pending && pending.kind === 'auction') return auctionAction(state, knobs)
   if (state.phase === 'action' && pending && pending.kind === 'trade') return tradeReply(state)
+  if (state.phase === 'action' && pending && pending.kind === 'raise') return raiseAction(state)
   if (state.turn !== actorId) return { type: 'skip' }
   if (state.phase === 'roll') return { type: 'roll' }
   if (knobs.miss && rngNext(state) < knobs.miss) {
-    if (state.phase === 'action') return { type: 'skip' }
-    if (state.phase === 'end') return { type: 'endTurn' }
+    if (state.phase === 'action' && pending && pending.kind === 'raise') {
+      /* still must raise */
+    } else if (state.phase === 'action') return { type: 'skip' }
+    else if (state.phase === 'end') return { type: 'endTurn' }
   }
 
   if (state.phase === 'action' && pending) {
@@ -320,6 +339,9 @@ export function describeAction(state, action) {
     case 'tend': return `${name} tends the crop.`
     case 'irrigate': return `${name} irrigates ${tile ? tile.name : 'a field'}.`
     case 'insure': return `${name} insures the crop.`
+    case 'mortgage': return `${name} mortgages ${tile ? tile.name : 'a field'}.`
+    case 'raise': return `${name} raises cash on ${tile ? tile.name : 'a lot'}.`
+    case 'giveup': return `${name} gives up the lands.`
     case 'fci': return `${name} sells grain to the warehouse.`
     case 'loan': return `${name} takes a crop loan.`
     case 'repay': return `${name} repays the rural bank.`

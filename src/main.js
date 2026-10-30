@@ -5,6 +5,7 @@ import {
   buyFarm, leaseFarm, buyInfra, prepareLand, seedLand, irrigate, insure,
   harvest, tendCrop, sellToFci, takeLoan, repayLoan, declineAction, nextTurn,
   unmortgage, openFarmWork, actingSeat, bidAuction, passAuction, offerTrade,
+  raiseLot, giveUpRaise, mortgageFarm,
   acceptTrade, rejectTrade, finalStandings, presetById, seasonOf
 } from './engine.js'
 import { blankProfile, applyMatch } from './profile.js'
@@ -650,6 +651,11 @@ function applyCpuAction(action) {
   else if (action.type === 'irrigate') ok = tileId != null && irrigate(state, tileId)
   else if (action.type === 'insure') ok = tileId != null && insure(state, tileId)
   else if (action.type === 'unmortgage') ok = tileId != null && unmortgage(state, tileId)
+  else if (action.type === 'mortgage') {
+    ok = tileId != null && mortgageFarm(state, tileId)
+    if (ok) declineAction(state)
+  } else if (action.type === 'raise') ok = action.tileId != null && raiseLot(state, action.tileId)
+  else if (action.type === 'giveup') ok = giveUpRaise(state)
   else if (action.type === 'fci') ok = sellToFci(state)
   else if (action.type === 'loan') {
     takeLoan(state)
@@ -674,7 +680,7 @@ function applyCpuAction(action) {
   } else if (state.phase === 'action') declineAction(state)
   else if (state.phase === 'end') nextTurn(state)
 
-  if (!ok && action.type !== 'work' && action.type !== 'fci' && state.phase === 'action') {
+  if (!ok && action.type !== 'work' && action.type !== 'fci' && action.type !== 'raise' && action.type !== 'giveup' && state.phase === 'action') {
     declineAction(state)
   }
   cpuBusy = false
@@ -1187,6 +1193,9 @@ function bindGame() {
     back.querySelectorAll('[data-work]').forEach((el) => {
       el.addEventListener('click', () => workField(Number(el.dataset.work)))
     })
+    back.querySelectorAll('[data-raise]').forEach((el) => {
+      el.addEventListener('click', () => handleRaise(Number(el.dataset.raise)))
+    })
   }
   bindTradeForm()
 }
@@ -1273,7 +1282,21 @@ async function sow(crop) {
   render()
 }
 
+async function handleRaise(tileId) {
+  if (!isMyTurn()) return
+  if (await netAct({ type: 'raise', tileId })) return
+  raiseLot(state, tileId)
+  render()
+}
+
 async function handleAct(act) {
+  if (act === 'giveup') {
+    if (!isMyTurn()) return
+    if (await netAct({ type: 'giveup' })) return
+    giveUpRaise(state)
+    render()
+    return
+  }
   if (act === 'skip') {
     if (inspectId != null) {
       inspectId = null
@@ -1327,6 +1350,10 @@ async function handleAct(act) {
   if (act === 'irrigate') irrigate(state, pending.tileId)
   if (act === 'insure') insure(state, pending.tileId)
   if (act === 'unmortgage') unmortgage(state, pending.tileId)
+  if (act === 'mortgage') {
+    mortgageFarm(state, pending.tileId)
+    declineAction(state)
+  }
   if (act === 'fci') sellToFci(state)
   if (act === 'loan') {
     takeLoan(state)

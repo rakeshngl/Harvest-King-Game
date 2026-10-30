@@ -4,7 +4,7 @@ import { createGame } from '../src/engine.js'
 import { chromeToggleHtml, tutorialHtml } from '../src/chrome.js'
 import { lobbyHtml, waitingHtml, nameInputs } from '../src/lobby.js'
 import { boardTilesHtml, tileHtml } from '../src/board.js'
-import { gameHtml, wrapModal } from '../src/hud.js'
+import { gameHtml, wrapModal, actionModal } from '../src/hud.js'
 import { TILES } from '../src/data.js'
 
 test('chrome and tutorial markup keep their ids', () => {
@@ -73,4 +73,15 @@ test('board and game hud keep tile and roll controls', () => {
 test('wrapModal is a labelled dialog', () => {
   assert.match(wrapModal('<h2>Hi</h2>'), /role="dialog"/)
   assert.match(wrapModal('<h2>Hi</h2>'), /aria-modal="true"/)
+})
+
+test('raise modal lists lots to mortgage or fire-sale', () => {
+  const state = createGame(2, ['A', 'B'], { seed: 1 })
+  state.farms[1].owner = 0
+  state.infra[5] = 0
+  state.pending = { kind: 'raise', pid: 0, amount: 2000, reason: 'Land Revenue', to: null, after: { type: 'end' } }
+  const html = actionModal(state, state.pending, true)
+  assert.match(html, /data-raise="1"/)
+  assert.match(html, /data-raise="5"/)
+  assert.match(html, /data-act="giveup"/)
 })

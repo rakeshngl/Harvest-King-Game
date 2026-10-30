@@ -264,7 +264,7 @@ function advanceSeasonMaybe(state) {
 }
 
 function resolveTile(state, p, tile, diceTotal) {
-  state.pending = null
+  if (!isRaising(state)) state.pending = null
   if (tile.type === 'start') {
     if (farmsOf(state, p.id).length) {
       state.pending = { kind: 'pickFarm', reason: 'Village labour day — work one field.' }
@@ -277,7 +277,7 @@ function resolveTile(state, p, tile, diceTotal) {
   if (tile.type === 'kisan') {
     const card = drawCard(state, 'kisan')
     applyCard(state, p, card)
-    if (state.phase === 'over') return
+    if (state.phase === 'over' || isRaising(state)) return
     state.pending = { kind: 'card', deck: 'Farmer Card', card }
     state.phase = 'action'
     return
@@ -285,7 +285,7 @@ function resolveTile(state, p, tile, diceTotal) {
   if (tile.type === 'mandi') {
     const card = drawCard(state, 'mandi')
     applyCard(state, p, card)
-    if (state.phase === 'over') return
+    if (state.phase === 'over' || isRaising(state)) return
     state.pending = { kind: 'card', deck: 'Market Prices', card }
     state.phase = 'action'
     return
@@ -293,6 +293,7 @@ function resolveTile(state, p, tile, diceTotal) {
   if (tile.type === 'tax') {
     const amt = Math.max(tile.amount, Math.round(p.cash * tile.pct))
     forcePay(state, p, amt, tile.name)
+    if (isRaising(state)) return
     state.phase = 'end'
     return
   }
@@ -358,6 +359,7 @@ function handleBuyable(state, p, tile, map, diceTotal) {
     rent = diceTotal * (owned === 2 ? 80 : 40)
   }
   transfer(state, p, owner, rent, `using ${tile.name}`)
+  if (isRaising(state)) return
   state.phase = 'end'
 }
 
@@ -376,6 +378,7 @@ function handleFarm(state, p, tile) {
   if (f.leasee != null && f.leasee !== p.id && f.owner == null) {
     const holder = state.players[f.leasee]
     transfer(state, p, holder, Math.round(tile.rent * 0.6), `crossing leased ${tile.name}`)
+    if (isRaising(state)) return
     state.phase = 'end'
     return
   }
@@ -387,10 +390,187 @@ function handleFarm(state, p, tile) {
     if (f.irrigated) rent = Math.round(rent * 1.15)
     if (f.mortgaged) rent = 0
     if (rent > 0) transfer(state, p, owner, rent, `crossing ${tile.name}`)
+    if (isRaising(state)) return
     state.phase = 'end'
     return
   }
   state.phase = 'end'
+}
+
+const MORTGAGE_RATE = 0.5
+const REDEEM_RATE = 0.55
+
+export function mortgageValue(tileId) {
+  const t = TILES[tileId]
+  return t ? Math.round(t.price * MORTGAGE_RATE) : 0
+}
+
+export function redeemCost(tileId) {
+  const t = TILES[tileId]
+  return t ? Math.round(t.price * REDEEM_RATE) : 0
+}
+
+export function isRaising(state) {
+  return !!(state && state.pending && state.pending.kind === 'raise')
+}
+
+export function raisableLots(state, pid) {
+  const lots = []
+  TILES.forEach((t) => {
+    if (t.type === 'farm') {
+      const f = state.farms[t.id]
+      if (f && f.owner === pid && !f.mortgaged) {
+        lots.push({ kind: 'farm', tileId: t.id, value: mortgageValue(t.id), stage: f.stage })
+      }
+    } else if (t.type === 'infra' && state.infra[t.id] === pid) {
+      lots.push({ kind: 'infra', tileId: t.id, value: mortgageValue(t.id) })
+    } else if (t.type === 'utility' && state.utilities[t.id] === pid) {
+      lots.push({ kind: 'utility', tileId: t.id, value: mortgageValue(t.id) })
+    }
+  })
+  return lots
+}
+
+export function mortgageFarm(state, tileId, opts = {}) {
+  const p = opts.player || currentPlayer(state)
+  const f = state.farms[tileId]
+  const t = TILES[tileId]
+  if (!p || !f || !t || f.owner !== p.id || f.mortgaged) return false
+  const cash = mortgageValue(tileId)
+  const hadCrop = f.stage !== 'idle'
+  f.mortgaged = true
+  if (hadCrop) {
+    f.stage = 'idle'
+    f.crop = null
+    f.growLeft = 0
+    f.prepared = false
+  }
+  p.cash += cash
+  log(state, `${p.name} mortgages ${t.name} for Rs ${cash}.${hadCrop ? ' Standing crop is lost.' : ''}`, 'loss', { amount: cash, pid: p.id, tileId })
+  return true
+}
+
+export function fireSale(state, tileId, opts = {}) {
+  const p = opts.player || currentPlayer(state)
+  const t = TILES[tileId]
+  if (!p || !t) return false
+  if (t.type === 'infra' && state.infra[tileId] === p.id) delete state.infra[tileId]
+  else if (t.type === 'utility' && state.utilities[tileId] === p.id) delete state.utilities[tileId]
+  else return false
+  const cash = mortgageValue(tileId)
+  p.cash += cash
+  log(state, `${p.name} fire-sales ${t.name} for Rs ${cash}.`, 'loss', { amount: cash, pid: p.id, tileId })
+  return true
+}
+
+function beginRaise(state, player, amount, reason, extra = {}) {
+  state.pending = {
+    kind: 'raise',
+    pid: player.id,
+    amount: Math.round(amount),
+    reason,
+    to: extra.to != null ? extra.to : null,
+    after: extra.after || { type: 'end' }
+  }
+  state.phase = 'action'
+}
+
+function settleRaise(state) {
+  const r = state.pending
+  if (!r || r.kind !== 'raise') return false
+  const p = state.players[r.pid]
+  const a = r.amount
+  if (!p || p.cash < a) return false
+  p.cash -= a
+  if (r.to != null) {
+    const to = state.players[r.to]
+    if (to && !to.bankrupt) {
+      to.cash += a
+      log(state, `${p.name} pays ${to.name} Rs ${a} for ${r.reason}.`, 'loss', { amount: a, pid: p.id })
+    } else {
+      log(state, `${p.name} pays Rs ${a} — ${r.reason}.`, 'loss', { amount: a, pid: p.id })
+    }
+  } else {
+    log(state, `${p.name} pays Rs ${a} — ${r.reason}.`, 'loss', { amount: a, pid: p.id })
+  }
+  const after = r.after || { type: 'end' }
+  if (after.type === 'fromEach') {
+    state.pending = null
+    const payTo = state.players[after.payTo]
+    const remain = (after.remain || []).map((id) => state.players[id]).filter((o) => o && !o.bankrupt)
+    collectFromEach(state, payTo, remain, after.amount, after.reason, after.deck, after.card)
+    if (isRaising(state)) return true
+    state.pending = { kind: 'card', deck: after.deck, card: after.card }
+    state.phase = 'action'
+    return true
+  }
+  if (after.type === 'card') {
+    state.pending = { kind: 'card', deck: after.deck, card: after.card }
+    state.phase = 'action'
+    return true
+  }
+  state.pending = null
+  state.phase = 'end'
+  return true
+}
+
+export function raiseLot(state, tileId) {
+  const r = state.pending
+  if (!r || r.kind !== 'raise') return false
+  const p = state.players[r.pid]
+  const t = TILES[tileId]
+  if (!p || !t) return false
+  const ok = t.type === 'farm' ? mortgageFarm(state, tileId, { player: p }) : fireSale(state, tileId, { player: p })
+  if (!ok) return false
+  if (p.cash >= r.amount) settleRaise(state)
+  else if (!raisableLots(state, p.id).length) giveUpRaise(state)
+  return true
+}
+
+export function giveUpRaise(state) {
+  const r = state.pending
+  if (!r || r.kind !== 'raise') return false
+  const p = state.players[r.pid]
+  const after = r.after || { type: 'end' }
+  state.pending = null
+  if (p) bankrupt(state, p, r.reason)
+  if (state.phase === 'over') return true
+  if (after.type === 'fromEach') {
+    const payTo = state.players[after.payTo]
+    const remain = (after.remain || []).map((id) => state.players[id]).filter((o) => o && !o.bankrupt)
+    collectFromEach(state, payTo, remain, after.amount, after.reason, after.deck, after.card)
+    if (isRaising(state)) return true
+    state.pending = { kind: 'card', deck: after.deck, card: after.card }
+    state.phase = 'action'
+    return true
+  }
+  if (after.type === 'card') {
+    state.pending = { kind: 'card', deck: after.deck, card: after.card }
+    state.phase = 'action'
+    return true
+  }
+  if (p && p.bankrupt && state.turn === p.id) nextTurn(state)
+  else state.phase = 'end'
+  return true
+}
+
+function collectFromEach(state, payTo, others, amount, reason, deck, card) {
+  if (!payTo) return
+  for (let i = 0; i < others.length; i++) {
+    transfer(state, others[i], payTo, amount, reason)
+    if (isRaising(state)) {
+      state.pending.after = {
+        type: 'fromEach',
+        amount,
+        reason,
+        payTo: payTo.id,
+        remain: others.slice(i + 1).map((o) => o.id),
+        deck,
+        card
+      }
+      return
+    }
+  }
 }
 
 export function transfer(state, from, to, amount, reason) {
@@ -402,34 +582,27 @@ export function transfer(state, from, to, amount, reason) {
     log(state, `${from.name} pays ${to.name} Rs ${a} for ${reason}.`, 'loss', { amount: a, pid: from.id })
     return
   }
-  if (forcePay(state, from, a, reason)) to.cash += a
+  if (raisableLots(state, from.id).length) {
+    beginRaise(state, from, a, reason, { to: to.id })
+    return
+  }
+  bankrupt(state, from, reason)
 }
 
-export function forcePay(state, player, amount, reason) {
-  if (player.cash >= amount) {
-    player.cash -= Math.round(amount)
-    log(state, `${player.name} pays Rs ${Math.round(amount)} — ${reason}.`, 'loss', { amount: Math.round(amount), pid: player.id })
+export function forcePay(state, player, amount, reason, after) {
+  const a = Math.round(amount)
+  if (a <= 0) return true
+  if (player.cash >= a) {
+    player.cash -= a
+    log(state, `${player.name} pays Rs ${a} — ${reason}.`, 'loss', { amount: a, pid: player.id })
     return true
   }
-  autoRaise(state, player, amount)
-  if (player.cash >= amount) {
-    player.cash -= Math.round(amount)
-    log(state, `${player.name} pays Rs ${Math.round(amount)} — ${reason}.`, 'loss', { amount: Math.round(amount), pid: player.id })
-    return true
+  if (raisableLots(state, player.id).length) {
+    beginRaise(state, player, a, reason, { after: after || { type: 'end' } })
+    return false
   }
   bankrupt(state, player, reason)
   return false
-}
-
-function autoRaise(state, player, need) {
-  Object.entries(state.farms).forEach(([id, f]) => {
-    if (player.cash >= need) return
-    if (f.owner === player.id && !f.mortgaged && f.stage === 'idle') {
-      f.mortgaged = true
-      player.cash += Math.round(TILES[id].price * 0.5)
-      log(state, `${player.name} mortgages ${TILES[id].name}.`, 'loss', { pid: player.id })
-    }
-  })
 }
 
 function bankrupt(state, player, reason) {
@@ -458,6 +631,12 @@ function bankrupt(state, player, reason) {
   }
 }
 
+function cardDeck(state, p) {
+  const tile = TILES[p.pos]
+  if (tile && tile.type === 'mandi') return 'Market Prices'
+  return 'Farmer Card'
+}
+
 function applyCard(state, p, card) {
   log(state, `${card.title}: ${card.text}`, 'card', { pid: p.id })
   switch (card.fn) {
@@ -465,7 +644,7 @@ function applyCard(state, p, card) {
       gain(state, p, card.amount, card.title)
       break
     case 'pay':
-      forcePay(state, p, card.amount, card.title)
+      forcePay(state, p, card.amount, card.title, { type: 'card', deck: cardDeck(state, p), card })
       break
     case 'fertility':
       Object.values(state.farms).forEach((f) => {
@@ -495,7 +674,7 @@ function applyCard(state, p, card) {
     }
     case 'perFarm': {
       const n = farmsOf(state, p.id).length
-      forcePay(state, p, n * card.amount, card.title)
+      forcePay(state, p, n * card.amount, card.title, { type: 'card', deck: cardDeck(state, p), card })
       break
     }
     case 'freePrep':
@@ -507,7 +686,7 @@ function applyCard(state, p, card) {
         const crop = CROPS[hit.crop]
         if (crop) {
           const loss = Math.round(crop.yield * crop.price * 0.5)
-          forcePay(state, p, loss, 'hail damage')
+          forcePay(state, p, loss, 'hail damage', { type: 'card', deck: cardDeck(state, p), card })
         }
       }
       break
@@ -531,11 +710,11 @@ function applyCard(state, p, card) {
         gain(state, p, card.amount, card.title)
       }
       break
-    case 'fromEach':
-      state.players.forEach((o) => {
-        if (o.id !== p.id && !o.bankrupt) transfer(state, o, p, card.amount, card.title)
-      })
+    case 'fromEach': {
+      const others = state.players.filter((o) => o.id !== p.id && !o.bankrupt)
+      collectFromEach(state, p, others, card.amount, card.title, cardDeck(state, p), card)
       break
+    }
     case 'insuranceClaim':
       if (farmsOf(state, p.id).some((f) => f.insured)) gain(state, p, card.amount, 'crop insurance')
       break
@@ -543,7 +722,7 @@ function applyCard(state, p, card) {
       p.knowHow = 2
       break
     case 'unlessOwn':
-      if (state.infra[card.tile] !== p.id) forcePay(state, p, card.amount, card.title)
+      if (state.infra[card.tile] !== p.id) forcePay(state, p, card.amount, card.title, { type: 'card', deck: cardDeck(state, p), card })
       break
     case 'organicBonus':
       farmsOf(state, p.id).forEach((f) => {
@@ -868,6 +1047,7 @@ export function actingSeat(state) {
   if (!state || !state.pending) return state ? state.turn : 0
   if (state.pending.kind === 'auction') return state.pending.actor
   if (state.pending.kind === 'trade') return state.pending.to
+  if (state.pending.kind === 'raise') return state.pending.pid
   return state.turn
 }
 
@@ -1107,6 +1287,7 @@ export function rejectTrade(state) {
 
 export function declineAction(state) {
   const pending = state.pending
+  if (pending && pending.kind === 'raise') return giveUpRaise(state)
   if (pending && pending.kind === 'auction') return passAuction(state)
   if (pending && pending.kind === 'trade') return rejectTrade(state)
   if (pending && (pending.kind === 'acquire' || pending.kind === 'buyInfra')) {
@@ -1120,6 +1301,13 @@ export function declineAction(state) {
 export function skipTurn(state, reason = 'did not act in time') {
   if (state.phase === 'over') return state
   const pending = state.pending
+  if (pending && pending.kind === 'raise') {
+    const actor = actingSeat(state)
+    const name = state.players[actor] ? state.players[actor].name : currentPlayer(state).name
+    log(state, `${name} ${reason}.`, 'info', { pid: actor, skip: true })
+    giveUpRaise(state)
+    return state
+  }
   if (pending && (pending.kind === 'auction' || pending.kind === 'trade' || pending.kind === 'acquire' || pending.kind === 'buyInfra')) {
     const actor = actingSeat(state)
     const name = state.players[actor] ? state.players[actor].name : currentPlayer(state).name
@@ -1228,7 +1416,7 @@ export function unmortgage(state, tileId) {
   const f = state.farms[tileId]
   const t = TILES[tileId]
   if (f.owner !== p.id || !f.mortgaged) return false
-  const cost = Math.round(t.price * 0.55)
+  const cost = redeemCost(tileId)
   if (p.cash < cost) return false
   p.cash -= cost
   f.mortgaged = false

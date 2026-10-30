@@ -3,7 +3,7 @@ import { t } from './i18n.js'
 import { escapeHtml } from './format.js'
 import { iconHtml } from './icons.js'
 import { diceHtml } from './dice.js'
-import { currentPlayer, netWorth, farmsOf, seasonOf, actingSeat } from './engine.js'
+import { currentPlayer, netWorth, farmsOf, seasonOf, actingSeat, raisableLots, mortgageValue, redeemCost } from './engine.js'
 import { PERSONAS } from './ai.js'
 import { chromeToggleHtml, offlineBannerHtml } from './chrome.js'
 import { boardTilesHtml } from './board.js'
@@ -65,7 +65,7 @@ export function fieldsPanel(state, seat, canWork) {
   if (!list.length) return '<p class="pcash">' + t('noLand') + '</p>'
   return list.map((f) => {
     const crop = f.crop ? CROPS[f.crop].name : t('fallow')
-    return `<button class="seed-btn" data-work="${f.id}" ${canWork && !f.mortgaged ? '' : 'disabled'} style="width:100%;margin-bottom:4px">
+    return `<button class="seed-btn" data-work="${f.id}" ${canWork ? '' : 'disabled'} style="width:100%;margin-bottom:4px">
       <b>${f.tile.name}</b> · ${f.stage} · ${crop}
     </button>`
   }).join('')
@@ -237,7 +237,7 @@ function farmWorkModal(state, tileId) {
   const acts = []
   if (f.mortgaged) {
     body += `<p>${t('mortgaged')}</p>`
-    acts.push(`<button class="work-btn gold" data-act="unmortgage">${t('redeem', rs(Math.round(tile.price * 0.55)))}</button>`)
+    acts.push(`<button class="work-btn gold" data-act="unmortgage">${t('redeem', rs(redeemCost(tileId)))}</button>`)
   } else {
     if (f.stage === 'idle') {
       acts.push(`<button class="work-btn gold" data-act="prepare" ${p.cash < tile.prepare && !p.freePrep ? 'disabled' : ''}>${t('prepare')} ${p.freePrep ? t('free') : rs(tile.prepare)}</button>`)
@@ -262,13 +262,36 @@ function farmWorkModal(state, tileId) {
     }
     if (!f.irrigated) acts.push(`<button class="work-btn" data-act="irrigate">${t('irrigate')} ${rs((state.utilities[12] === p.id || state.utilities[28] === p.id) ? 400 : 900)}</button>`)
     if (!f.insured) acts.push(`<button class="work-btn" data-act="insure">${t('insure')} ${rs(600)}</button>`)
+    if (f.owner === p.id) {
+      acts.push(`<button class="ghost" data-act="mortgage">${t('mortgagePlot', rs(mortgageValue(tileId)))}</button>`)
+      if (f.stage !== 'idle') body += `<p>${t('ripeMortgage')}</p>`
+    }
   }
   acts.push(`<button class="ghost" data-act="skip">${t('skipField')}</button>`)
   return wrapModal(body + `<div class="actions">${acts.join('')}</div>`)
 }
 
+function raiseModal(state, pending, mine) {
+  const p = state.players[pending.pid] || currentPlayer(state)
+  const lots = raisableLots(state, pending.pid)
+  const need = Math.max(0, pending.amount - (p ? p.cash : 0))
+  const rows = lots.map((lot) => {
+    const tile = TILES[lot.tileId]
+    const label = lot.kind === 'farm' ? t('mortgagePlot', rs(lot.value)) : t('fireSalePlot', rs(lot.value))
+    const extra = lot.kind === 'farm' && lot.stage && lot.stage !== 'idle' ? ' · ' + t('ripeMortgage') : ''
+    return `<button class="seed-btn" data-raise="${lot.tileId}"><b>${tile ? tile.name : ''}</b><br/>${label}${extra}</button>`
+  }).join('')
+  return wrapModal(`
+    <h2>${t('ruralBank')}</h2>
+    <p>${t('raiseCash', rs(pending.amount), pending.reason)}</p>
+    <div class="farm-meta">${t('raiseStill', rs(p ? p.cash : 0), rs(need))}</div>
+    ${mine ? `<div class="crops">${rows}</div>
+      <div class="actions"><button class="ghost" data-act="giveup">${t('giveUp')}</button></div>` : `<p class="pcash">${t('waitingAct')}</p>`}`)
+}
+
 export function actionModal(state, pending, mine) {
   const p = currentPlayer(state)
+  if (pending.kind === 'raise') return raiseModal(state, pending, mine)
   if (pending.kind === 'auction') return auctionModal(state, pending, mine)
   if (pending.kind === 'trade') return tradeModal(state, pending, mine)
   if (pending.kind === 'acquire') {
@@ -365,7 +388,7 @@ export function modalHtml(state, { landing, landingQueue, inspectId, isMyTurn, n
       </div>`
   }
   if (landing) return landingModal(state, landing, landingQueue)
-  if (state.phase === 'action' && state.pending && (state.pending.kind === 'auction' || state.pending.kind === 'trade')) {
+  if (state.phase === 'action' && state.pending && (state.pending.kind === 'auction' || state.pending.kind === 'trade' || state.pending.kind === 'raise')) {
     return actionModal(state, state.pending, isMyTurn)
   }
   if (inspectId != null) return inspectModal(state, inspectId)
