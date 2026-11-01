@@ -3,7 +3,7 @@ import { t } from './i18n.js'
 import { escapeHtml } from './format.js'
 import { iconHtml } from './icons.js'
 import { diceHtml } from './dice.js'
-import { currentPlayer, netWorth, farmsOf, seasonOf, actingSeat, raisableLots, mortgageValue, redeemCost } from './engine.js'
+import { currentPlayer, netWorth, farmsOf, seasonOf, actingSeat, raisableLots, mortgageValue, redeemCost, finalStandings } from './engine.js'
 import { PERSONAS } from './ai.js'
 import { chromeToggleHtml, offlineBannerHtml } from './chrome.js'
 import { boardTilesHtml } from './board.js'
@@ -379,19 +379,37 @@ export function inspectModal(state, id) {
     <div class="actions"><button class="ghost" data-act="skip">${t('close')}</button></div>`)
 }
 
-export function modalHtml(state, { landing, landingQueue, inspectId, isMyTurn, netWorthFn }) {
-  if (state.phase === 'over') {
-    const w = state.players[state.winner]
-    return `
+export function winModal(state, ctx = {}) {
+  const w = state.players[state.winner]
+  const rows = [...finalStandings(state)].sort((a, b) => a.rank - b.rank || a.id - b.id)
+  const online = !!ctx.online
+  const host = online && ctx.session && !ctx.session.spectator && ctx.session.you === ctx.hostSeat
+  const canRematch = !online || host
+  const kingNet = w ? rs(netWorth(state, w)) : (rows[0] ? rs(rows[0].net) : '')
+  const list = rows.map((r) => `
+    <li class="stand-row${r.won ? ' king' : ''}${r.bankrupt ? ' out' : ''}">
+      <span class="stand-rank">${r.rank}</span>
+      <span class="stand-name">${escapeHtml(r.name)}${r.won ? ' · ' + t('harvestKing') : ''}${r.bankrupt ? ' · ' + t('insolvent') : ''}</span>
+      <span class="stand-net">${rs(r.net)}</span>
+    </li>`).join('')
+  const acts = canRematch
+    ? `<button class="primary" id="again">${t('rematch')}</button><button class="ghost" id="tolobby">${t('toLobby')}</button>`
+    : `<p class="pcash">${t('waitRematch')}</p><button class="primary" id="tolobby">${t('toLobby')}</button>`
+  return `
       <div class="modal-back" role="dialog" aria-modal="true">
         <div class="modal win">
           <div class="tag">${t('villageDeclares')}</div>
           <h2>${w ? t('isKing', escapeHtml(w.name)) : t('landKing')}</h2>
-          <p>${t('granaries', w ? rs(netWorthFn(state, w)) : '')}</p>
-          <button class="primary" id="again">${t('playAgain')}</button>
+          <p>${t('granaries', kingNet)}</p>
+          <ol class="standings">${list}</ol>
+          <p class="pcash">${t('rematchHint')}</p>
+          <div class="actions">${acts}</div>
         </div>
       </div>`
-  }
+}
+
+export function modalHtml(state, { landing, landingQueue, inspectId, isMyTurn, online, session, hostSeat }) {
+  if (state.phase === 'over') return winModal(state, { online, session, hostSeat })
   if (landing) return landingModal(state, landing, landingQueue)
   if (state.phase === 'action' && state.pending && (state.pending.kind === 'auction' || state.pending.kind === 'trade' || state.pending.kind === 'raise')) {
     return actionModal(state, state.pending, isMyTurn)
@@ -490,5 +508,5 @@ export function gameHtml(state, ctx) {
       </div>
     </div>
   </div>
-  ${modalHtml(state, { landing: ctx.landing, landingQueue: ctx.landingQueue, inspectId: ctx.inspectId, isMyTurn: ctx.isMyTurn, netWorthFn: netWorth })}`
+  ${modalHtml(state, { landing: ctx.landing, landingQueue: ctx.landingQueue, inspectId: ctx.inspectId, isMyTurn: ctx.isMyTurn, online: ctx.online, session: ctx.session, hostSeat: ctx.hostSeat })}`
 }

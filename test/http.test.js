@@ -152,6 +152,26 @@ test('cpu seats persist without tokens and stats write atomically', async () => 
   assert.equal(existsSync(join(dataDir, 'stats.json.tmp')), false)
 })
 
+test('rematch is host-only after the match ends', async () => {
+  const created = await api('POST', '/api/create', { name: 'A', visitor: 'rematch-a' })
+  assert.equal(created.status, 200)
+  const code = created.json.code
+  const hostTok = created.json.token
+  const joined = await api('POST', '/api/join', { code, name: 'B', visitor: 'rematch-b' })
+  assert.equal(joined.status, 200)
+  const guestTok = joined.json.token
+  const started = await api('POST', '/api/start', { code, token: hostTok })
+  assert.equal(started.status, 200)
+  assert.equal(started.json.state.phase, 'roll')
+
+  const guestLive = await api('POST', '/api/rematch', { code, token: guestTok })
+  assert.equal(guestLive.status, 403)
+
+  const hostLive = await api('POST', '/api/rematch', { code, token: hostTok })
+  assert.equal(hostLive.status, 400)
+  assert.match(hostLive.json.error, /Finish the match/)
+})
+
 test('SIGTERM drains then health is 503', async () => {
   const before = await api('GET', '/api/health')
   assert.equal(before.json.draining, false)

@@ -658,6 +658,22 @@ function playCpuNow(room) {
   playCpuSoon(room)
 }
 
+function beginMatch(room) {
+  if (room.players.length < 2) return 'Need at least 2 farmers'
+  if (!room.players.some((x) => !x.cpu)) return 'Need at least one human farmer'
+  room.state = createGame(room.players.length, room.players.map((x) => x.name), {
+    cpu: room.players.map((x) => !!x.cpu),
+    persona: room.players.map((x) => x.persona || null),
+    preset: room.preset || DEFAULT_PRESET
+  })
+  room.started = true
+  room.recorded = false
+  room.lastDice = room.state.lastDice
+  room.rollSeq = 0
+  armTurn(room)
+  return null
+}
+
 function compactWaiting(room) {
   const hostTok = (room.players.find((p) => p.seat === room.hostSeat) || {}).token
   room.players.sort((a, b) => a.seat - b.seat)
@@ -964,22 +980,11 @@ const server = http.createServer(async (req, res) => {
         json(res, 503, { error: 'The hall is restarting. Finish later.' })
         return
       }
-      if (room.players.length < 2) {
-        json(res, 400, { error: 'Need at least 2 farmers' })
+      const err = beginMatch(room)
+      if (err) {
+        json(res, 400, { error: err })
         return
       }
-      if (!room.players.some((x) => !x.cpu)) {
-        json(res, 400, { error: 'Need at least one human farmer' })
-        return
-      }
-      room.state = createGame(room.players.length, room.players.map((x) => x.name), {
-        cpu: room.players.map((x) => !!x.cpu),
-        persona: room.players.map((x) => x.persona || null),
-        preset: room.preset || DEFAULT_PRESET
-      })
-      room.started = true
-      room.lastDice = room.state.lastDice
-      armTurn(room)
       bump(room)
       playCpuSoon(room)
       logEvent('room.start', {
@@ -1092,6 +1097,44 @@ const server = http.createServer(async (req, res) => {
       }
       room.hostSeat = next.seat
       bump(room)
+      json(res, 200, snapshot(room, p.seat))
+      return
+    }
+
+    if (req.method === 'POST' && path === '/api/rematch') {
+      const body = await readBody(req)
+      const room = rooms.get(String(body.code || '').toUpperCase())
+      const p = room && playerByToken(room, body.token)
+      if (!room || !p) {
+        json(res, 404, { error: 'Session not found' })
+        return
+      }
+      maybePassHost(room)
+      if (!isHost(room, p)) {
+        json(res, 403, { error: 'Only the host may start a rematch' })
+        return
+      }
+      if (!room.started || !room.state || room.state.phase !== 'over') {
+        json(res, 400, { error: 'Finish the match before a rematch' })
+        return
+      }
+      if (draining) {
+        json(res, 503, { error: 'The hall is restarting. Finish later.' })
+        return
+      }
+      const err = beginMatch(room)
+      if (err) {
+        json(res, 400, { error: err })
+        return
+      }
+      bump(room)
+      playCpuSoon(room)
+      logEvent('room.rematch', {
+        code: room.code,
+        seats: room.players.length,
+        cpu: room.players.filter((x) => x.cpu).length,
+        preset: room.preset || DEFAULT_PRESET
+      })
       json(res, 200, snapshot(room, p.seat))
       return
     }

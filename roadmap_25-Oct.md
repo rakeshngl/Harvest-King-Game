@@ -19,7 +19,7 @@ Grounded in the tree at `e5fbb56`. Already shipped and not re-proposed: rooms + 
   5. Reduced-motion, keyboard tiles, `:focus-visible`, Escape/focus-trap. — done
   6. Player-chosen mortgage / fire-sale (idle-only auto-mortgage feels random). — done
 7. Board/diary i18n (chrome is done; tiles, crops, cards, logs still English). — done
-8. Win standings + rematch (`finalStandings` already exists).
+8. Win standings + rematch (`finalStandings` already exists). — done
 9. AI: use unused `gamble`, let CPU `offer` trades, optional luck on hard. No AI tests today.
 10. HMAC visitor cookie (not Google) so `/api/profile` is not spoofable — unblocks daily leaderboard.
 11. Fix docs: README still says online rooms are human-only; `public/roadmap.html` still lists SSE/persist as open; `tasks-18-oct.md` still says `hk-shell-1`.

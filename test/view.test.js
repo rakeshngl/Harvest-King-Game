@@ -4,7 +4,7 @@ import { createGame } from '../src/engine.js'
 import { chromeToggleHtml, tutorialHtml } from '../src/chrome.js'
 import { lobbyHtml, waitingHtml, nameInputs } from '../src/lobby.js'
 import { boardTilesHtml, tileHtml } from '../src/board.js'
-import { gameHtml, wrapModal, actionModal } from '../src/hud.js'
+import { gameHtml, wrapModal, actionModal, winModal } from '../src/hud.js'
 import { TILES } from '../src/data.js'
 
 test('chrome and tutorial markup keep their ids', () => {
@@ -84,4 +84,22 @@ test('raise modal lists lots to mortgage or fire-sale', () => {
   assert.match(html, /data-raise="1"/)
   assert.match(html, /data-raise="5"/)
   assert.match(html, /data-act="giveup"/)
+})
+
+test('win modal lists standings and a rematch control', () => {
+  const state = createGame(3, ['A', 'B', 'C'], { seed: 1 })
+  state.phase = 'over'
+  state.winner = 0
+  state.players[2].bankrupt = true
+  state.players[2].cash = 0
+  const html = winModal(state, { online: false })
+  assert.match(html, /class="standings"/)
+  assert.match(html, /id="again"/)
+  assert.match(html, /id="tolobby"/)
+  assert.match(html, /A/)
+  assert.match(html, /B/)
+  assert.match(html, /C/)
+  const guest = winModal(state, { online: true, session: { you: 1, spectator: false }, hostSeat: 0 })
+  assert.doesNotMatch(guest, /id="again"/)
+  assert.match(guest, /id="tolobby"/)
 })

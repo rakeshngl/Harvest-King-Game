@@ -11,7 +11,7 @@ import {
 import { blankProfile, applyMatch } from './profile.js'
 import {
   createRoom, joinRoom, startRoom, sendAction, waitSnapshot, openEventStream,
-  kickSeat, passHost, setPreset, addCpu, loadSession, saveSession, savedSeat, savedSeats, forgetSeat, pingPresence, fetchLobby, fetchProfile
+  kickSeat, passHost, setPreset, addCpu, rematchRoom, loadSession, saveSession, savedSeat, savedSeats, forgetSeat, pingPresence, fetchLobby, fetchProfile
 } from './net.js'
 import { PERSONAS, CPU_NAMES, chooseAction, describeAction } from './ai.js'
 import { t, setLang, currentLang } from './i18n.js'
@@ -516,9 +516,17 @@ function applySnap(snap, opts = {}) {
     const prevCash = state ? state.players.map((p) => p.cash) : null
     const prevTurn = state ? state.turn : null
     const firstLook = !state
+    const rematch = !!(state && state.phase === 'over' && snap.state.phase !== 'over')
     state = snap.state
     screen = 'game'
-    if (prevTurn != null && prevTurn !== state.turn) {
+    if (rematch) {
+      landing = null
+      landingQueue = []
+      seenLogId = 0
+      diaryPage = 0
+      wasOver = false
+      rolling = false
+    } else if (prevTurn != null && prevTurn !== state.turn) {
       landing = null
       landingQueue = []
     }
@@ -731,7 +739,8 @@ function gameHtml() {
     tradeDraft,
     landing,
     landingQueue,
-    inspectId
+    inspectId,
+    hostSeat: room ? room.hostSeat : 0
   })
 }
 
@@ -804,8 +813,12 @@ function startLocalGame(n, list, opts = {}) {
   cpuGen += 1
   inspectId = null
   landing = null
+  landingQueue = []
   diaryPage = 0
   notice = ''
+  wasOver = false
+  seenLogId = 0
+  rolling = false
   state = createGame(n, list, { ...opts, preset: opts.preset || presetChoice })
   screen = 'game'
   syncLog()
@@ -1110,7 +1123,27 @@ function bindGame() {
     })
   }
   if (again) {
-    again.addEventListener('click', () => {
+    again.addEventListener('click', async () => {
+      if (online()) {
+        try {
+          notice = ''
+          const snap = await rematchRoom(session)
+          applySnap(snap)
+        } catch (err) {
+          notice = err.message
+          render()
+        }
+        return
+      }
+      const names = state.players.map((p) => p.name)
+      const cpu = state.players.map((p) => !!p.cpu)
+      const persona = state.players.map((p) => p.persona || null)
+      startLocalGame(names.length, names, { cpu, persona, preset: state.preset })
+    })
+  }
+  const toLobby = document.getElementById('tolobby')
+  if (toLobby) {
+    toLobby.addEventListener('click', () => {
       leaveSession()
       notice = ''
       render()

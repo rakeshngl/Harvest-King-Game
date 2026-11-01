@@ -116,6 +116,10 @@ export function startRoom(sess) {
   return post('/api/start', { code: sess.code, token: sess.token })
 }
 
+export function rematchRoom(sess) {
+  return post('/api/rematch', { code: sess.code, token: sess.token })
+}
+
 export function sendAction(sess, action) {
   return post('/api/action', { code: sess.code, token: sess.token, action })
 }
