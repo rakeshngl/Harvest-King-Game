@@ -1,4 +1,4 @@
-import { TILES, CROPS, GROUPS, MAX_SEASONS, LOAN_STEP, LOAN_CAP } from './data.js'
+import { TILES, CROPS, MAX_SEASONS, LOAN_STEP, LOAN_CAP } from './data.js'
 import { t } from './i18n.js'
 import { escapeHtml } from './format.js'
 import { iconHtml } from './icons.js'
@@ -8,12 +8,17 @@ import { PERSONAS } from './ai.js'
 import { chromeToggleHtml, offlineBannerHtml } from './chrome.js'
 import { boardTilesHtml } from './board.js'
 import { rs } from './view-util.js'
+import {
+  tileName, tileRegion, tileSub, cropName, groupName, seasonName, seasonHint,
+  weatherName, weatherText, cardTitle, cardText, deckName, stageName, soilName,
+  reasonText, diaryDisplay
+} from './names.js'
 
 export const DIARY_PAGE = 20
 
 export function diaryRow(e) {
   const kind = typeof e === 'string' ? 'info' : (e.kind || 'info')
-  const text = typeof e === 'string' ? e : e.text
+  const text = diaryDisplay(e)
   return `<div class="log-line ${kind}"><span class="dot"></span><span class="txt">${escapeHtml(text)}</span></div>`
 }
 
@@ -64,9 +69,9 @@ export function fieldsPanel(state, seat, canWork) {
   const list = farmsOf(state, seat)
   if (!list.length) return '<p class="pcash">' + t('noLand') + '</p>'
   return list.map((f) => {
-    const crop = f.crop ? CROPS[f.crop].name : t('fallow')
+    const crop = f.crop ? cropName(f.crop) : t('fallow')
     return `<button class="seed-btn" data-work="${f.id}" ${canWork ? '' : 'disabled'} style="width:100%;margin-bottom:4px">
-      <b>${f.tile.name}</b> · ${f.stage} · ${crop}
+      <b>${escapeHtml(tileName(f.tile))}</b> · ${escapeHtml(stageName(f.stage))} · ${escapeHtml(crop)}
     </button>`
   }).join('')
 }
@@ -74,7 +79,7 @@ export function fieldsPanel(state, seat, canWork) {
 export function ownedLandOptions(state, pid, selected) {
   return farmsOf(state, pid)
     .filter((f) => f.owner === pid)
-    .map((f) => `<option value="${f.id}"${String(selected) === String(f.id) ? ' selected' : ''}>${f.tile.name}</option>`)
+    .map((f) => `<option value="${f.id}"${String(selected) === String(f.id) ? ' selected' : ''}>${escapeHtml(tileName(f.tile))}</option>`)
     .join('')
 }
 
@@ -156,7 +161,7 @@ export function landingModal(state, landing, landingQueue) {
     : delta === 0
       ? t('noCash')
       : (delta > 0 ? '+' : '-') + rs(Math.abs(delta))
-  const sub = tile ? (tile.region || tile.sub || (tile.group ? GROUPS[tile.group].name : '')) : ''
+  const sub = tile ? (tileRegion(tile) || tileSub(tile) || (tile.group ? groupName(tile.group) : '')) : ''
   return `
     <div class="modal-back" role="dialog" aria-modal="true">
       <div class="modal landing">
@@ -166,7 +171,7 @@ export function landingModal(state, landing, landingQueue) {
         <div class="land-head">
           <div class="land-icon" style="border-color:${player.color}">${tile ? iconHtml(tile.icon) : ''}</div>
           <div>
-            <h2>${tile ? tile.name : t('theBoard')}</h2>
+            <h2>${tile ? escapeHtml(tileName(tile)) : t('theBoard')}</h2>
             <p class="land-sub">${sub}</p>
           </div>
         </div>
@@ -185,7 +190,7 @@ function auctionModal(state, pending, mine) {
   const canBid = mine && actor && actor.cash >= floor
   return wrapModal(`
     <h2>${t('auction')}</h2>
-    <p>${t('auctionLot', tile ? tile.name : '', rs(pending.minBid))}</p>
+    <p>${t('auctionLot', tile ? escapeHtml(tileName(tile)) : '', rs(pending.minBid))}</p>
     <div class="farm-meta">
       ${bidder ? t('highBid', escapeHtml(bidder.name), rs(pending.highBid)) : t('noBids')}
       <br/>${t('toBid', actor ? escapeHtml(actor.name) : '', rs(floor))}
@@ -199,7 +204,7 @@ function auctionModal(state, pending, mine) {
 function tradeLine(n, landId) {
   const bits = []
   if (n) bits.push(rs(n))
-  if (landId != null && TILES[landId]) bits.push(TILES[landId].name)
+  if (landId != null && TILES[landId]) bits.push(tileName(TILES[landId]))
   return bits.length ? bits.join(' · ') : t('nothing')
 }
 
@@ -225,10 +230,10 @@ function farmWorkModal(state, tileId) {
   const p = currentPlayer(state)
   const season = seasonOf(state).id
   let body = `
-    <h2>${tile.name}</h2>
+    <h2>${escapeHtml(tileName(tile))}</h2>
     <div class="farm-meta">
-      ${t('stage')}: <b>${f.stage}</b>${f.crop ? ' · ' + CROPS[f.crop].name : ''}
-      · Fertility ${(f.fertility * 100).toFixed(0)}%
+      ${t('stage')}: <b>${escapeHtml(stageName(f.stage))}</b>${f.crop ? ' · ' + escapeHtml(cropName(f.crop)) : ''}
+      · ${t('fertility', (f.fertility * 100).toFixed(0))}
       · ${f.irrigated ? t('irrigated') : t('rainfed')}
       · ${f.insured ? t('insured') : t('uninsured')}
       ${f.leasee === p.id ? ' · ' + t('leaseLeft', f.leaseTurns) : ''}
@@ -249,7 +254,7 @@ function farmWorkModal(state, tileId) {
         const off = c.season !== season
         const cost = c.seed + (off ? Math.round(c.seed * 0.35) : 0)
         return `<button class="seed-btn${off ? ' off' : ''}" data-seed="${cid}" ${p.cash < cost ? 'disabled' : ''}>
-          <b>${c.name}</b> · ${c.season}${off ? ' · ' + t('offSeason') : ''}<br/>${t('seedCost', rs(cost), c.yield, c.grow)}
+          <b>${escapeHtml(cropName(cid))}</b> · ${escapeHtml(seasonName(c.season))}${off ? ' · ' + t('offSeason') : ''}<br/>${t('seedCost', rs(cost), c.yield, c.grow)}
         </button>`
       }).join('')
       body += `</div>`
@@ -279,11 +284,11 @@ function raiseModal(state, pending, mine) {
     const tile = TILES[lot.tileId]
     const label = lot.kind === 'farm' ? t('mortgagePlot', rs(lot.value)) : t('fireSalePlot', rs(lot.value))
     const extra = lot.kind === 'farm' && lot.stage && lot.stage !== 'idle' ? ' · ' + t('ripeMortgage') : ''
-    return `<button class="seed-btn" data-raise="${lot.tileId}"><b>${tile ? tile.name : ''}</b><br/>${label}${extra}</button>`
+    return `<button class="seed-btn" data-raise="${lot.tileId}"><b>${tile ? escapeHtml(tileName(tile)) : ''}</b><br/>${label}${extra}</button>`
   }).join('')
   return wrapModal(`
     <h2>${t('ruralBank')}</h2>
-    <p>${t('raiseCash', rs(pending.amount), pending.reason)}</p>
+    <p>${t('raiseCash', rs(pending.amount), escapeHtml(reasonText(pending.reason)))}</p>
     <div class="farm-meta">${t('raiseStill', rs(p ? p.cash : 0), rs(need))}</div>
     ${mine ? `<div class="crops">${rows}</div>
       <div class="actions"><button class="ghost" data-act="giveup">${t('giveUp')}</button></div>` : `<p class="pcash">${t('waitingAct')}</p>`}`)
@@ -297,9 +302,9 @@ export function actionModal(state, pending, mine) {
   if (pending.kind === 'acquire') {
     const tile = TILES[pending.tileId]
     return wrapModal(`
-      <h2>${tile.name}</h2>
-      <p>${t('mustOwn', tile.region, GROUPS[tile.group].name, tile.soil)}</p>
-      <div class="farm-meta">${t('farmMeta', rs(tile.price), rs(tile.lease), rs(tile.prepare), tile.crops.map((c) => CROPS[c].name).join(', ')).replace('\n', '<br/>')}</div>
+      <h2>${escapeHtml(tileName(tile))}</h2>
+      <p>${t('mustOwn', escapeHtml(tileRegion(tile)), escapeHtml(groupName(tile.group)), escapeHtml(soilName(tile.soil)))}</p>
+      <div class="farm-meta">${t('farmMeta', rs(tile.price), rs(tile.lease), rs(tile.prepare), tile.crops.map((c) => cropName(c)).join(', ')).replace('\n', '<br/>')}</div>
       <div class="actions">
         <button class="work-btn gold" data-act="buy" ${p.cash < tile.price ? 'disabled' : ''}>${t('buyLand')}</button>
         <button class="work-btn alt" data-act="lease" ${p.cash < tile.lease ? 'disabled' : ''}>${t('leaseLand')}</button>
@@ -309,8 +314,8 @@ export function actionModal(state, pending, mine) {
   if (pending.kind === 'buyInfra') {
     const tile = TILES[pending.tileId]
     return wrapModal(`
-      <h2>${tile.name}</h2>
-      <p>${tile.sub}. ${t('infraHint')}</p>
+      <h2>${escapeHtml(tileName(tile))}</h2>
+      <p>${escapeHtml(tileSub(tile))}. ${t('infraHint')}</p>
       <div class="actions">
         <button class="work-btn gold" data-act="buyinfra" ${p.cash < tile.price ? 'disabled' : ''}>${t('buyFor', rs(tile.price))}</button>
         <button class="ghost" data-act="skip">${t('pass')}</button>
@@ -339,17 +344,17 @@ export function actionModal(state, pending, mine) {
   }
   if (pending.kind === 'card') {
     return wrapModal(`
-      <h2>${pending.deck}</h2>
-      <p><b>${pending.card.title}</b><br/>${pending.card.text}</p>
+      <h2>${escapeHtml(deckName(pending.deck))}</h2>
+      <p><b>${escapeHtml(cardTitle(pending.card))}</b><br/>${escapeHtml(cardText(pending.card))}</p>
       <div class="actions"><button class="primary" data-act="skip">${t('continue')}</button></div>`)
   }
   if (pending.kind === 'pickFarm') {
     const list = farmsOf(state, p.id)
     return wrapModal(`
       <h2>${t('chooseField')}</h2>
-      <p>${pending.reason}</p>
+      <p>${escapeHtml(reasonText(pending.reason))}</p>
       <div class="crops">
-        ${list.map((f) => `<button class="seed-btn" data-work="${f.id}"><b>${f.tile.name}</b><br/>${f.stage}${f.crop ? ' · ' + CROPS[f.crop].name : ''}</button>`).join('')}
+        ${list.map((f) => `<button class="seed-btn" data-work="${f.id}"><b>${escapeHtml(tileName(f.tile))}</b><br/>${escapeHtml(stageName(f.stage))}${f.crop ? ' · ' + escapeHtml(cropName(f.crop)) : ''}</button>`).join('')}
       </div>
       <div class="actions"><button class="ghost" data-act="skip">${t('skipField')}</button></div>`)
   }
@@ -364,12 +369,12 @@ export function inspectModal(state, id) {
     const who = f.owner != null
       ? state.players[f.owner].name
       : (f.leasee != null ? t('leasedBy', state.players[f.leasee].name) : t('villageHall'))
-    extra = `<div class="farm-meta">${t('owner')}: ${who}<br/>
-      ${t('stage')} ${f.stage}${f.crop ? ' · ' + CROPS[f.crop].name : ''} · Fertility ${(f.fertility * 100).toFixed(0)}%</div>`
+    extra = `<div class="farm-meta">${t('owner')}: ${escapeHtml(who)}<br/>
+      ${t('stage')} ${escapeHtml(stageName(f.stage))}${f.crop ? ' · ' + escapeHtml(cropName(f.crop)) : ''} · ${t('fertility', (f.fertility * 100).toFixed(0))}</div>`
   }
   return wrapModal(`
-    <h2>${tile.name}</h2>
-    <p>${tile.region || tile.sub || ''} ${tile.group ? '· ' + GROUPS[tile.group].name : ''}</p>
+    <h2>${escapeHtml(tileName(tile))}</h2>
+    <p>${escapeHtml(tileRegion(tile) || tileSub(tile) || '')} ${tile.group ? '· ' + escapeHtml(groupName(tile.group)) : ''}</p>
     ${extra}
     <div class="actions"><button class="ghost" data-act="skip">${t('close')}</button></div>`)
 }
@@ -414,8 +419,8 @@ export function gameHtml(state, ctx) {
         </div>
         <div class="meta">
           ${chromeToggleHtml()}
-          <span class="chip s">${season.name} · ${season.hint}</span>
-          <span class="chip g">${state.weather.name}</span>
+          <span class="chip s">${escapeHtml(seasonName(season))} · ${escapeHtml(seasonHint(season))}</span>
+          <span class="chip g">${escapeHtml(weatherName(state.weather))}</span>
           <span class="chip n">${t('seasonN', Math.min(state.seasonIndex + 1, state.maxSeasons || MAX_SEASONS), state.maxSeasons || MAX_SEASONS)}</span>
           ${state.daily ? `<span class="chip">${t('daily')} ${state.daily}</span>` : ''}
           <span class="chip">${t('marketX', state.marketMod.toFixed(2))}</span>
@@ -430,7 +435,7 @@ export function gameHtml(state, ctx) {
               <div class="chakra">${iconHtml('chakra')}</div>
               <div class="tag">${t('indianFarming')}</div>
               <h2>Harvest King</h2>
-              <div class="wx">${state.weather.name}<br/>${state.weather.text}</div>
+              <div class="wx">${escapeHtml(weatherName(state.weather))}<br/>${escapeHtml(weatherText(state.weather))}</div>
             </div>
           </div>
         </div>
@@ -475,7 +480,7 @@ export function gameHtml(state, ctx) {
           <h3>${t('prices')}</h3>
           <div class="prices">
             ${Object.values(CROPS).slice(0, 12).map((c) =>
-              `<span><b>${c.name}</b> ${rs(state.prices[c.id])}</span>`
+              `<span><b>${escapeHtml(cropName(c.id))}</b> ${rs(state.prices[c.id])}</span>`
             ).join('')}
           </div>
         </div>

@@ -1,8 +1,9 @@
-import { TILES, CROPS, GROUPS } from './data.js'
+import { TILES, GROUPS } from './data.js'
 import { iconHtml } from './icons.js'
 import { escapeHtml } from './format.js'
 import { actingSeat } from './engine.js'
 import { rs } from './view-util.js'
+import { tileName, tileShort, tileRegion, cropName, stageName } from './names.js'
 
 export const PLACE = (() => {
   const m = {}
@@ -53,7 +54,7 @@ export function tileHtml(tile, state) {
     })
     .join('')
   const stage = farm && farm.stage !== 'idle'
-    ? `<div class="stage-dot ${farm.stage}" title="${farm.stage}${farm.crop ? ' ' + CROPS[farm.crop].name : ''}"></div>`
+    ? `<div class="stage-dot ${farm.stage}" title="${escapeHtml(stageName(farm.stage) + (farm.crop ? ' ' + cropName(farm.crop) : ''))}"></div>`
     : ''
   const ownerBar = owner
     ? `<div class="owner-bar" style="background:${owner.color}"></div>`
@@ -67,13 +68,13 @@ export function tileHtml(tile, state) {
     'kind-' + tile.type,
     farm && farm.stage !== 'idle' ? 'has-crop' : ''
   ].filter(Boolean).join(' ')
-  const label = [tile.name, tile.region].filter(Boolean).join(' · ')
+  const label = [tileName(tile), tileRegion(tile)].filter(Boolean).join(' · ')
   return `
     <button type="button" class="${cls}" data-tile="${tile.id}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" style="grid-column:${pos.c};grid-row:${pos.r};--band:${theme.band};--wash:${theme.wash};--ink:${theme.ink}">
       <div class="band">${iconHtml(tile.icon)}</div>
       <div class="body">
-        <div class="tname">${tile.short || tile.name}</div>
-        <div class="tsub">${tile.region || ''}</div>
+        <div class="tname">${escapeHtml(tileShort(tile))}</div>
+        <div class="tsub">${escapeHtml(tileRegion(tile))}</div>
         ${price}
       </div>
       ${ownerBar}${stage}

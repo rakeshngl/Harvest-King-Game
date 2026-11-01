@@ -263,6 +263,22 @@ const PACK = {
     tut5: 'After you land, work one owned field — prepare, sow, tend or harvest — then end the turn. Village Hall and the Farm Fair can grant extra labour.',
     tut6t: 'Read the board',
     tut6: 'Dice, cards, tax and cash changes appear in a pop-up, then the Farm diary. Only the farmer whose turn it is can roll. Pass-and-play shares one screen.',
+    stIdle: 'idle',
+    stPrepared: 'prepared',
+    stSeeded: 'seeded',
+    stRipe: 'ripe',
+    soil_arid: 'arid',
+    soil_black: 'black',
+    soil_red: 'red',
+    soil_alluvial: 'alluvial',
+    soil_hill: 'hill',
+    soil_laterite: 'laterite',
+    fertility: (n) => 'Fertility ' + n + '%',
+    pickLabour: 'Village labour day — work one field.',
+    pickMela: 'Mela demonstration plot — advance one field.',
+    hailDamage: 'hail damage',
+    crossing: (name) => 'crossing ' + name,
+    crossingLeased: (name) => 'crossing leased ' + name,
     rs: 'Rs '
   },
   hi: {
@@ -521,6 +537,22 @@ const PACK = {
     tut5: 'उतरने के बाद एक अपना खेत काम करें — तैयार, बोआई, निराई या कटाई — फिर बारी खत्म करें। ग्राम सभा और मेला अतिरिक्त मेहनत दे सकते हैं।',
     tut6t: 'बोर्ड पढ़ो',
     tut6: 'पासे, पत्ते, कर और नकद बदलाव पॉप-अप में, फिर खेत डायरी में आते हैं। जिसकी बारी है वही फेंकता है। एक स्क्रीन पर बारी-बारी खेलें।',
+    stIdle: 'परती',
+    stPrepared: 'तैयार',
+    stSeeded: 'बोया',
+    stRipe: 'पका',
+    soil_arid: 'शुष्क',
+    soil_black: 'काली',
+    soil_red: 'लाल',
+    soil_alluvial: 'जलोढ़',
+    soil_hill: 'पहाड़ी',
+    soil_laterite: 'लैटेराइट',
+    fertility: (n) => 'उर्वरता ' + n + '%',
+    pickLabour: 'ग्राम श्रम दिवस — एक खेत पर काम करें।',
+    pickMela: 'मेला प्रदर्शन खेत — एक खेत आगे बढ़ाएँ।',
+    hailDamage: 'ओला क्षति',
+    crossing: (name) => name + ' पार करते',
+    crossingLeased: (name) => 'पट्टे वाले ' + name + ' पार करते',
     rs: '₹'
   },
   ta: {
@@ -779,6 +811,22 @@ const PACK = {
     tut5: 'இறங்கிய பிறகு ஒரு சொந்த வயலை வேலை செய்யுங்கள் — தயார், விதை, பராமரிப்பு அல்லது அறுவடை — பிறகு முறையை முடியுங்கள். கிராம மன்றம் மற்றும் விழா கூடுதல் உழைப்பு தரலாம்.',
     tut6t: 'பலகையைப் படியுங்கள்',
     tut6: 'பகடை, சீட்டு, வரி, பண மாற்றங்கள் பாப்அப்பில், பிறகு பண்ணை நாட்குறிப்பில். யாருடைய முறையோ அவரே உருட்டுவார். ஒரே திரையில் முறை மாறி விளையாடுங்கள்.',
+    stIdle: 'தரிசு',
+    stPrepared: 'தயார்',
+    stSeeded: 'விதைத்த',
+    stRipe: 'பழுத்த',
+    soil_arid: 'வறண்ட',
+    soil_black: 'கரிசல்',
+    soil_red: 'சிவப்பு',
+    soil_alluvial: 'வண்டல்',
+    soil_hill: 'மலை',
+    soil_laterite: 'சரளை',
+    fertility: (n) => 'வளம் ' + n + '%',
+    pickLabour: 'கிராம உழைப்பு நாள் — ஒரு வயலில் வேலை செய்யுங்கள்.',
+    pickMela: 'மேளா செயல்விளக்க வயல் — ஒரு வயலை முன்னேற்றுங்கள்.',
+    hailDamage: 'ஆலங்கட்டி சேதம்',
+    crossing: (name) => name + ' கடந்து',
+    crossingLeased: (name) => 'குத்தகை ' + name + ' கடந்து',
     rs: '₹'
   }
 }
@@ -803,10 +851,14 @@ export function currentLang() {
   return lang
 }
 
-export function t(key, ...args) {
-  const pack = PACK[lang] || PACK.en
+export function tLang(id, key, ...args) {
+  const pack = PACK[id] || PACK.en
   const v = pack[key] != null ? pack[key] : PACK.en[key]
   return typeof v === 'function' ? v(...args) : (v || key)
+}
+
+export function t(key, ...args) {
+  return tLang(lang, key, ...args)
 }
 
 loadLang()
