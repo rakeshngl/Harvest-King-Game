@@ -20,7 +20,7 @@ Grounded in the tree at `e5fbb56`. Already shipped and not re-proposed: rooms + 
   6. Player-chosen mortgage / fire-sale (idle-only auto-mortgage feels random). — done
 7. Board/diary i18n (chrome is done; tiles, crops, cards, logs still English). — done
 8. Win standings + rematch (`finalStandings` already exists). — done
-9. AI: use unused `gamble`, let CPU `offer` trades, optional luck on hard. No AI tests today.
+  9. AI: use unused `gamble`, let CPU `offer` trades, optional luck on hard. No AI tests today. — done
 10. HMAC visitor cookie (not Google) so `/api/profile` is not spoofable — unblocks daily leaderboard.
 11. Fix docs: README still says online rooms are human-only; `public/roadmap.html` still lists SSE/persist as open; `tasks-18-oct.md` still says `hk-shell-1`.
 12. Season clock = rounds (today every GO advances the season — 4 farmers burn “18 seasons” in ~5 laps). Insurance/irrigation are permanent snowballs.
@@ -67,7 +67,7 @@ Multi-replica, WebSockets, mid-game seat late-join. One Coolify replica + specta
 
 ### AI
 
-- Never offers a trade (receive-only). `DIFF.gamble` unused. Difficulty is miss chance only.
+- Never offers a trade (receive-only). `DIFF.gamble` unused. Difficulty is miss chance only. — done (CPU cash-for-land offers; `gamble` stretches buys/bids; hard `luck` 0.12).
 - No AI tests. Trade eval is list-price arithmetic.
 
 ### Ops

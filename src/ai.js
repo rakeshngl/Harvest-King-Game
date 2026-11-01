@@ -17,9 +17,9 @@ export const CPU_NAMES = {
 }
 
 const DIFF = {
-  easy: { reserve: 1800, miss: 0.18, gamble: 0.35 },
-  normal: { reserve: 2800, miss: 0.06, gamble: 0.12 },
-  hard: { reserve: 3600, miss: 0.0, gamble: 0.04 }
+  easy: { reserve: 1800, miss: 0.18, gamble: 0.35, luck: 0 },
+  normal: { reserve: 2800, miss: 0.06, gamble: 0.12, luck: 0 },
+  hard: { reserve: 3600, miss: 0.0, gamble: 0.04, luck: 0.12 }
 }
 
 function personaOf(p) {
@@ -41,6 +41,18 @@ function irrigateCost(state, p) {
 function seedCost(crop, season) {
   const off = crop.season !== season
   return crop.seed + (off ? Math.round(crop.seed * 0.35) : 0)
+}
+
+function applyMood(state, p, knobs) {
+  if (knobs.luck && rngNext(state) < knobs.luck) {
+    knobs.reserve = Math.round(knobs.reserve * 0.55)
+    knobs.lucky = true
+  }
+  let g = knobs.gamble
+  const id = personaOf(p).id
+  if (id === 'gambler') g = Math.min(0.9, g + 0.28)
+  if (id === 'thrifty') g *= 0.4
+  knobs.gambled = g > 0 && rngNext(state) < g
 }
 
 function cropScore(state, p, tile, cropId, knobs) {
@@ -67,6 +79,8 @@ function cropScore(state, p, tile, cropId, knobs) {
     if (['spices', 'cumin', 'saffron', 'cotton', 'apple'].includes(crop.id)) y *= 1.35
     if (off) y *= 1.1
   }
+  if (knobs.gambled && crop.vol >= 0.32) y *= 1.22
+  if (knobs.lucky) y *= 1.1
   if (persona.id === 'landlord' && groupOwned(state, p.id, tile.group)) y *= 1.2
   const ev = y * price - cost - (tile.prepare || 0) * 0.25
   return ev - (knobs.reserve > p.cash - cost ? 400 : 0)
@@ -99,6 +113,8 @@ function farmValue(state, p, tile, knobs) {
   if (persona.id === 'landlord') v += 700
   if (persona.id === 'thrifty') v -= tile.price * 0.15
   if (persona.id === 'gambler' && ['orchard', 'spice'].includes(tile.group)) v += 800
+  if (knobs.gambled && ['orchard', 'spice', 'cotton'].includes(tile.group)) v += 350
+  if (knobs.lucky && remain === 1) v += 800
   const rivals = state.players.filter((o) => !o.cpu && !o.bankrupt)
   rivals.forEach((h) => {
     const hOwn = ids.filter((id) => state.farms[id].owner === h.id).length
@@ -188,19 +204,21 @@ function acquireAction(state, p, tileId, knobs) {
   const t = TILES[tileId]
   const persona = personaOf(p)
   const value = farmValue(state, p, t, knobs)
-  const buyOk = p.cash >= t.price && cashAfter(p, t.price) >= knobs.reserve * (persona.id === 'landlord' ? 0.35 : 0.7)
-  const leaseOk = p.cash >= t.lease && cashAfter(p, t.lease) >= knobs.reserve * 0.4
-  if (persona.id === 'thrifty' && leaseOk && (!buyOk || t.price > 3000)) return { type: 'lease' }
+  const keep = knobs.gambled ? 0.45 : (persona.id === 'landlord' ? 0.35 : 0.7)
+  const buyOk = p.cash >= t.price && cashAfter(p, t.price) >= knobs.reserve * keep
+  const leaseOk = p.cash >= t.lease && cashAfter(p, t.lease) >= knobs.reserve * (knobs.gambled ? 0.2 : 0.4)
+  if (persona.id === 'thrifty' && !knobs.gambled && leaseOk && (!buyOk || t.price > 3000)) return { type: 'lease' }
   if (buyOk && value > 500) return { type: 'buy' }
   if (leaseOk && value > 200) return { type: 'lease' }
-  if (buyOk && persona.id === 'landlord') return { type: 'buy' }
+  if (buyOk && (persona.id === 'landlord' || knobs.gambled)) return { type: 'buy' }
   return { type: 'skip' }
 }
 
 function infraAction(state, p, tile, knobs) {
   const persona = personaOf(p)
   if (p.cash < tile.price) return { type: 'skip' }
-  if (cashAfter(p, tile.price) < knobs.reserve * (persona.id === 'banker' ? 0.35 : 0.65)) return { type: 'skip' }
+  const keep = knobs.gambled ? 0.3 : (persona.id === 'banker' ? 0.35 : 0.65)
+  if (cashAfter(p, tile.price) < knobs.reserve * keep) return { type: 'skip' }
   const farms = farmsOf(state, p.id).length
   if (tile.id === 12 || tile.id === 28) {
     if (farms >= 1 || persona.id === 'banker') return { type: 'buyinfra' }
@@ -242,15 +260,16 @@ function auctionAction(state, knobs) {
   if (p.cash < floor) return { type: 'passbid' }
   if (a.highBidder === p.id) return { type: 'passbid' }
   const value = tile && tile.type === 'farm' ? farmValue(state, p, tile, knobs) : (tile ? tile.price * 0.6 : 0)
-  const cap = Math.min(p.cash - knobs.reserve * 0.35, Math.round((tile ? tile.price : floor) * (personaOf(p).id === 'landlord' ? 1.35 : 1.05)))
+  const stretch = personaOf(p).id === 'landlord' ? 1.35 : (knobs.gambled ? 1.2 : 1.05)
+  const cap = Math.min(p.cash - knobs.reserve * (knobs.gambled ? 0.15 : 0.35), Math.round((tile ? tile.price : floor) * stretch))
   const bid = Math.min(p.cash, Math.max(floor, Math.round(cap / 100) * 100))
   if (bid < floor) return { type: 'passbid' }
-  if (value < 200 && personaOf(p).id !== 'landlord') return { type: 'passbid' }
-  if (bid > p.cash - knobs.reserve * 0.25 && personaOf(p).id === 'thrifty') return { type: 'passbid' }
+  if (value < 200 && personaOf(p).id !== 'landlord' && !knobs.gambled) return { type: 'passbid' }
+  if (bid > p.cash - knobs.reserve * 0.25 && personaOf(p).id === 'thrifty' && !knobs.gambled) return { type: 'passbid' }
   return { type: 'bid', amount: bid }
 }
 
-function tradeReply(state) {
+function tradeReply(state, knobs) {
   const deal = state.pending
   const me = state.players[deal.to]
   const them = state.players[deal.from]
@@ -271,7 +290,59 @@ function tradeReply(state) {
     const owned = ids.filter((x) => state.farms[x.id].owner === me.id).length
     if (owned === ids.length - 1) score += 1800
   }
-  return score >= 0 ? { type: 'accept' } : { type: 'reject' }
+  const floor = knobs && knobs.lucky ? -400 : knobs && knobs.gambled ? -200 : 0
+  return score >= floor ? { type: 'accept' } : { type: 'reject' }
+}
+
+function wantFarm(state, p, tile, knobs) {
+  const ids = TILES.filter((t) => t.type === 'farm' && t.group === tile.group)
+  const owned = ids.filter((t) => state.farms[t.id].owner === p.id).length
+  const remain = ids.length - owned
+  if (owned > 0 && remain === 1) return 3
+  if (owned > 0) return 2
+  if (knobs.gambled && ['orchard', 'spice', 'cotton'].includes(tile.group)) return 1
+  if (knobs.lucky && ['orchard', 'spice'].includes(tile.group)) return 1
+  return 0
+}
+
+function tradeOffer(state, p, knobs) {
+  if (state._cpuOffered) return null
+  const others = state.players.filter((o) => o.id !== p.id && !o.bankrupt)
+  let best = null
+  let bestV = 0
+  others.forEach((them) => {
+    TILES.forEach((t) => {
+      if (t.type !== 'farm') return
+      const f = state.farms[t.id]
+      if (!f || f.owner !== them.id || f.mortgaged) return
+      const want = wantFarm(state, p, t, knobs)
+      if (!want) return
+      const rate = knobs.lucky && want >= 3 ? 1 : knobs.gambled ? 0.95 : 0.9
+      const keep = knobs.gambled ? 0.25 : 0.5
+      const maxPay = p.cash - Math.round(knobs.reserve * keep)
+      let pay = Math.floor(t.price * rate / 100) * 100
+      pay = Math.min(pay, Math.floor(Math.max(0, maxPay) / 100) * 100)
+      if (them.cpu) pay = Math.min(pay, Math.floor(t.price * 0.9 / 100) * 100)
+      if (pay < 100) return
+      const v = want * 1000 + t.price - pay
+      if (v > bestV) {
+        bestV = v
+        best = {
+          type: 'offer',
+          to: them.id,
+          cashGive: pay,
+          cashTake: 0,
+          landGive: null,
+          landTake: t.id,
+          debtGive: 0,
+          debtTake: 0
+        }
+      }
+    })
+  })
+  if (!best) return null
+  state._cpuOffered = true
+  return best
 }
 
 export function chooseAction(state, difficulty = 'normal') {
@@ -280,17 +351,19 @@ export function chooseAction(state, difficulty = 'normal') {
   const p = state.players[actorId] || currentPlayer(state)
   if (!p || state.phase === 'over') return { type: 'endTurn' }
   if (p.bankrupt) return { type: 'endTurn' }
-  const knobs = DIFF[difficulty] || DIFF.normal
-  if (state.phase === 'action' && pending && pending.kind === 'auction') return auctionAction(state, knobs)
-  if (state.phase === 'action' && pending && pending.kind === 'trade') return tradeReply(state)
+  const knobs = { ...(DIFF[difficulty] || DIFF.normal) }
+  if (state.phase === 'roll') {
+    state._cpuOffered = false
+    return { type: 'roll' }
+  }
   if (state.phase === 'action' && pending && pending.kind === 'raise') return raiseAction(state)
+  applyMood(state, p, knobs)
+  if (state.phase === 'action' && pending && pending.kind === 'auction') return auctionAction(state, knobs)
+  if (state.phase === 'action' && pending && pending.kind === 'trade') return tradeReply(state, knobs)
   if (state.turn !== actorId) return { type: 'skip' }
-  if (state.phase === 'roll') return { type: 'roll' }
   if (knobs.miss && rngNext(state) < knobs.miss) {
-    if (state.phase === 'action' && pending && pending.kind === 'raise') {
-      /* still must raise */
-    } else if (state.phase === 'action') return { type: 'skip' }
-    else if (state.phase === 'end') return { type: 'endTurn' }
+    if (state.phase === 'action') return { type: 'skip' }
+    if (state.phase === 'end') return { type: 'endTurn' }
   }
 
   if (state.phase === 'action' && pending) {
@@ -317,6 +390,8 @@ export function chooseAction(state, difficulty = 'normal') {
         }
       }
     }
+    const deal = tradeOffer(state, p, knobs)
+    if (deal) return deal
     return { type: 'endTurn' }
   }
 
