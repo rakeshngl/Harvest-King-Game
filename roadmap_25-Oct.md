@@ -22,8 +22,8 @@ Grounded in the tree at `e5fbb56`. Already shipped and not re-proposed: rooms + 
 8. Win standings + rematch (`finalStandings` already exists). — done
   9. AI: use unused `gamble`, let CPU `offer` trades, optional luck on hard. No AI tests today. — done
 10. HMAC visitor cookie (not Google) so `/api/profile` is not spoofable — unblocks daily leaderboard. — done
-11. Fix docs: README still says online rooms are human-only; `public/roadmap.html` still lists SSE/persist as open; `tasks-18-oct.md` still says `hk-shell-1`.
-12. Season clock = rounds (today every GO advances the season — 4 farmers burn “18 seasons” in ~5 laps). Insurance/irrigation are permanent snowballs.
+11. Fix docs: README still says online rooms are human-only; `public/roadmap.html` still lists SSE/persist as open; `tasks-18-oct.md` still says `hk-shell-1`. — done
+12. Season clock = rounds (today every GO advances the season — 4 farmers burn “18 seasons” in ~5 laps). Insurance/irrigation are permanent snowballs. — done
 
 ## Later (fits current engine)
 
@@ -48,11 +48,11 @@ Multi-replica, WebSockets, mid-game seat late-join. One Coolify replica + specta
 
 ### Economy / farming
 
-- Mortgage is automatic, idle-only, not a player choice. Ripe land and infra never fire-sale.
+- Mortgage is automatic, idle-only, not a player choice. Ripe land and infra never fire-sale. — done (player-chosen raise: mortgage farms or fire-sale infra/utility).
 - FCI harvest ignores weather, irrigation, insurance, pests, tractor/seed/yard/cold, `enam`, `knowHow`, group bonus, volatility; does not reset fertility.
 - Tax tiles say “X% or flat” but the engine uses `Math.max(flat, pct)`.
-- Insurance and irrigation are permanent once bought.
-- Season clock ticks on every Village Hall pass, not per round.
+- Insurance and irrigation are permanent once bought. — done (`clearCrop` on harvest/FCI/wipe/mortgage/lease expiry).
+- Season clock ticks on every Village Hall pass, not per round. — done (full round via `nextTurn` wrap).
 - Decks never reshuffle after the opening shuffle.
 - `state.doubles` is dead. Soil types other than hail+hill and flood+alluvial do nothing.
 - Market panel shows only the first 12 of 18 crops.
@@ -89,6 +89,6 @@ Multi-replica, WebSockets, mid-game seat late-join. One Coolify replica + specta
 
 ### Docs drift
 
-- README: “Online rooms stay human-only” is false; Vite proxy timeout and Node 18 are stale; project tree omits several `src/` modules.
-- `public/roadmap.html` still lists persistence and SSE as open.
-- `tasks-18-oct.md` still says `CACHE_VERSION` = `hk-shell-1` (code is `hk-shell-2`).
+- README: “Online rooms stay human-only” is false; Vite proxy timeout and Node 18 are stale; project tree omits several `src/` modules. — done
+- `public/roadmap.html` still lists persistence and SSE as open. — done
+- `tasks-18-oct.md` still says `CACHE_VERSION` = `hk-shell-1` (code is `hk-shell-2`). — done (`hk-shell-3`).

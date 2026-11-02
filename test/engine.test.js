@@ -70,6 +70,8 @@ test('buy prepare sow then harvest pays yield times price', () => {
   assert.equal(s.players[0].cash, before + revenue)
   assert.equal(s.farms[1].stage, 'idle')
   assert.equal(s.farms[1].crop, null)
+  assert.equal(s.farms[1].irrigated, false)
+  assert.equal(s.farms[1].insured, false)
   assert.equal(s.phase, 'end')
 })
 
@@ -224,9 +226,15 @@ test('crop loan adds INTEREST when a season ticks', () => {
   assert.equal(takeLoan(s), true)
   const debt = s.players[0].debt
   const restore = stubRandom(s, 0.5)
-  s.players[0].pos = 38
-  applyMove(s, [1, 1])
+  s.phase = 'end'
+  nextTurn(s)
+  assert.equal(s.turn, 1)
+  assert.equal(s.seasonIndex, 0)
+  assert.equal(s.players[0].debt, debt)
+  nextTurn(s)
   restore()
+  assert.equal(s.turn, 0)
+  assert.equal(s.seasonIndex, 1)
   assert.equal(s.players[0].debt, debt + Math.round(debt * INTEREST))
 })
 
@@ -285,10 +293,11 @@ test('createGame applies short and long presets', () => {
 
 test('short preset ends the match after 12 seasons', () => {
   const s = createGame(2, ['A', 'B'], { preset: 'short' })
-  s.players[0].pos = 38
   s.seasonIndex = 11
+  s.turn = 1
+  s.phase = 'end'
   const restore = stubRandom(s, 0.5)
-  applyMove(s, [1, 1])
+  nextTurn(s)
   restore()
   assert.equal(s.phase, 'over')
   assert.equal(s.winner, 0)
@@ -296,13 +305,64 @@ test('short preset ends the match after 12 seasons', () => {
 
 test('classic preset does not end after 12 seasons', () => {
   const s = createGame(2, ['A', 'B'])
-  s.players[0].pos = 38
   s.seasonIndex = 11
+  s.turn = 1
+  s.phase = 'end'
   const restore = stubRandom(s, 0.5)
-  applyMove(s, [1, 1])
+  nextTurn(s)
   restore()
   assert.notEqual(s.phase, 'over')
   assert.equal(s.seasonIndex, 12)
+  assert.equal(s.turn, 0)
+})
+
+test('passing Village Hall does not tick the season', () => {
+  const s = createGame(2, ['A', 'B'])
+  const restore = stubRandom(s, 0.5)
+  s.players[0].pos = 38
+  applyMove(s, [1, 1])
+  restore()
+  assert.equal(s.seasonIndex, 0)
+  assert.equal(s.players[0].pos, 0)
+})
+
+test('harvest clears irrigation and insurance', () => {
+  const s = createGame(2, ['A', 'B'])
+  const restore = stubRandom(s, 0.5)
+  s.weather = FAIR
+  ripeField(s, 1, 'bajra')
+  s.farms[1].irrigated = true
+  s.farms[1].insured = true
+  assert.equal(harvest(s, 1), true)
+  restore()
+  assert.equal(s.farms[1].irrigated, false)
+  assert.equal(s.farms[1].insured, false)
+})
+
+test('irrigation lasts until the crop is cleared', () => {
+  const s = createGame(2, ['A', 'B'])
+  s.farms[1].owner = 0
+  s.farms[1].stage = 'seeded'
+  s.farms[1].crop = 'bajra'
+  s.farms[1].growLeft = 2
+  s.farms[1].irrigated = true
+  s.farms[1].insured = true
+  s.phase = 'end'
+  nextTurn(s)
+  assert.equal(s.farms[1].irrigated, true)
+  assert.equal(s.farms[1].insured, true)
+})
+
+test('sellToFci clears irrigation and insurance', () => {
+  const s = createGame(2, ['A', 'B'])
+  ripeField(s, 1, 'bajra')
+  s.farms[1].irrigated = true
+  s.farms[1].insured = true
+  assert.equal(sellToFci(s), true)
+  assert.equal(s.farms[1].stage, 'idle')
+  assert.equal(s.farms[1].crop, null)
+  assert.equal(s.farms[1].irrigated, false)
+  assert.equal(s.farms[1].insured, false)
 })
 
 test('short preset crowns a farmer at the lower winNet', () => {
@@ -428,7 +488,7 @@ test('skipTurn on a raise gives up the lands', () => {
 })
 
 test('farm diary keeps the newest LOG_CAP entries', () => {
-  const s = createGame(2, ['A', 'B'], { seed: 1, seasons: 18, winNet: 999999 })
+  const s = createGame(4, ['A', 'B', 'C', 'D'], { seed: 1, seasons: 24, winNet: 999999 })
   let steps = 0
   while (s.phase !== 'over' && steps < 5000) {
     steps += 1

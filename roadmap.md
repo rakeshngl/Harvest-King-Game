@@ -6,7 +6,7 @@ Future development roadmap. Mirrors `public/roadmap.html`. Items marked **done**
 
 1. Persist rooms + reconnect — done (JSON store, seat tokens in localStorage)
 2. Tests around harvest / insolvency / win — done (`npm test`)
-3. Hindi and Tamil UI strings — done (chrome only; engine logs stay English)
+3. Hindi and Tamil UI strings — done (chrome + board/diary display; engine logs stay English)
 4. CPU in online rooms — done (host seats computer farmers)
 5. Mobile board layout — done (compact board, tabbed side, sticky roll dock)
 6. Trading + auctions — done (end-phase offers, Village Hall auctions)
@@ -35,7 +35,7 @@ Done: SSE transport, fast-forward missed dice + landing pop-ups, authoritative e
 ## Vs computer / AI
 
 - More personas (co-op farmer, organic, exporter, contract farmer)
-- Difficulty that also changes yield/price luck, not only miss chance
+- Difficulty that also changes yield/price luck, not only miss chance — done (hard `luck` 0.12)
 - AI explain panel (e.g. "leased Barmer because cash buffer")
 - Puzzle mode: win in 3 seasons from this save
 - Replay a recorded match vs the same AI seed
@@ -44,7 +44,7 @@ Done: online mixed tables (1 human + 1 to 3 CPUs).
 
 ## Core rules you could add
 
-- Player-chosen mortgage / fire-sale (mortgage is automatic today)
+- Player-chosen mortgage / fire-sale — done (raise prompt: mortgage farms or fire-sale infra/utility)
 - Crop contracts (forward sale at a fixed price)
 - MSP vs open mandi vs export as a real choice, not only FCI landing
 - Crop rotation bonus / monoculture fertility penalty
@@ -74,7 +74,7 @@ Done: player trading (land, cash, debt); auctions when someone declines to buy.
 ## UX / presentation
 
 - Telugu, Marathi, Bengali UI chrome (Hindi / Tamil done)
-- Reduced-motion mode (dice 3D + token bob)
+- Reduced-motion mode (dice 3D + token bob) — done (`prefers-reduced-motion` skips dice spin)
 - Dark board / high-contrast / color-blind palettes
 - PWA / Add to Home Screen — done (manifest, maskable icons, production SW, offline lobby + local play)
 - Spectator-friendly big-board TV mode
@@ -84,7 +84,7 @@ Done: player trading (land, cash, debt); auctions when someone declines to buy.
 - Animated crop growth on owned tiles
 - Map of India inset highlighting the tile's state
 
-Done: English / Hindi / Tamil toggle; full mobile layout; sound effects with a mute toggle; seasonal music bed; Indian number formatting (lakh/crore shorthand); PWA / Add to Home Screen; farming-cycle tutorial overlay.
+Done: English / Hindi / Tamil toggle (chrome + board/diary); full mobile layout; sound effects with a mute toggle; seasonal music bed; Indian number formatting (lakh/crore shorthand); PWA / Add to Home Screen; farming-cycle tutorial overlay; reduced-motion dice skip.
 
 ## Economy / balance tools
 
@@ -95,7 +95,7 @@ Done: English / Hindi / Tamil toggle; full mobile layout; sound effects with a m
 
 ## Tech debt that unlocks the rest
 
-- Golden replay files: seed + actions to expected log
+- Golden replay files: seed + actions to expected log — done (`test/fixtures/golden-*-42.json`)
 - Split `data.js` from `engine.js` so expansions are JSON
 - TypeScript on engine + server
 - OpenAPI for `/api/*`

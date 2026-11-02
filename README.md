@@ -18,7 +18,7 @@ There is no jail. Instead, the board is loaded with agricultural complications: 
 - **Color-coded farm diary**: gains render green, losses red, with distinct accents for dice rolls, cards, seasons, and crop milestones.
 - **Living economy**: crop prices drift each season, cards shift the market, and infrastructure investments improve your yields and margins.
 - **Deterministic rules engine** shared by local and online play, so the same game logic runs everywhere.
-- **English / Hindi / Tamil chrome** via an English | Hindi | Tamil toggle (`localStorage` `hk-lang`). Board names, crop labels, and engine logs stay English.
+- **English / Hindi / Tamil** via an English | Hindi | Tamil toggle (`localStorage` `hk-lang`). Board tiles, crops, cards, weather, and diary display localize; engine log strings stay English for golden fixtures.
 - **Web Audio cues**: dice rattle, coin, harvest, insolvency, cards, and a win fanfare, synthesized in the browser (no audio assets) with a **Sound on / off** toggle (`localStorage` `hk-mute`).
 - **Seasonal music bed**: a synthesized ambient loop that shifts tempo and scale with the season and weather, with its own **Music on / off** toggle (`localStorage` `hk-music`).
 - **Indian number formatting**: money uses lakh/crore shorthand (Rs 12,000 / Rs 1.2 lakh / Rs 1.5 crore) and `en-IN` digit grouping for counts.
@@ -70,7 +70,7 @@ idle -> prepared -> seeded -> ripe -> (harvest) -> idle
 4. **Grow** - At the start of your turn, each of your seeded fields advances its growth counter. When it reaches zero the crop becomes `ripe`.
 5. **Harvest** - Collect a yield and get paid. The engine computes yield from crop base yield, field fertility, weather, irrigation, knowledge, group ownership, and a volatility roll. Price comes from the current market. The log reports profit or loss against the seed and preparation cost basis.
 
-You may also **tend** a growing crop to raise fertility, **irrigate** a field, or **insure** it against disaster. After your main action has resolved, you get one free "labour" farm action per turn (working one of your fields).
+You may also **tend** a growing crop to raise fertility, **irrigate** a field, or **insure** it against disaster. Irrigation and insurance last for that crop only — harvest, warehouse, mortgage, wipe, and lease expiry clear them. After your main action has resolved, you get one free "labour" farm action per turn (working one of your fields).
 
 ### Auctions and trades
 
@@ -99,7 +99,7 @@ Revenue is `yield * currentPrice`, and profit/loss is revenue minus the seed and
 
 ### Weather
 
-Every full circuit updates the season and rolls new weather. Weather scales both growth and water availability.
+Each full round of turns updates the season and rolls new weather. Passing Village Hall pays harvest dues and ticks leases; it does not advance the season. Weather scales both growth and water availability.
 
 | Weather | Growth | Water | Notes |
 | --- | --- | --- | --- |
@@ -145,7 +145,7 @@ Market cards include festival demand, market glut, government procurement, middl
 
 The Rural Bank offers crop loans in **Rs 3,000 steps** up to a **Rs 9,000 cap**, at **12% interest** applied each season. Interest relief cards can cut debt.
 
-When a player cannot pay, the engine automatically mortgages their idle fields at half price. If they still cannot pay, they go **insolvent**: all their land and infrastructure revert to the Village Hall, and the last farmer standing wins.
+When a player cannot pay, a **raise** prompt opens. The farmer mortgages owned farms (standing crop is lost) or fire-sales infrastructure and utilities at half list. Give-up or a timeout insolvents the seat: land and yards revert to Village Hall, and the last farmer standing wins.
 
 ## Crops
 
@@ -223,7 +223,7 @@ Because entries are created inside the shared rules engine, the pop-up and color
 
 ## Vs Computer
 
-Local **vs computer** seats you as farmer 0 against one to three scripted rivals. Online rooms stay human-only.
+Local **vs computer** seats you as farmer 0 against one to three scripted rivals. Online hosts can seat the same personas in a waiting room (`POST /api/cpu`).
 
 Rivals are **heuristic farmers**, not an LLM. They use the same legal actions as a human (`roll`, buy/lease, prepare, sow, harvest, irrigate, insure, tend, warehouse, loans, extra labour, end turn). The engine remains the referee; `src/ai.js` only chooses among legal moves.
 
@@ -262,15 +262,27 @@ The only dependency is Vite (dev dependency). The server runs on the Node standa
 │   ├── hero.webp
 │   └── icons/          # 192/512 any + maskable, apple-touch, favicon
 ├── server/
-│   └── index.js        # Session rooms, REST API, SSE sync, action validation
+│   ├── index.js        # Session rooms, REST API, SSE sync, action validation
+│   └── visitor.js      # HMAC visitor cookie (hk-vid)
 └── src/
-    ├── main.js         # UI, lobby, board, vs computer loop, landing pop-up, diary, online sync
+    ├── main.js         # Session, bind, CPU loop, SSE, local record
+    ├── chrome.js       # Shell chrome, language, How to farm
+    ├── board.js        # Tile buttons, tokens, inspect
+    ├── lobby.js        # Lobby, waiting room, tables
+    ├── hud.js          # Sidebar, diary, win modal, farm work
+    ├── view-util.js    # Shared markup helpers
+    ├── a11y.js         # Focus trap, reduced motion
     ├── engine.js       # Game rules, farming cycle, cards, seasons, structured log, win logic
+    ├── names.js        # HI/TA tile, crop, card, weather names
+    ├── i18n.js         # EN/HI/TA chrome strings
+    ├── format.js       # Indian numbers, escapeHtml
     ├── ai.js           # Heuristic farmer: personas, difficulty, chooseAction
     ├── data.js         # Tiles, crops, groups, cards, weather, constants
     ├── net.js          # Client fetch wrappers for the session API
     ├── pwa.js          # Production-only service worker registration
     ├── tutorial.js     # First-visit farming-cycle overlay steps
+    ├── rng.js          # Seeded mulberry32, daily IST seed
+    ├── profile.js      # Local visitor id for match history
     ├── dice.js         # CSS 3D dice rendering and animation
     ├── icons.js        # Inline SVG tile icons
     └── style.css       # Layout, board, special fills, coin tokens, sidebar, dice, modals
@@ -278,7 +290,7 @@ The only dependency is Vite (dev dependency). The server runs on the Node standa
 
 ## Getting Started
 
-Requires Node.js 18 or newer.
+Requires Node.js 20 or newer.
 
 ```bash
 # Install dependencies
@@ -383,7 +395,7 @@ The frontend dev server proxies `/api` to the backend at `http://localhost:3001`
 // vite.config.js
 server: {
   proxy: {
-    '/api': { target: 'http://localhost:3001', changeOrigin: true, timeout: 30000 }
+    '/api': { target: 'http://localhost:3001', changeOrigin: true, timeout: 0 }
   }
 }
 ```
@@ -407,6 +419,7 @@ Base URL: `/api` (proxied to port 3001).
 | POST | `/api/host` | `{ code, token, seat }` | Host-only. Pass the gavel to another seated farmer. Humans only. |
 | POST | `/api/cpu` | `{ code, token, difficulty? }` | Host-only, waiting room. Seat a computer farmer (`easy` / `normal` / `hard`). |
 | POST | `/api/preset` | `{ code, token, preset }` | Host-only, waiting room. Set match length (`short` / `classic` / `long`). |
+| POST | `/api/rematch` | `{ code, token }` | Host-only after `phase === 'over'`. Reseats the same farmers via `beginMatch`. |
 | POST | `/api/action` | `{ code, token, action }` | Submit a validated game action for the current turn. Spectators are rejected. |
 | GET | `/api/session` | `?code&token` | Current snapshot (boot / restore). |
 | GET | `/api/events` | `?code&token` | SSE stream of `snapshot` events. |
@@ -415,7 +428,7 @@ Base URL: `/api` (proxied to port 3001).
 
 The action endpoint accepts these `action.type` values, each validated against the current phase and pending state:
 
-`roll`, `endTurn`, `skip`, `buy`, `lease`, `buyinfra`, `prepare`, `tend`, `harvest`, `irrigate`, `insure`, `unmortgage`, `fci`, `loan`, `repay`, `seed`, `work`, `bid`, `passbid`, `offer`, `accept`, `reject`.
+`roll`, `endTurn`, `skip`, `buy`, `lease`, `buyinfra`, `prepare`, `tend`, `harvest`, `irrigate`, `insure`, `unmortgage`, `fci`, `loan`, `repay`, `seed`, `work`, `bid`, `passbid`, `offer`, `accept`, `reject`, `raise`, `giveup`, `mortgage`.
 
 ## Game Constants
 
@@ -450,7 +463,7 @@ Player tokens still use the Indian flag palette from `src/data.js`. The board it
 - Room state is kept in memory and also written to `data/rooms.json`, so a Coolify/VPS restart can restore open games. Mount `data/` as a volume. SIGTERM waits up to 25s (`DRAIN_MS`) for the current turn, then flushes. Finished rooms expire after 24 hours, waiting rooms after 6 hours, idle in-progress games after 48 hours.
 - Seat tokens live in `localStorage` on the device. Closing a tab, then opening the same origin or joining the same code, restores that farmer. Leave parks the seat; Forget / Play again drops it. There is no account login.
 - Designed for casual session play, not for high concurrency.
-- UI chrome (lobby, waiting room, buttons, notices, clocks) is English, Hindi, or Tamil. Tile names, crop labels, weather copy, and engine diary lines stay English. Internal tile ids (`kisan`, `mandi`, `nabard`) stay in code only.
+- UI chrome, board tiles, crops, cards, weather, and diary display are English, Hindi, or Tamil. Engine diary `log.text` stays English for golden fixtures. Internal tile ids (`kisan`, `mandi`, `nabard`) stay in code only.
 - Hosts can seat computer farmers in an online waiting room (`POST /api/cpu`). The server plays those seats with the same personas as local vs computer. A computer cannot host.
 - Online turns skip after 90 seconds of no finish (`TURN_MS`). Computer seats still use the clock if the server stalls.
 

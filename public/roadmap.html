@@ -223,12 +223,12 @@
       <div class="belt"></div>
       <p class="lead">Keep online rooms alive across deploys and reconnects. Highest leverage after the split host.</p>
       <ul>
-        <li>Room persistence (Redis or SQLite) so Coolify restarts do not wipe games</li>
-        <li>Reconnect by room code + seat token beyond sessionStorage (localStorage, or a join-again flow)</li>
-        <li>Host kick / transfer host if seat 0 disconnects</li>
-        <li>Spectator mode</li>
-        <li>Private rooms + optional password</li>
-        <li>Public lobby list (open rooms waiting for players)</li>
+        <li>Room persistence — done (JSON store at data/rooms.json; mount data/ as a volume). Redis/SQLite still later for multi-replica.</li>
+        <li>Reconnect by room code + seat token — done (localStorage seat tokens; join-again with token skips the password)</li>
+        <li>Host kick / transfer host if seat 0 disconnects — done (POST /api/kick, POST /api/host)</li>
+        <li>Spectator mode — done (watch join after start)</li>
+        <li>Private rooms + optional password — done</li>
+        <li>Public lobby list (open rooms waiting for players) — done (GET /api/lobby)</li>
         <li>Turn timer / auto-skip AFK (90s, TURN_MS) — done</li>
         <li>Server-side CPU seats (host adds computer farmers in the lobby) — done</li>
         <li>Graceful drain: this instance is restarting, finish turn (DRAIN_MS) — done</li>
@@ -242,11 +242,11 @@
       <h2>Multiplayer transport</h2>
       <div class="belt"></div>
       <ul>
-        <li>WebSockets (or SSE) instead of 20-second long-poll</li>
+        <li>WebSockets (or SSE) instead of 20-second long-poll — done (SSE GET /api/events). WebSockets still later.</li>
         <li>Action replay / late-join mid-game</li>
-        <li>Fast-forward missed dice + landing pop-ups</li>
-        <li>Keep the engine authoritative; clients must not invent moves</li>
-        <li>Rate-limit create/join to stop room spam</li>
+        <li>Fast-forward missed dice + landing pop-ups — done</li>
+        <li>Keep the engine authoritative; clients must not invent moves — done</li>
+        <li>Rate-limit create/join to stop room spam — done</li>
       </ul>
     </section>
 
@@ -267,9 +267,9 @@
       <h2>Vs computer / AI</h2>
       <div class="belt"></div>
       <ul>
-        <li>Online mixed tables: 1 human + 1 to 3 CPUs</li>
+        <li>Online mixed tables: 1 human + 1 to 3 CPUs — done (host POST /api/cpu)</li>
         <li>More personas (co-op farmer, organic, exporter, contract farmer)</li>
-        <li>Difficulty that also changes yield/price luck, not only miss chance</li>
+        <li>Difficulty that also changes yield/price luck, not only miss chance — done (hard luck 0.12)</li>
         <li>AI explain panel: leased Barmer because cash buffer</li>
         <li>Puzzle mode: win in 3 seasons from this save</li>
         <li>Replay a recorded match vs the same AI seed</li>
@@ -282,7 +282,7 @@
       <ul>
         <li>Player trading: land, cash, debt — done (end-phase offer; counterpart accepts or rejects)</li>
         <li>Auctions when someone declines to buy — done (100-step bids, min ~50% list; no bid stays with Village Hall)</li>
-        <li>Player-chosen mortgage / fire-sale (mortgage is automatic today)</li>
+        <li>Player-chosen mortgage / fire-sale — done (raise prompt: mortgage farms or fire-sale infra/utility)</li>
         <li>Crop contracts (forward sale at a fixed price)</li>
         <li>MSP vs open mandi vs export as a real choice, not only FCI landing</li>
         <li>Crop rotation bonus / monoculture fertility penalty</li>
@@ -317,11 +317,11 @@
       <h2>UX / presentation</h2>
       <div class="belt"></div>
       <ul>
-        <li>Hindi and Tamil UI chrome — done (EN | HI | TA toggle). Later Telugu, Marathi, Bengali. Tile names and engine logs stay English.</li>
+        <li>Hindi and Tamil UI — done (EN | HI | TA toggle; board, diary display, cards). Later Telugu, Marathi, Bengali. Engine logs stay English.</li>
         <li>Number format: Indian grouping (Rs 12,000 vs 1.2 lakh) — done (lakh/crore shorthand + en-IN)</li>
         <li>Sound: dice, coin, harvest, insolvency — done (Web Audio cues + Sound on/off toggle)</li>
         <li>Music bed per season/weather — done (synth ambient loop + Music on/off toggle)</li>
-        <li>Reduced-motion mode (dice 3D + token bob)</li>
+        <li>Reduced-motion mode (dice 3D + token bob) — done (prefers-reduced-motion skips dice spin)</li>
         <li>Dark board / high-contrast / color-blind palettes</li>
         <li>Full mobile layout: the 40-tile perimeter is the hard part — done (compact board, tabbed side, sticky roll dock)</li>
         <li>PWA / Add to Home Screen — done (manifest, maskable icons, production SW, offline lobby + local play)</li>
@@ -350,7 +350,7 @@
       <div class="belt"></div>
       <ul>
         <li>Automated tests for engine.js (pay, harvest formula, insolvency, win) — done, npm test</li>
-        <li>Golden replay files: seed + actions to expected log</li>
+        <li>Golden replay files: seed + actions to expected log — done (test/fixtures/golden-*-42.json)</li>
         <li>Split data.js from engine so expansions are JSON</li>
         <li>TypeScript on engine + server</li>
         <li>OpenAPI for /api/*</li>
@@ -377,13 +377,13 @@
       <div class="belt"></div>
       <p class="lead">If building in order, this is the highest-leverage path.</p>
       <ol class="seq-list">
-        <li>Persist rooms + reconnect (or every Coolify deploy kills games)</li>
-        <li>Tests around harvest / insolvency / win — npm test</li>
-        <li>Hindi and Tamil UI strings — done (chrome only; engine logs English)</li>
-        <li>CPU in online rooms</li>
+        <li>Persist rooms + reconnect — done (JSON store, seat tokens in localStorage)</li>
+        <li>Tests around harvest / insolvency / win — done, npm test</li>
+        <li>Hindi and Tamil UI strings — done (chrome + board/diary display; engine logs English)</li>
+        <li>CPU in online rooms — done</li>
         <li>Mobile board layout — done</li>
         <li>Trading + auctions — done</li>
-        <li>Accounts / history only after rooms survive restarts</li>
+        <li>Accounts / history only after rooms survive restarts — history done per device; accounts still open</li>
         <li>Match history + personal stats — done for this device (visitor id + /api/profile)</li>
       </ol>
     </section>

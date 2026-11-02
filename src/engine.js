@@ -212,8 +212,6 @@ export function applyMove(state, dice) {
   if (from + total >= 40) {
     gain(state, p, PASS_GO, 'Village Hall harvest dues')
     tickLeases(state, p)
-    advanceSeasonMaybe(state)
-    if (state.phase === 'over') return state
   }
   const tile = TILES[p.pos]
   log(state, `${p.name} rolls ${dice[0]}+${dice[1]} and reaches ${tile.name}.`, 'roll', { pid: p.id, tileId: tile.id, dice: [dice[0], dice[1]] })
@@ -230,9 +228,7 @@ function tickLeases(state, p) {
         f.leasee = null
         f.leaseTurns = 0
         if (f.stage !== 'idle' && f.owner == null) {
-          f.stage = 'idle'
-          f.crop = null
-          f.prepared = false
+          clearCrop(f)
         }
         log(state, `A lease held by ${p.name} expired.`, 'info', { pid: p.id })
       }
@@ -439,12 +435,7 @@ export function mortgageFarm(state, tileId, opts = {}) {
   const cash = mortgageValue(tileId)
   const hadCrop = f.stage !== 'idle'
   f.mortgaged = true
-  if (hadCrop) {
-    f.stage = 'idle'
-    f.crop = null
-    f.growLeft = 0
-    f.prepared = false
-  }
+  if (hadCrop) clearCrop(f)
   p.cash += cash
   log(state, `${p.name} mortgages ${t.name} for Rs ${cash}.${hadCrop ? ' Standing crop is lost.' : ''}`, 'loss', { amount: cash, pid: p.id, tileId })
   return true
@@ -776,12 +767,18 @@ function applyCard(state, p, card) {
   }
 }
 
-function wipeCrop(state, tileId, why) {
-  const f = state.farms[tileId]
+function clearCrop(f) {
   f.stage = 'idle'
   f.crop = null
   f.growLeft = 0
   f.prepared = false
+  f.irrigated = false
+  f.insured = false
+}
+
+function wipeCrop(state, tileId, why) {
+  const f = state.farms[tileId]
+  clearCrop(f)
   f.lastPnl = -200
   log(state, `Crop lost at ${TILES[tileId].name} due to ${why}.`, 'loss', { tileId })
 }
@@ -980,11 +977,8 @@ export function harvest(state, tileId) {
   f.lastPnl = pnl
   p.cash += revenue
   log(state, `${p.name} harvests ${crop.name} at ${t.name}: ${f.lastYield} qtl @ Rs ${Math.round(price)} = Rs ${revenue} (${pnl >= 0 ? 'profit' : 'loss'} Rs ${Math.abs(pnl)}).`, pnl >= 0 ? 'gain' : 'loss', { amount: revenue, pnl, pid: p.id, tileId })
-  f.stage = 'idle'
-  f.crop = null
-  f.prepared = false
-  f.growLeft = 0
   f.fertility = clamp(f.fertility - 0.08, 0.5, 2)
+  clearCrop(f)
   if (f.leasee === p.id && f.leaseTurns <= 1) {
     f.leasee = null
     f.leaseTurns = 0
@@ -1004,7 +998,8 @@ export function sellToFci(state) {
     state.pending = null
     return false
   }
-  ripe.forEach((f) => {
+  ripe.forEach((row) => {
+    const f = state.farms[row.id]
     f.stage = 'ripe'
     const crop = CROPS[f.crop]
     const msp = Math.round(state.prices[crop.id] * 1.1)
@@ -1013,10 +1008,8 @@ export function sellToFci(state) {
     p.cash += revenue
     f.lastYield = qty
     f.lastPnl = revenue - crop.seed
-    log(state, `Warehouse lifts ${crop.name} from ${f.tile.name} at support price Rs ${msp} x ${qty} = Rs ${revenue}.`, 'gain', { amount: revenue, pid: p.id, tileId: f.id })
-    f.stage = 'idle'
-    f.crop = null
-    f.prepared = false
+    log(state, `Warehouse lifts ${crop.name} from ${TILES[row.id].name} at support price Rs ${msp} x ${qty} = Rs ${revenue}.`, 'gain', { amount: revenue, pid: p.id, tileId: row.id })
+    clearCrop(f)
   })
   state.phase = 'end'
   state.pending = null
@@ -1336,6 +1329,7 @@ export function nextTurn(state) {
     return state
   }
   const n = state.players.length
+  const prev = state.turn
   for (let i = 0; i < n; i++) {
     state.turn = (state.turn + 1) % n
     if (!state.players[state.turn].bankrupt) break
@@ -1343,6 +1337,10 @@ export function nextTurn(state) {
   if (state.players[state.turn].bankrupt) {
     finishByNet(state)
     return state
+  }
+  if (state.turn <= prev) {
+    advanceSeasonMaybe(state)
+    if (state.phase === 'over') return state
   }
   growCrops(state, state.players[state.turn])
   state.phase = 'roll'
