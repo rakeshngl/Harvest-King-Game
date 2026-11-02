@@ -349,9 +349,9 @@ CI runs on every push and pull request (`.github/workflows/ci.yml`): Node 20 and
 
 The lobby shows a **Your record** panel: games, wins, win rate, best net worth, times insolvent, and the last few results. No sign-up is needed.
 
-- Online games are recorded server-side when the match ends, keyed by the `hk-visitor` id kept in `localStorage` (`GET /api/profile?visitor=...`). The server stores them in `data/profiles.json` and caps the file at 5,000 profiles, keeping the most recently active.
+- Online games are recorded server-side when the match ends, keyed by an HttpOnly HMAC cookie `hk-vid` (`GET /api/profile` with credentials). The server stores them in `data/profiles.json` and caps the file at 5,000 profiles, keeping the most recently active.
 - Local pass-and-play and vs-computer games are recorded on the device (`hk-record` in `localStorage`) and merged into the same panel.
-- Clearing site data resets the visitor id, so the server-side history is no longer reachable. Real accounts are still on the roadmap.
+- Clearing cookies resets the visitor id, so the server-side history is no longer reachable. Real accounts are still on the roadmap.
 
 ## Architecture Notes
 
@@ -371,7 +371,7 @@ Each online turn has a 90 second clock (`TURN_MS`, seconds). The timer covers th
 
 On SIGTERM/SIGINT the server drains for up to 25 seconds (`DRAIN_MS`): no new rooms, no new joins except resume, no new starts. CPU seats finish the current turn. Then rooms are written to `data/rooms.json` and the process exits.
 
-JSON bodies are capped at 64 KB. Rate limits use `x-forwarded-for` when `TRUST_PROXY` is not `0` (Coolify sits behind a proxy). Set `CORS_ORIGIN` to the Vercel origin in production; it defaults to `*`.
+JSON bodies are capped at 64 KB. Rate limits use `x-forwarded-for` when `TRUST_PROXY` is not `0` (Coolify sits behind a proxy). Set `CORS_ORIGIN` to the Vercel origin in production; it defaults to `*`. Visitor cookies are HMAC-signed (`VISITOR_SECRET`, or `data/visitor.secret`). Query/body `visitor` is ignored.
 
 The process writes one JSON object per line to stdout (`ts`, `event`, fields). Tokens are never logged. Coolify can scrape these. `/api/health` is 503 while draining so a load balancer can stop sending new traffic.
 
@@ -398,10 +398,10 @@ Base URL: `/api` (proxied to port 3001).
 | --- | --- | --- | --- |
 | GET | `/api/health` | - | Health. `{ ok, rooms, roomsBy, persist, persistWritable, streams, uptimeMs, memory, draining }`. 503 while draining. |
 | GET | `/api/lobby` | - | Unlocked waiting rooms (`code`, `seats`, `host`, `names`). Locked rooms are omitted. |
-| GET | `/api/profile` | `?visitor` | Per-device match history and stats (`games`, `wins`, `insolvencies`, `bestNet`, `recent[]`). Keyed by the `hk-visitor` id; empty for unknown ids. |
-| POST | `/api/presence` | `{ visitor, playing? }` | Heartbeat. Tracks online players and returns hall counters. |
-| POST | `/api/create` | `{ name, password?, visitor?, preset? }` | Create a room. Optional password locks join/watch. Optional `preset` is `short` / `classic` / `long`. Returns a snapshot plus your `token`. |
-| POST | `/api/join` | `{ code, name, watch?, password?, token?, visitor? }` | Join an unstarted room, or spectate a started one. Resume with `token` skips the password. |
+| GET | `/api/profile` | cookie `hk-vid` | Per-device match history and stats (`games`, `wins`, `insolvencies`, `bestNet`, `recent[]`). Mints a signed cookie if missing. Empty for a new visitor. |
+| POST | `/api/presence` | `{ playing? }` + cookie | Heartbeat. Tracks online players and returns hall counters. |
+| POST | `/api/create` | `{ name, password?, preset? }` + cookie | Create a room. Optional password locks join/watch. Optional `preset` is `short` / `classic` / `long`. Returns a snapshot plus your `token`. |
+| POST | `/api/join` | `{ code, name, watch?, password?, token? }` + cookie | Join an unstarted room, or spectate a started one. Resume with `token` skips the password. |
 | POST | `/api/start` | `{ code, token }` | Host-only. Starts the game; requires at least 2 players. |
 | POST | `/api/kick` | `{ code, token, seat }` | Host-only, waiting room. Remove a farmer and compact seats. |
 | POST | `/api/host` | `{ code, token, seat }` | Host-only. Pass the gavel to another seated farmer. Humans only. |

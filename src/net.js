@@ -73,10 +73,15 @@ export function saveSession(s) {
   }
 }
 
+function creds() {
+  return API ? 'include' : 'same-origin'
+}
+
 async function post(path, body) {
   const res = await fetch(apiUrl(path), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: creds(),
     body: JSON.stringify(body)
   })
   const data = await res.json().catch(() => ({ error: 'Network error' }))
@@ -88,7 +93,6 @@ export function createRoom(name, opts = {}) {
   return post('/api/create', {
     name,
     password: opts.password || '',
-    visitor: opts.visitor || '',
     preset: opts.preset || undefined
   })
 }
@@ -99,16 +103,14 @@ export function joinRoom(code, name, opts = {}) {
     name,
     token: opts.token || undefined,
     watch: !!opts.watch,
-    password: opts.password || undefined,
-    visitor: opts.visitor || ''
+    password: opts.password || undefined
   })
 }
 
-export function rejoinRoom(code, token, visitor) {
+export function rejoinRoom(code, token) {
   return post('/api/join', {
     code: String(code || '').toUpperCase(),
-    token,
-    visitor: visitor || ''
+    token
   })
 }
 
@@ -141,32 +143,32 @@ export function addCpu(sess, difficulty) {
 }
 
 export async function fetchStats() {
-  const res = await fetch(apiUrl('/api/stats'))
+  const res = await fetch(apiUrl('/api/stats'), { credentials: creds() })
   const data = await res.json().catch(() => null)
   if (!res.ok || !data) return { visits: 0, online: 0, playing: 0 }
   return data
 }
 
 export async function fetchLobby() {
-  const res = await fetch(apiUrl('/api/lobby'))
+  const res = await fetch(apiUrl('/api/lobby'), { credentials: creds() })
   const data = await res.json().catch(() => null)
   if (!res.ok || !data) return []
   return Array.isArray(data.rooms) ? data.rooms : []
 }
 
-export async function fetchProfile(visitor) {
-  const q = new URLSearchParams({ visitor: visitor || '' })
-  const res = await fetch(apiUrl(`/api/profile?${q}`))
+export async function fetchProfile() {
+  const res = await fetch(apiUrl('/api/profile'), { credentials: creds() })
   const data = await res.json().catch(() => null)
   if (!res.ok || !data) return { games: 0, wins: 0, insolvencies: 0, bestNet: 0, recent: [] }
   return data
 }
 
-export async function pingPresence(visitor, playing) {
+export async function pingPresence(playing) {
   const res = await fetch(apiUrl('/api/presence'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ visitor, playing: !!playing })
+    credentials: creds(),
+    body: JSON.stringify({ playing: !!playing })
   })
   const data = await res.json().catch(() => null)
   if (!res.ok || !data) return { visits: 0, online: 0, playing: 0 }
@@ -175,7 +177,7 @@ export async function pingPresence(visitor, playing) {
 
 export async function waitSnapshot(sess) {
   const q = new URLSearchParams({ code: sess.code, token: sess.token })
-  const res = await fetch(apiUrl(`/api/session?${q}`))
+  const res = await fetch(apiUrl(`/api/session?${q}`), { credentials: creds() })
   const data = await res.json().catch(() => ({ error: 'Network error' }))
   if (!res.ok) throw new Error(data.error || 'Session lost')
   return data
@@ -183,7 +185,7 @@ export async function waitSnapshot(sess) {
 
 export function openEventStream(sess, { onSnapshot, onError, onOpen }) {
   const q = new URLSearchParams({ code: sess.code, token: sess.token })
-  const source = new EventSource(apiUrl(`/api/events?${q}`))
+  const source = new EventSource(apiUrl(`/api/events?${q}`), API ? { withCredentials: true } : undefined)
   source.addEventListener('snapshot', (ev) => {
     try {
       onSnapshot(JSON.parse(ev.data))

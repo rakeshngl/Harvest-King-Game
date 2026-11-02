@@ -6,7 +6,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { createServer } from 'node:net'
+import { COOKIE, pack } from '../server/visitor.js'
 
+const VISITOR_SECRET = 'http-test-secret'
 const dataDir = mkdtempSync(join(tmpdir(), 'hk-http-'))
 const PORT = await freePort()
 const child = spawn(process.execPath, ['server/index.js'], {
@@ -17,7 +19,8 @@ const child = spawn(process.execPath, ['server/index.js'], {
     DATA_DIR: dataDir,
     DRAIN_MS: '3',
     TURN_MS: '90',
-    TRUST_PROXY: '0'
+    TRUST_PROXY: '0',
+    VISITOR_SECRET
   },
   stdio: ['ignore', 'pipe', 'pipe']
 })
@@ -56,14 +59,25 @@ async function waitHealth() {
   throw new Error('server did not become healthy\n' + stdout)
 }
 
-async function api(method, path, body) {
+async function api(method, path, body, cookie) {
+  const headers = {}
+  if (body) headers['Content-Type'] = 'application/json'
+  if (cookie) headers.Cookie = cookie
   const res = await fetch(`http://127.0.0.1:${PORT}${path}`, {
     method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    headers,
     body: body ? JSON.stringify(body) : undefined
   })
   const json = await res.json()
-  return { status: res.status, json }
+  const cookies = typeof res.headers.getSetCookie === 'function'
+    ? res.headers.getSetCookie()
+    : (res.headers.get('set-cookie') ? [res.headers.get('set-cookie')] : [])
+  return { status: res.status, json, cookies }
+}
+
+function cookiePair(setCookies) {
+  const row = (setCookies || []).find((c) => String(c).startsWith(COOKIE + '='))
+  return row ? String(row).split(';')[0] : ''
 }
 
 describe('http api', { concurrency: false }, () => {
@@ -143,13 +157,40 @@ test('cpu seats persist without tokens and stats write atomically', async () => 
   const human = room.players.find((p) => !p.cpu)
   assert.ok(human.token)
 
-  const presence = await api('POST', '/api/presence', { visitor: 'stat-a' })
+  const presence = await api('POST', '/api/presence', { playing: false })
   assert.equal(presence.status, 200)
   assert.ok(presence.json.visits >= 1)
+  const minted = cookiePair(presence.cookies)
+  assert.ok(minted.startsWith(COOKIE + '='))
   const stats = JSON.parse(readFileSync(join(dataDir, 'stats.json'), 'utf8'))
   assert.ok(stats.visits >= 1)
-  assert.ok(stats.ids.includes('stat-a'))
+  assert.ok(stats.ids.includes(minted.slice(COOKIE.length + 1).split('.')[0]))
   assert.equal(existsSync(join(dataDir, 'stats.json.tmp')), false)
+})
+
+test('HMAC visitor cookie proves possession', async () => {
+  const id = 'ab'.repeat(16)
+  const cookie = `${COOKIE}=${pack(id, VISITOR_SECRET)}`
+  const mine = await api('GET', '/api/profile?visitor=stolen', null, cookie)
+  assert.equal(mine.status, 200)
+  assert.equal(mine.json.id, id)
+  assert.equal(mine.cookies.length, 0)
+
+  const spoof = await api('GET', '/api/profile?visitor=' + id)
+  assert.equal(spoof.status, 200)
+  assert.notEqual(spoof.json.id, id)
+  assert.ok(cookiePair(spoof.cookies).startsWith(COOKIE + '='))
+
+  const forged = await api('GET', '/api/profile', null, `${COOKIE}=${id}.${'00'.repeat(32)}`)
+  assert.equal(forged.status, 200)
+  assert.notEqual(forged.json.id, id)
+  assert.ok(cookiePair(forged.cookies).startsWith(COOKIE + '='))
+
+  const presence = await api('POST', '/api/presence', { visitor: 'stat-a', playing: true }, cookie)
+  assert.equal(presence.status, 200)
+  const stats = JSON.parse(readFileSync(join(dataDir, 'stats.json'), 'utf8'))
+  assert.ok(stats.ids.includes(id))
+  assert.equal(stats.ids.includes('stat-a'), false)
 })
 
 test('rematch is host-only after the match ends', async () => {

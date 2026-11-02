@@ -21,7 +21,7 @@ Grounded in the tree at `e5fbb56`. Already shipped and not re-proposed: rooms + 
 7. Board/diary i18n (chrome is done; tiles, crops, cards, logs still English). — done
 8. Win standings + rematch (`finalStandings` already exists). — done
   9. AI: use unused `gamble`, let CPU `offer` trades, optional luck on hard. No AI tests today. — done
-10. HMAC visitor cookie (not Google) so `/api/profile` is not spoofable — unblocks daily leaderboard.
+10. HMAC visitor cookie (not Google) so `/api/profile` is not spoofable — unblocks daily leaderboard. — done
 11. Fix docs: README still says online rooms are human-only; `public/roadmap.html` still lists SSE/persist as open; `tasks-18-oct.md` still says `hk-shell-1`.
 12. Season clock = rounds (today every GO advances the season — 4 farmers burn “18 seasons” in ~5 laps). Insurance/irrigation are permanent snowballs.
 
@@ -72,7 +72,7 @@ Multi-replica, WebSockets, mid-game seat late-join. One Coolify replica + specta
 
 ### Ops
 
-- Visitor id is a client-chosen `localStorage` string; `GET /api/profile?visitor=` has no proof of possession.
+- Visitor id is a client-chosen `localStorage` string; `GET /api/profile?visitor=` has no proof of possession. — done (HttpOnly HMAC `hk-vid`; query/body visitor ignored).
 - Seat tokens in query strings (EventSource) and in `data/rooms.json`.
 - Passwords are unsalted SHA-256. CORS `*`.
 - `state.log` unbounded; every action `writeFileSync`s the whole room map.

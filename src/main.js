@@ -87,7 +87,7 @@ function myVisitor() {
 async function loadProfile() {
   const seqNow = ++profileSeq
   try {
-    const data = await fetchProfile(myVisitor())
+    const data = await fetchProfile()
     if (seqNow !== profileSeq) return
     myProfile = data
     paintProfile()
@@ -250,7 +250,7 @@ function paintProfile() {
 async function pulsePresence() {
   const playing = screen === 'game' || screen === 'waiting'
   try {
-    hallStats = await pingPresence(myVisitor(), playing)
+    hallStats = await pingPresence(playing)
     paintHallStats()
     if (screen === 'lobby' && !state) {
       openTables = await fetchLobby()
@@ -492,7 +492,7 @@ function enterOnline(snap, extra = {}) {
 }
 
 async function resumeSeat(code, token, name) {
-  const snap = await joinRoom(code, name || '', { token, visitor: visitorKey() })
+  const snap = await joinRoom(code, name || '', { token })
   enterOnline(snap, { name: name || (snap.players && snap.players[snap.you] && snap.players[snap.you].name) })
   return snap
 }
@@ -793,7 +793,7 @@ function bindOpenTables() {
           await resumeSeat(code, seat.token, seat.name || name)
           return
         }
-        const snap = await joinRoom(code, name, { visitor: visitorKey() })
+        const snap = await joinRoom(code, name)
         enterOnline(snap, { name })
       } catch (err) {
         notice = err.message
@@ -925,7 +925,7 @@ function bindLobby() {
     try {
       notice = ''
       const password = (document.getElementById('roompass').value || '').trim()
-      const snap = await createRoom(name, { password, visitor: visitorKey(), preset: presetChoice })
+      const snap = await createRoom(name, { password, preset: presetChoice })
       enterOnline(snap, { name })
     } catch (err) {
       notice = err.message
@@ -944,7 +944,7 @@ function bindLobby() {
       const name = requireFarmerName()
       if (!name) return
       const password = (document.getElementById('roompass').value || '').trim()
-      const snap = await joinRoom(code, name, { password, visitor: visitorKey() })
+      const snap = await joinRoom(code, name, { password })
       enterOnline(snap, { name })
     } catch (err) {
       if (seat) forgetSeat(code)
@@ -963,7 +963,7 @@ function bindLobby() {
         return
       }
       const password = (document.getElementById('roompass').value || '').trim()
-      const snap = await joinRoom(code, name, { watch: true, password, visitor: visitorKey() })
+      const snap = await joinRoom(code, name, { watch: true, password })
       enterOnline(snap, { name })
     } catch (err) {
       notice = err.message

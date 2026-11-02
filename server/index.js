@@ -16,6 +16,7 @@ import {
 import { LOAN_STEP, DEFAULT_PRESET } from '../src/data.js'
 import { dailyCode } from '../src/rng.js'
 import { PERSONAS, CPU_NAMES, chooseAction } from '../src/ai.js'
+import { COOKIE as VISITOR_COOKIE, mintId, pack, unpack, parseCookies } from './visitor.js'
 
 const PORT = Number(process.env.PORT) || 3001
 const rooms = new Map()
@@ -42,6 +43,23 @@ const PROFILE_CAP = 5000
 const MAX_BODY = 64 * 1024
 const TRUST_PROXY = process.env.TRUST_PROXY !== '0' && process.env.TRUST_PROXY !== 'false'
 const CORS_ORIGIN = process.env.CORS_ORIGIN || '*'
+const SECRET_FILE = path.join(DATA_DIR, 'visitor.secret')
+
+function loadVisitorSecret() {
+  if (process.env.VISITOR_SECRET) return String(process.env.VISITOR_SECRET)
+  try {
+    const s = fs.readFileSync(SECRET_FILE, 'utf8').trim()
+    if (s) return s
+  } catch { /* mint below */ }
+  const s = crypto.randomBytes(32).toString('hex')
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true })
+    fs.writeFileSync(SECRET_FILE, s, { mode: 0o600 })
+  } catch { /* memory-only */ }
+  return s
+}
+
+const VISITOR_SECRET = loadVisitorSecret()
 const presence = new Map()
 const rateBuckets = new Map()
 let persistOk = true
@@ -350,10 +368,10 @@ function publicStats() {
   return { visits: statsStore.visits, online, playing }
 }
 
-function publicProfile(raw) {
-  const id = visitorId(raw)
-  const prof = id ? profiles.get(id) : null
-  return buildPublicProfile(prof || { id: id || '', name: '' })
+function publicProfile(id) {
+  const key = String(id || '')
+  const prof = key ? profiles.get(key) : null
+  return buildPublicProfile(prof || { id: key, name: '' })
 }
 
 function publicLobby() {
@@ -375,9 +393,35 @@ function publicLobby() {
     })
 }
 
-function visitorId(raw) {
-  const id = String(raw || '').trim().slice(0, 64)
-  return id || null
+function visitorCookieFlags() {
+  const bits = ['Path=/', 'HttpOnly', 'Max-Age=31536000']
+  if (CORS_ORIGIN !== '*') bits.push('SameSite=None', 'Secure')
+  else bits.push('SameSite=Lax')
+  return bits.join('; ')
+}
+
+function corsHeaders() {
+  const h = {
+    'Access-Control-Allow-Origin': CORS_ORIGIN,
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
+  }
+  if (CORS_ORIGIN !== '*') h['Access-Control-Allow-Credentials'] = 'true'
+  return h
+}
+
+function readVisitor(req) {
+  return unpack(parseCookies(req.headers.cookie)[VISITOR_COOKIE], VISITOR_SECRET)
+}
+
+function withVisitor(req) {
+  const id = readVisitor(req)
+  if (id) return { id, headers: {} }
+  const minted = mintId()
+  return {
+    id: minted,
+    headers: { 'Set-Cookie': `${VISITOR_COOKIE}=${pack(minted, VISITOR_SECRET)}; ${visitorCookieFlags()}` }
+  }
 }
 
 function touchPresence(visitor, playing) {
@@ -403,12 +447,13 @@ function token() {
   return crypto.randomBytes(16).toString('hex')
 }
 
-function json(res, status, body) {
+function json(res, status, body, extra = {}) {
   const data = JSON.stringify(body)
   res.writeHead(status, {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': CORS_ORIGIN,
-    'Cache-Control': 'no-store'
+    'Cache-Control': 'no-store',
+    ...corsHeaders(),
+    ...extra
   })
   res.end(data)
 }
@@ -812,11 +857,7 @@ function applyAction(room, seat, action) {
 
 const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') {
-    res.writeHead(204, {
-      'Access-Control-Allow-Origin': CORS_ORIGIN,
-      'Access-Control-Allow-Headers': 'Content-Type',
-      'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
-    })
+    res.writeHead(204, corsHeaders())
     res.end()
     return
   }
@@ -854,13 +895,15 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && path === '/api/profile') {
-      json(res, 200, publicProfile(url.searchParams.get('visitor') || url.searchParams.get('id')))
+      const vid = withVisitor(req)
+      json(res, 200, publicProfile(vid.id), vid.headers)
       return
     }
 
     if (req.method === 'POST' && path === '/api/presence') {
       const body = await readBody(req)
-      json(res, 200, touchPresence(body.visitor, body.playing))
+      const vid = withVisitor(req)
+      json(res, 200, touchPresence(vid.id, body.playing), vid.headers)
       return
     }
 
@@ -875,7 +918,8 @@ const server = http.createServer(async (req, res) => {
       }
       const body = await readBody(req)
       const name = farmerName(body.name, 'Saffron')
-      const visitor = visitorId(body.visitor)
+      const vid = withVisitor(req)
+      const visitor = vid.id
       const room = {
         code: code(),
         started: false,
@@ -896,7 +940,7 @@ const server = http.createServer(async (req, res) => {
       rooms.set(room.code, room)
       saveRooms()
       logEvent('room.create', { code: room.code, locked: !!room.passHash })
-      json(res, 200, { ...snapshot(room, 0), token: room.players[0].token })
+      json(res, 200, { ...snapshot(room, 0), token: room.players[0].token }, vid.headers)
       return
     }
 
@@ -912,17 +956,18 @@ const server = http.createServer(async (req, res) => {
         return
       }
       const existing = body.token ? memberByToken(room, body.token) : null
+      const vid = withVisitor(req)
       if (draining && !existing) {
         json(res, 503, { error: 'This table is restarting. Try again in a moment.' })
         return
       }
       if (existing) {
         existing.seen = Date.now()
-        if (body.visitor) existing.visitor = visitorId(body.visitor)
+        existing.visitor = vid.id
         if (body.name) existing.name = farmerName(body.name, existing.name)
         maybePassHost(room)
         bump(room)
-        json(res, 200, { ...snapshot(room, existing.seat), token: existing.token, resumed: true })
+        json(res, 200, { ...snapshot(room, existing.seat), token: existing.token, resumed: true }, vid.headers)
         return
       }
       const watch = !!body.watch || !!body.spectator
@@ -944,7 +989,7 @@ const server = http.createServer(async (req, res) => {
         const p = { seat: -1, name, token: token(), seen: Date.now(), spectator: true }
         room.spectators.push(p)
         bump(room)
-        json(res, 200, { ...snapshot(room, -1), token: p.token })
+        json(res, 200, { ...snapshot(room, -1), token: p.token }, vid.headers)
         return
       }
       if (room.players.length >= 4) {
@@ -952,10 +997,10 @@ const server = http.createServer(async (req, res) => {
         return
       }
       const name = farmerName(body.name, `Farmer ${room.players.length + 1}`)
-      const p = { seat: room.players.length, name, token: token(), seen: Date.now(), visitor: visitorId(body.visitor) }
+      const p = { seat: room.players.length, name, token: token(), seen: Date.now(), visitor: vid.id }
       room.players.push(p)
       bump(room)
-      json(res, 200, { ...snapshot(room, p.seat), token: p.token })
+      json(res, 200, { ...snapshot(room, p.seat), token: p.token }, vid.headers)
       return
     }
 
@@ -1220,8 +1265,8 @@ const server = http.createServer(async (req, res) => {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-store',
         Connection: 'keep-alive',
-        'Access-Control-Allow-Origin': CORS_ORIGIN,
-        'X-Accel-Buffering': 'no'
+        'X-Accel-Buffering': 'no',
+        ...corsHeaders()
       })
       if (typeof res.flushHeaders === 'function') res.flushHeaders()
       room.streams = room.streams || []
