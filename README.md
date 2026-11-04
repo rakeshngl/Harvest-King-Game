@@ -95,7 +95,7 @@ yield = crop.yield
       -> disaster modifiers (hail, flood, pests, spoilage)
 ```
 
-Revenue is `yield * currentPrice`, and profit/loss is revenue minus the seed and preparation cost basis.
+Revenue is `yield * currentPrice`. Listed prices already include `marketMod` from the last season tick or market card; harvest does not multiply it again. Profit/loss is revenue minus the seed and preparation cost basis.
 
 ### Weather
 

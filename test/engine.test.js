@@ -29,7 +29,7 @@ function expectedHarvest(state, tileId) {
   }
   const vol = 1 + (0.5 * 2 - 1) * crop.vol
   y *= vol
-  return Math.round(Math.max(0, y) * state.prices[crop.id] * state.marketMod)
+  return Math.round(Math.max(0, y) * state.prices[crop.id])
 }
 
 function ripeField(state, tileId, cropId) {
@@ -73,6 +73,22 @@ test('buy prepare sow then harvest pays yield times price', () => {
   assert.equal(s.farms[1].irrigated, false)
   assert.equal(s.farms[1].insured, false)
   assert.equal(s.phase, 'end')
+})
+
+test('harvest uses listed prices without multiplying marketMod again', () => {
+  const s = createGame(2, ['A', 'B'])
+  const restore = stubRandom(s, 0.5)
+  s.weather = FAIR
+  s.marketMod = 1.2
+  s.prices.bajra = Math.round(CROPS.bajra.price * 1.2)
+  ripeField(s, 1, 'bajra')
+  const revenue = expectedHarvest(s, 1)
+  const doubled = Math.round(revenue * s.marketMod)
+  const before = s.players[0].cash
+  assert.equal(harvest(s, 1), true)
+  restore()
+  assert.equal(s.players[0].cash, before + revenue)
+  assert.notEqual(s.players[0].cash, before + doubled)
 })
 
 test('forcePay opens a raise instead of auto-mortgaging idle land', () => {

@@ -951,7 +951,7 @@ export function harvest(state, tileId) {
     }
   }
   y = Math.max(0, y)
-  let price = state.prices[crop.id] * state.marketMod
+  let price = state.prices[crop.id]
   if (p.enam > 0) price *= 1.05
   const ownsYard = state.infra[35] === p.id
   if (ownsYard) price *= 1.06

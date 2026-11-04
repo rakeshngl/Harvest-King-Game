@@ -62,7 +62,7 @@ function cropScore(state, p, tile, cropId, knobs) {
   const cost = seedCost(crop, season)
   if (p.cash < cost) return -1e9
   const off = crop.season !== season
-  const price = (state.prices[crop.id] || crop.price) * state.marketMod
+  const price = state.prices[crop.id] || crop.price
   let y = crop.yield
   y *= off ? 0.72 : 1.12
   const waterFit = 1 - Math.abs(crop.water - w.water) * 0.45
