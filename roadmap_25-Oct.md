@@ -83,7 +83,7 @@ Multi-replica, WebSockets, mid-game seat late-join. One Coolify replica + specta
 
 - Almost no labels, no focus trap, no Escape, tiles are click-only `<div>`s.
 - No `prefers-reduced-motion`, no high-contrast / colour-blind palette.
-- Sound off does not mute music.
+- Sound off does not mute music. — done (`musicGain` feeds `master`).
 - Win modal shows only the king; Play again returns to lobby.
 - Google Fonts are a third-origin fetch the service worker ignores.
 

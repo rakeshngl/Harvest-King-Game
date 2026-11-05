@@ -62,7 +62,7 @@ function ensureCtx() {
     master.connect(ctx.destination)
     musicGain = ctx.createGain()
     musicGain.gain.value = musicOn ? MUSIC_LEVEL : 0
-    musicGain.connect(ctx.destination)
+    musicGain.connect(master)
   }
   if (ctx.state === 'suspended') {
     try { ctx.resume() } catch { /* ignore */ }

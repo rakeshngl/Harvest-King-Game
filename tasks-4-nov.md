@@ -15,7 +15,7 @@ Walk one item at a time. Commit and push each finished item to `origin/master`.
 
 1. Stop double `marketMod` in `harvest` (and AI EV). One-line fairness; regenerates goldens if seed-42 buy path harvests. — done
 2. Tax copy vs `Math.max`: either honour the cheaper of pct/flat, or change EN/HI/TA text to “the greater of”. — done (copy matches `Math.max`; no tax-choice UI)
-3. Sound off mutes music (`musicGain` currently bypasses `master` in `src/sound.js`). Keep the Music toggle; mute is a master bus.
+3. Sound off mutes music (`musicGain` currently bypasses `master` in `src/sound.js`). Keep the Music toggle; mute is a master bus. — done
 4. Market panel lists all 18 crops (`src/hud.js` `slice(0, 12)`).
 5. Docs leftovers: README diary “last 12” (`DIARY_PAGE` is 20); `public/roadmap.html` intro still says in-memory rooms; `roadmap_25-Oct.md` Notes block lists shipped bugs.
 6. Escape closes landing / action / win / trade (today tutorial + inspect only). Lobby inputs get labels.
