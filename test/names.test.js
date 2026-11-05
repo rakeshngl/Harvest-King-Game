@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { TILES, CROPS, GROUPS, SEASONS, WEATHER, KISAN_CARDS, MANDI_CARDS } from '../src/data.js'
 import { setLang } from '../src/i18n.js'
 import {
-  tileName, tileShort, tileRegion, cropName, groupName, seasonName, seasonHint,
+  tileName, tileShort, tileRegion, tileSub, cropName, groupName, seasonName, seasonHint,
   weatherName, weatherText, cardTitle, cardText, deckName, stageName, soilName,
   reasonText, diaryDisplay, localizeNames
 } from '../src/names.js'
@@ -49,6 +49,8 @@ test('English names match data.js', () => {
     assert.equal(soilName('alluvial'), 'alluvial')
     assert.equal(deckName('Farmer Card'), TILES[2].name)
     assert.equal(deckName('Market Prices'), TILES[7].name)
+    assert.match(TILES[4].sub, /greater of/)
+    assert.match(TILES[38].sub, /greater of/)
   })
 })
 
@@ -72,6 +74,8 @@ test('Hindi and Tamil translate tiles, crops, cards, weather, stages', () => {
     assert.equal(reasonText('hail damage'), 'ओला क्षति')
     assert.equal(reasonText('crossing Barmer Millet'), 'बाड़मेर बाजरा पार करते')
     assert.equal(reasonText('crossing leased Barmer Millet'), 'पट्टे वाले बाड़मेर बाजरा पार करते')
+    assert.match(tileSub(TILES[4]), /जो अधिक हो/)
+    assert.match(tileSub(TILES[38]), /जो अधिक हो/)
   })
   withLang('ta', () => {
     assert.equal(tileName(TILES[23]), 'தஞ்சாவூர் நெல்')
@@ -79,6 +83,8 @@ test('Hindi and Tamil translate tiles, crops, cards, weather, stages', () => {
     assert.equal(weatherName({ id: 'monsoon' }), 'நல்ல பருவமழை')
     assert.equal(stageName('seeded'), 'விதைத்த')
     assert.equal(deckName('Market Prices'), 'சந்தை விலை')
+    assert.match(tileSub(TILES[4]), /எது அதிகமோ/)
+    assert.match(tileSub(TILES[38]), /எது அதிகமோ/)
   })
 })
 

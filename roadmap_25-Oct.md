@@ -50,7 +50,7 @@ Multi-replica, WebSockets, mid-game seat late-join. One Coolify replica + specta
 
 - Mortgage is automatic, idle-only, not a player choice. Ripe land and infra never fire-sale. — done (player-chosen raise: mortgage farms or fire-sale infra/utility).
 - FCI harvest ignores weather, irrigation, insurance, pests, tractor/seed/yard/cold, `enam`, `knowHow`, group bonus, volatility; does not reset fertility.
-- Tax tiles say “X% or flat” but the engine uses `Math.max(flat, pct)`.
+- Tax tiles say “X% or flat” but the engine uses `Math.max(flat, pct)`. — done (EN/HI/TA copy is “the greater of”).
 - Insurance and irrigation are permanent once bought. — done (`clearCrop` on harvest/FCI/wipe/mortgage/lease expiry).
 - Season clock ticks on every Village Hall pass, not per round. — done (full round via `nextTurn` wrap).
 - Decks never reshuffle after the opening shuffle.

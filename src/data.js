@@ -61,7 +61,7 @@ export const TILES = [
   { id: 1, type: 'farm', name: 'Barmer Millet', short: 'Barmer', region: 'Rajasthan', group: 'arid', price: 1200, lease: 400, prepare: 300, rent: 80, soil: 'arid', crops: ['bajra', 'jowar', 'moong'], icon: 'millet' },
   { id: 2, type: 'kisan', name: 'Farmer Card', short: 'Card', sub: 'Fate of the fields', icon: 'card' },
   { id: 3, type: 'farm', name: 'Malwa Sorghum', short: 'Malwa', region: 'Madhya Pradesh', group: 'arid', price: 1400, lease: 450, prepare: 320, rent: 90, soil: 'black', crops: ['jowar', 'bajra', 'moong'], icon: 'millet' },
-  { id: 4, type: 'tax', name: 'Land Revenue', short: 'Tax', sub: 'Pay 8% cash or Rs 800', icon: 'tax', amount: 800, pct: 0.08 },
+   { id: 4, type: 'tax', name: 'Land Revenue', short: 'Tax', sub: 'Pay the greater of 8% cash or Rs 800', icon: 'tax', amount: 800, pct: 0.08 },
   { id: 5, type: 'infra', name: 'Tractor Stand', short: 'Tractor', sub: 'Farm machinery', icon: 'tractor', price: 2000, rent: [250, 500, 1000, 2000] },
   { id: 6, type: 'farm', name: 'Junagadh Groundnut', short: 'Junagadh', region: 'Gujarat', group: 'oil', price: 1800, lease: 550, prepare: 400, rent: 120, soil: 'black', crops: ['groundnut', 'cotton', 'cumin'], icon: 'nut' },
   { id: 7, type: 'mandi', name: 'Market Prices', short: 'Market', sub: 'Market swings', icon: 'mandi' },
@@ -95,7 +95,7 @@ export const TILES = [
   { id: 35, type: 'infra', name: 'Market Yard', short: 'Yard', sub: 'Wholesale market', icon: 'yard', price: 2000, rent: [250, 500, 1000, 2000] },
   { id: 36, type: 'mandi', name: 'Market Prices', short: 'Market', sub: 'Market swings', icon: 'mandi' },
   { id: 37, type: 'farm', name: 'Unjha Cumin', short: 'Unjha', region: 'Gujarat', group: 'orchard', price: 5000, lease: 1500, prepare: 980, rent: 520, soil: 'arid', crops: ['cumin', 'mustard', 'bajra'], icon: 'spice' },
-  { id: 38, type: 'tax', name: 'Market Tax', short: 'Duty', sub: 'Pay 10% cash or Rs 1200', icon: 'tax', amount: 1200, pct: 0.1 },
+   { id: 38, type: 'tax', name: 'Market Tax', short: 'Duty', sub: 'Pay the greater of 10% cash or Rs 1200', icon: 'tax', amount: 1200, pct: 0.1 },
   { id: 39, type: 'farm', name: 'Sikkim Organic', short: 'Sikkim', region: 'Sikkim', group: 'orchard', price: 5600, lease: 1700, prepare: 1200, rent: 600, soil: 'hill', crops: ['spices', 'tea', 'moong'], icon: 'organic' }
 ]
 

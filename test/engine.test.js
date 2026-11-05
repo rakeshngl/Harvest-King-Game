@@ -148,6 +148,21 @@ test('net worth at WIN_NET after harvest ends the match', () => {
   assert.equal(s.phase, 'over')
 })
 
+test('tax takes the greater of the flat fee and the cash percent', () => {
+  const s = createGame(2, ['A', 'B'])
+  const restore = stubRandom(s, 0.5)
+  s.players[0].pos = 0
+  s.players[0].cash = 12000
+  applyMove(s, [2, 2])
+  restore()
+  assert.equal(s.players[0].pos, 4)
+  assert.equal(s.players[0].cash, 12000 - 960)
+  s.players[0].pos = 0
+  s.players[0].cash = 5000
+  applyMove(s, [2, 2])
+  assert.equal(s.players[0].cash, 5000 - 800)
+})
+
 test('passing Village Hall pays harvest dues', () => {
   const s = createGame(2, ['A', 'B'])
   const restore = stubRandom(s, 0.5)
