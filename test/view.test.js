@@ -5,7 +5,7 @@ import { chromeToggleHtml, tutorialHtml } from '../src/chrome.js'
 import { lobbyHtml, waitingHtml, nameInputs } from '../src/lobby.js'
 import { boardTilesHtml, tileHtml } from '../src/board.js'
 import { gameHtml, wrapModal, actionModal, winModal } from '../src/hud.js'
-import { TILES } from '../src/data.js'
+import { TILES, CROPS } from '../src/data.js'
 
 test('chrome and tutorial markup keep their ids', () => {
   assert.match(chromeToggleHtml(), /id="langtoggle"/)
@@ -68,6 +68,32 @@ test('board and game hud keep tile and roll controls', () => {
   assert.match(html, /id="roll"/)
   assert.match(html, /id="endturn"/)
   assert.match(html, /id="leavegame"/)
+})
+
+test('prices panel lists every crop', () => {
+  const state = createGame(2, ['A', 'B'], { seed: 1 })
+  const html = gameHtml(state, {
+    lineOn: true,
+    notice: '',
+    cpuNote: '',
+    rolling: false,
+    online: false,
+    session: null,
+    mySeat: 0,
+    isMyTurn: true,
+    humanSeat: 0,
+    sideTab: 'prices',
+    diaryPage: 0,
+    tradeOpen: false,
+    tradeDraft: { to: '', cashGive: '', cashTake: '', landGive: '', landTake: '', debtGive: '', debtTake: '' },
+    landing: null,
+    landingQueue: [],
+    inspectId: null
+  })
+  assert.equal(Object.keys(CROPS).length, 18)
+  Object.values(CROPS).forEach((c) => {
+    assert.match(html, new RegExp(c.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  })
 })
 
 test('wrapModal is a labelled dialog', () => {

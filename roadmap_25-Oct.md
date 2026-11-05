@@ -55,7 +55,7 @@ Multi-replica, WebSockets, mid-game seat late-join. One Coolify replica + specta
 - Season clock ticks on every Village Hall pass, not per round. — done (full round via `nextTurn` wrap).
 - Decks never reshuffle after the opening shuffle.
 - `state.doubles` is dead. Soil types other than hail+hill and flood+alluvial do nothing.
-- Market panel shows only the first 12 of 18 crops.
+- Market panel shows only the first 12 of 18 crops. — done (prices pane lists all 18).
 
 ### Cards vs text
 

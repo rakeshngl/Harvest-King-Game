@@ -497,7 +497,7 @@ export function gameHtml(state, ctx) {
         <div class="panel">
           <h3>${t('prices')}</h3>
           <div class="prices">
-            ${Object.values(CROPS).slice(0, 12).map((c) =>
+            ${Object.values(CROPS).map((c) =>
               `<span><b>${escapeHtml(cropName(c.id))}</b> ${rs(state.prices[c.id])}</span>`
             ).join('')}
           </div>
