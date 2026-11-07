@@ -14,7 +14,7 @@ export function focusables(root) {
   })
 }
 
-export const ESCAPE_SKIP_KINDS = new Set(['acquire', 'buyInfra', 'farmWork', 'fci', 'nabard', 'card', 'pickFarm'])
+export const ESCAPE_SKIP_KINDS = new Set(['acquire', 'buyInfra', 'farmWork', 'fci', 'nabard', 'card', 'pickFarm', 'labour'])
 
 export function escapeDismiss({ tutorialOn, inspectId, landing, tradeOpen, phase, pending, isMyTurn } = {}) {
   if (tutorialOn) return 'tutorial'

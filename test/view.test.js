@@ -101,6 +101,15 @@ test('prices panel lists every crop', () => {
   })
 })
 
+test('labour shortage modal offers hire or skip', () => {
+  const state = createGame(2, ['A', 'B'], { seed: 1 })
+  state.pending = { kind: 'labour', amount: 600, card: { id: 'labour', title: 'Labour Shortage', text: 'Pay Rs 600 or skip your next harvest bonus.' } }
+  const html = actionModal(state, state.pending, true)
+  assert.match(html, /data-act="labourpay"/)
+  assert.match(html, /data-act="labourskip"/)
+  assert.match(html, /Hire labour/)
+})
+
 test('wrapModal is a labelled dialog', () => {
   assert.match(wrapModal('<h2>Hi</h2>'), /role="dialog"/)
   assert.match(wrapModal('<h2>Hi</h2>'), /aria-modal="true"/)

@@ -5,7 +5,7 @@ import {
   buyFarm, leaseFarm, buyInfra, prepareLand, seedLand, irrigate, insure,
   harvest, tendCrop, sellToFci, takeLoan, repayLoan, declineAction, nextTurn,
   unmortgage, openFarmWork, actingSeat, bidAuction, passAuction, offerTrade,
-  raiseLot, giveUpRaise, mortgageFarm,
+  raiseLot, giveUpRaise, mortgageFarm, chooseLabour,
   acceptTrade, rejectTrade, finalStandings, presetById, seasonOf
 } from './engine.js'
 import { blankProfile, applyMatch } from './profile.js'
@@ -680,6 +680,8 @@ function applyCpuAction(action) {
   else if (action.type === 'accept') ok = acceptTrade(state)
   else if (action.type === 'reject') ok = rejectTrade(state)
   else if (action.type === 'offer') ok = offerTrade(state, action.offer || action)
+  else if (action.type === 'labourpay') ok = chooseLabour(state, true)
+  else if (action.type === 'labourskip') ok = chooseLabour(state, false)
   else if (action.type === 'skip') declineAction(state)
   else if (action.type === 'endTurn') {
     nextTurn(state)
@@ -1368,6 +1370,13 @@ async function handleAct(act) {
     if (!isMyTurn()) return
     if (await netAct({ type: 'reject' })) return
     rejectTrade(state)
+    render()
+    return
+  }
+  if (act === 'labourpay' || act === 'labourskip') {
+    if (!isMyTurn()) return
+    if (await netAct({ type: act })) return
+    chooseLabour(state, act === 'labourpay')
     render()
     return
   }

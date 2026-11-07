@@ -342,6 +342,15 @@ export function actionModal(state, pending, mine) {
         <button class="ghost" data-act="skip">${t('leaveDesk')}</button>
       </div>`)
   }
+  if (pending.kind === 'labour') {
+    return wrapModal(`
+      <h2>${escapeHtml(cardTitle(pending.card))}</h2>
+      <p>${escapeHtml(cardText(pending.card))}</p>
+      <div class="actions">
+        <button class="work-btn gold" data-act="labourpay">${t('hireLabour', rs(pending.amount))}</button>
+        <button class="ghost" data-act="labourskip">${t('skipHarvestBonus')}</button>
+      </div>`)
+  }
   if (pending.kind === 'card') {
     return wrapModal(`
       <h2>${escapeHtml(deckName(pending.deck))}</h2>

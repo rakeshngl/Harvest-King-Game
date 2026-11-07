@@ -4,9 +4,9 @@ import {
   createGame, harvest, forcePay, transfer, buyFarm, prepareLand, seedLand, skipTurn,
   nextTurn, netWorth, applyMove, takeLoan, sellToFci, declineAction, bidAuction, passAuction,
   offerTrade, acceptTrade, rejectTrade, actingSeat, finalStandings, presetById, rollDice, LOG_CAP,
-  raiseLot, giveUpRaise, mortgageFarm, fireSale, raisableLots, mortgageValue
+  raiseLot, giveUpRaise, mortgageFarm, fireSale, raisableLots, mortgageValue, chooseLabour
 } from '../src/engine.js'
-import { START_CASH, WIN_NET, PASS_GO, WEATHER, TILES, CROPS, INTEREST, SEASON_PRESETS, DEFAULT_PRESET } from '../src/data.js'
+import { START_CASH, WIN_NET, PASS_GO, WEATHER, TILES, CROPS, INTEREST, SEASON_PRESETS, DEFAULT_PRESET, KISAN_CARDS } from '../src/data.js'
 import { dailySeed } from '../src/rng.js'
 
 const FAIR = WEATHER.find((w) => w.id === 'normal')
@@ -41,6 +41,18 @@ function ripeField(state, tileId, cropId) {
   f.irrigated = false
   f.insured = false
   return f
+}
+
+function kisanCard(id) {
+  return KISAN_CARDS.find((c) => c.id === id)
+}
+
+function drawKisan(state, id) {
+  state.kisan = [kisanCard(id)]
+  state.kisanI = 0
+  state.players[0].pos = 0
+  applyMove(state, [1, 1])
+  return state
 }
 
 test('new game seats farmers with village cash', () => {
@@ -516,6 +528,73 @@ test('skipTurn on a raise gives up the lands', () => {
   assert.equal(s.players[0].bankrupt, true)
   assert.equal(s.farms[1].owner, null)
   assert.equal(s.winner, 1)
+})
+
+test('hail uses live prices and leaves the crop', () => {
+  const s = createGame(2, ['A', 'B'])
+  ripeField(s, 1, 'bajra')
+  s.prices.bajra = 80
+  const before = s.players[0].cash
+  const loss = Math.round(CROPS.bajra.yield * 80 * 0.5)
+  drawKisan(s, 'hail')
+  assert.equal(s.players[0].cash, before - loss)
+  assert.equal(s.farms[1].stage, 'ripe')
+  assert.equal(s.farms[1].crop, 'bajra')
+  assert.equal(s.pending.kind, 'card')
+  assert.equal(s.pending.card.id, 'hail')
+})
+
+test('pest charges uninsured fields through forcePay and skips insured', () => {
+  const s = createGame(2, ['A', 'B'])
+  ripeField(s, 1, 'bajra')
+  ripeField(s, 3, 'jowar')
+  s.farms[3].insured = true
+  const before = s.players[0].cash
+  drawKisan(s, 'pest')
+  assert.equal(s.players[0].cash, before - 700)
+  assert.equal(s.farms[1].stage, 'ripe')
+  assert.equal(s.farms[3].stage, 'ripe')
+  assert.ok(s.log.some((e) => /Crop insurance covers 1 field against pests/.test(e.text)))
+})
+
+test('pest with short cash opens a raise instead of wiping the crop', () => {
+  const s = createGame(2, ['A', 'B'])
+  ripeField(s, 1, 'bajra')
+  s.players[0].cash = 100
+  drawKisan(s, 'pest')
+  assert.equal(s.pending.kind, 'raise')
+  assert.equal(s.farms[1].stage, 'ripe')
+  assert.equal(s.farms[1].crop, 'bajra')
+})
+
+test('labour shortage is a hire-or-skip choice', () => {
+  const s = createGame(2, ['A', 'B'])
+  const before = s.players[0].cash
+  drawKisan(s, 'labour')
+  assert.equal(s.pending.kind, 'labour')
+  assert.equal(s.pending.amount, 600)
+  assert.equal(s.players[0].cash, before)
+  assert.equal(chooseLabour(s, true), true)
+  assert.equal(s.players[0].cash, before - 600)
+  assert.equal(s.pending.kind, 'card')
+  assert.equal(s.players[0].skipHarvestBonus, false)
+
+  const t = createGame(2, ['A', 'B'])
+  ripeField(t, 1, 'bajra')
+  t.weather = FAIR
+  t.marketMod = 1
+  t.prices.bajra = CROPS.bajra.price
+  drawKisan(t, 'labour')
+  assert.equal(chooseLabour(t, false), true)
+  assert.equal(t.players[0].skipHarvestBonus, true)
+  assert.equal(t.pending.kind, 'card')
+  const restore = stubRandom(t, 0.5)
+  const expected = Math.round(expectedHarvest(t, 1) * 0.85)
+  const cash = t.players[0].cash
+  assert.equal(harvest(t, 1), true)
+  restore()
+  assert.equal(t.players[0].cash, cash + expected)
+  assert.equal(t.players[0].skipHarvestBonus, false)
 })
 
 test('farm diary keeps the newest LOG_CAP entries', () => {

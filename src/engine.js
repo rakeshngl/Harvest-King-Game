@@ -274,6 +274,7 @@ function resolveTile(state, p, tile, diceTotal) {
     const card = drawCard(state, 'kisan')
     applyCard(state, p, card)
     if (state.phase === 'over' || isRaising(state)) return
+    if (state.pending && state.pending.kind === 'labour') return
     state.pending = { kind: 'card', deck: 'Farmer Card', card }
     state.phase = 'action'
     return
@@ -282,6 +283,7 @@ function resolveTile(state, p, tile, diceTotal) {
     const card = drawCard(state, 'mandi')
     applyCard(state, p, card)
     if (state.phase === 'over' || isRaising(state)) return
+    if (state.pending && state.pending.kind === 'labour') return
     state.pending = { kind: 'card', deck: 'Market Prices', card }
     state.phase = 'action'
     return
@@ -652,15 +654,15 @@ function applyCard(state, p, card) {
       })
       break
     case 'pest': {
-      const seeded = farmsOf(state, p.id).filter((f) => f.stage === 'seeded' || f.stage === 'ripe')
-      const fee = seeded.length * card.fee
-      if (fee === 0) break
-      if (p.cash >= fee) {
-        p.cash -= fee
-        log(state, `${p.name} sprays pesticide for Rs ${fee}.`, 'loss', { amount: fee, pid: p.id })
-      } else {
-        seeded.forEach((f) => wipeCrop(state, f.id, 'pests'))
+      const lots = farmsOf(state, p.id).filter((f) => f.stage === 'seeded' || f.stage === 'ripe')
+      if (!lots.length) break
+      const covered = lots.filter((f) => f.insured)
+      const exposed = lots.filter((f) => !f.insured)
+      if (covered.length) {
+        log(state, `Crop insurance covers ${covered.length} field${covered.length === 1 ? '' : 's'} against pests.`, 'gain', { pid: p.id })
       }
+      const fee = exposed.length * card.fee
+      if (fee) forcePay(state, p, fee, card.title, { type: 'card', deck: cardDeck(state, p), card })
       break
     }
     case 'perFarm': {
@@ -676,7 +678,8 @@ function applyCard(state, p, card) {
       if (hit) {
         const crop = CROPS[hit.crop]
         if (crop) {
-          const loss = Math.round(crop.yield * crop.price * 0.5)
+          const price = state.prices[crop.id] || crop.price
+          const loss = Math.round(crop.yield * price * 0.5)
           forcePay(state, p, loss, 'hail damage', { type: 'card', deck: cardDeck(state, p), card })
         }
       }
@@ -726,13 +729,9 @@ function applyCard(state, p, card) {
       })
       break
     case 'labour':
-      if (p.cash >= card.amount) {
-        p.cash -= card.amount
-        log(state, `${p.name} hires extra labour.`, 'loss', { amount: card.amount, pid: p.id })
-      } else {
-        p.skipHarvestBonus = true
-      }
-      break
+      state.pending = { kind: 'labour', amount: card.amount, card, deck: cardDeck(state, p) }
+      state.phase = 'action'
+      return
     case 'market':
       state.marketMod = clamp(state.marketMod * (1 + card.pct), 0.55, 1.6)
       Object.keys(state.prices).forEach((cid) => {
@@ -1278,11 +1277,32 @@ export function rejectTrade(state) {
   return true
 }
 
+export function chooseLabour(state, pay) {
+  const pending = state.pending
+  if (!pending || pending.kind !== 'labour') return false
+  const p = currentPlayer(state)
+  const card = pending.card
+  const deck = pending.deck
+  if (pay) {
+    forcePay(state, p, pending.amount, card.title, { type: 'card', deck, card })
+    if (isRaising(state)) return true
+    state.pending = { kind: 'card', deck, card }
+    state.phase = 'action'
+    return true
+  }
+  p.skipHarvestBonus = true
+  log(state, `${p.name} skips the next harvest bonus.`, 'info', { pid: p.id })
+  state.pending = { kind: 'card', deck, card }
+  state.phase = 'action'
+  return true
+}
+
 export function declineAction(state) {
   const pending = state.pending
   if (pending && pending.kind === 'raise') return giveUpRaise(state)
   if (pending && pending.kind === 'auction') return passAuction(state)
   if (pending && pending.kind === 'trade') return rejectTrade(state)
+  if (pending && pending.kind === 'labour') return chooseLabour(state, false)
   if (pending && (pending.kind === 'acquire' || pending.kind === 'buyInfra')) {
     return startAuction(state)
   }
@@ -1301,7 +1321,7 @@ export function skipTurn(state, reason = 'did not act in time') {
     giveUpRaise(state)
     return state
   }
-  if (pending && (pending.kind === 'auction' || pending.kind === 'trade' || pending.kind === 'acquire' || pending.kind === 'buyInfra')) {
+  if (pending && (pending.kind === 'auction' || pending.kind === 'trade' || pending.kind === 'acquire' || pending.kind === 'buyInfra' || pending.kind === 'labour')) {
     const actor = actingSeat(state)
     const name = state.players[actor] ? state.players[actor].name : currentPlayer(state).name
     log(state, `${name} ${reason}.`, 'info', { pid: actor, skip: true })

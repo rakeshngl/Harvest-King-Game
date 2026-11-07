@@ -6,7 +6,7 @@ import {
   createGame, applyMove, rollDice, buyFarm, leaseFarm, buyInfra, prepareLand,
   seedLand, irrigate, insure, harvest, tendCrop, sellToFci, takeLoan, repayLoan,
   declineAction, nextTurn, skipTurn, unmortgage, openFarmWork, actingSeat,
-  raiseLot, giveUpRaise, mortgageFarm,
+  raiseLot, giveUpRaise, mortgageFarm, chooseLabour,
   bidAuction, passAuction, offerTrade, acceptTrade, rejectTrade, finalStandings,
   presetById, LOG_CAP
 } from '../src/engine.js'
@@ -810,6 +810,12 @@ function applyAction(room, seat, action) {
       if (state.phase !== 'action') return { error: 'Nothing to skip' }
       declineAction(state)
       return { ok: true }
+    case 'labourpay':
+    case 'labourskip': {
+      if (!pending || pending.kind !== 'labour') return { error: 'No labour choice' }
+      if (!chooseLabour(state, action.type === 'labourpay')) return { error: 'Cannot choose' }
+      return { ok: true }
+    }
     case 'buy':
       if (!pending || pending.kind !== 'acquire') return { error: 'No land to buy' }
       if (!buyFarm(state, pending.tileId)) return { error: 'Cannot buy' }

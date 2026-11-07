@@ -51,6 +51,10 @@ test('English names match data.js', () => {
     assert.equal(deckName('Market Prices'), TILES[7].name)
     assert.match(TILES[4].sub, /greater of/)
     assert.match(TILES[38].sub, /greater of/)
+    const ban = KISAN_CARDS.find((c) => c.id === 'ban')
+    assert.match(ban.text, /Spice panic/)
+    assert.doesNotMatch(ban.text, /onion/i)
+    assert.doesNotMatch(cardText(ban), /onion|प्याज|வெங்காயம்/i)
   })
 })
 
@@ -76,6 +80,9 @@ test('Hindi and Tamil translate tiles, crops, cards, weather, stages', () => {
     assert.equal(reasonText('crossing leased Barmer Millet'), 'पट्टे वाले बाड़मेर बाजरा पार करते')
     assert.match(tileSub(TILES[4]), /जो अधिक हो/)
     assert.match(tileSub(TILES[38]), /जो अधिक हो/)
+    const ban = KISAN_CARDS.find((c) => c.id === 'ban')
+    assert.match(cardText(ban), /मसाला/)
+    assert.doesNotMatch(cardText(ban), /प्याज/)
   })
   withLang('ta', () => {
     assert.equal(tileName(TILES[23]), 'தஞ்சாவூர் நெல்')
@@ -85,6 +92,9 @@ test('Hindi and Tamil translate tiles, crops, cards, weather, stages', () => {
     assert.equal(deckName('Market Prices'), 'சந்தை விலை')
     assert.match(tileSub(TILES[4]), /எது அதிகமோ/)
     assert.match(tileSub(TILES[38]), /எது அதிகமோ/)
+    const ban = KISAN_CARDS.find((c) => c.id === 'ban')
+    assert.match(cardText(ban), /மசாலா/)
+    assert.doesNotMatch(cardText(ban), /வெங்காயம்/)
   })
 })
 

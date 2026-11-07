@@ -66,6 +66,7 @@ test('escapeDismiss prefers tutorial then inspect then landing trade win skippab
   assert.equal(escapeDismiss({ tradeOpen: true, phase: 'end' }), 'trade')
   assert.equal(escapeDismiss({ phase: 'over' }), 'win')
   assert.equal(escapeDismiss({ phase: 'action', pending: { kind: 'fci' }, isMyTurn: true }), 'action')
+  assert.equal(escapeDismiss({ phase: 'action', pending: { kind: 'labour' }, isMyTurn: true }), 'action')
   assert.equal(escapeDismiss({ phase: 'action', pending: { kind: 'raise' }, isMyTurn: true }), null)
   assert.equal(escapeDismiss({ phase: 'action', pending: { kind: 'auction' }, isMyTurn: true }), null)
   assert.equal(escapeDismiss({ phase: 'action', pending: { kind: 'trade' }, isMyTurn: true }), null)

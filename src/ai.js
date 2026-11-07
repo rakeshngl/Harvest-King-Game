@@ -367,6 +367,10 @@ export function chooseAction(state, difficulty = 'normal') {
   }
 
   if (state.phase === 'action' && pending) {
+    if (pending.kind === 'labour') {
+      if (p.cash >= pending.amount) return { type: 'labourpay' }
+      return { type: 'labourskip' }
+    }
     if (pending.kind === 'card') return { type: 'skip' }
     if (pending.kind === 'acquire') return acquireAction(state, p, pending.tileId, knobs)
     if (pending.kind === 'buyInfra') return infraAction(state, p, TILES[pending.tileId], knobs)
@@ -427,6 +431,8 @@ export function describeAction(state, action) {
     case 'accept': return `${name} accepts the deal.`
     case 'reject': return `${name} turns down the deal.`
     case 'offer': return `${name} offers a deal.`
+    case 'labourpay': return `${name} hires extra labour.`
+    case 'labourskip': return `${name} skips the next harvest bonus.`
     case 'endTurn': return `${name} ends the turn.`
     default: return `${name} acts.`
   }

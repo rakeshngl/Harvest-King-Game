@@ -59,10 +59,10 @@ Multi-replica, WebSockets, mid-game seat late-join. One Coolify replica + specta
 
 ### Cards vs text
 
-- Hail: pays expected value, crop stays.
-- Pest: wipes crops if cash is short; no mortgage/insolvency.
-- Labour: auto-pays or applies 15% harvest haircut; no choice.
-- Export ban mentions onion; onion crop does not exist.
+- Hail: pays expected value, crop stays. — done (50% of live listed yield; crop stays).
+- Pest: wipes crops if cash is short; no mortgage/insolvency. — done (uninsured fee through `forcePay`; insurance covers the rest).
+- Labour: auto-pays or applies 15% harvest haircut; no choice. — done (hire Rs 600 or skip next harvest bonus).
+- Export ban mentions onion; onion crop does not exist. — done (spice panic copy; onion crop still later).
 - Organic cert is an instant cash bonus, not a track.
 
 ### AI
