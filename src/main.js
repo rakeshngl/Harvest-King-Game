@@ -23,7 +23,7 @@ import { TUTORIAL_STEPS, loadTutorialSeen, saveTutorialSeen, clampTutorialStep }
 import { tutorialHtml } from './chrome.js'
 import { lobbyHtml as lobbyView, waitingHtml as waitingView, openTablesHtml, profileHtml, nameInputs } from './lobby.js'
 import { gameHtml as gameView, diaryPages } from './hud.js'
-import { trapFocus } from './a11y.js'
+import { trapFocus, escapeDismiss } from './a11y.js'
 
 const app = document.getElementById('app')
 
@@ -1460,17 +1460,45 @@ async function boot() {
 
 function onEscape(e) {
   if (e.key !== 'Escape') return
-  if (tutorialOn) {
-    e.preventDefault()
+  const kind = escapeDismiss({
+    tutorialOn,
+    inspectId,
+    landing,
+    tradeOpen,
+    phase: state && state.phase,
+    pending: state && state.pending,
+    isMyTurn: isMyTurn()
+  })
+  if (!kind) return
+  e.preventDefault()
+  if (kind === 'tutorial') {
     closeTutorial()
     render()
     return
   }
-  if (inspectId != null && state && state.phase !== 'over') {
-    e.preventDefault()
+  if (kind === 'inspect') {
     inspectId = null
     render()
+    return
   }
+  if (kind === 'landing') {
+    landing = landingQueue.shift() || null
+    cueForLanding(landing)
+    render()
+    return
+  }
+  if (kind === 'trade') {
+    tradeOpen = false
+    render()
+    return
+  }
+  if (kind === 'win') {
+    leaveSession()
+    notice = ''
+    render()
+    return
+  }
+  if (kind === 'action') handleAct('skip')
 }
 
 if (typeof window !== 'undefined') window.addEventListener('keydown', onEscape)

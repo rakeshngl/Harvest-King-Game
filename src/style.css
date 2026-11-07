@@ -165,10 +165,14 @@ html, body {
   margin-top: 2px;
 }
 
-.farmer-bar input {
+.farmer-bar .field {
   flex: 1;
   min-width: 220px;
   max-width: 360px;
+}
+
+.farmer-bar input {
+  width: 100%;
   padding: 12px 14px;
   border: 2px solid #d7c4a3;
   background: #fff;
@@ -510,9 +514,26 @@ html, body {
   opacity: 0.75;
 }
 
-.names input {
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   flex: 1;
   min-width: 140px;
+}
+
+.field-label {
+  font-family: Cinzel, serif;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--saffron-deep);
+  font-weight: 700;
+}
+
+.names input,
+.field input {
+  width: 100%;
   padding: 10px 12px;
   border: 2px solid #d7c4a3;
   background: #fff;
@@ -1747,8 +1768,10 @@ textarea:focus-visible {
     gap: 10px;
   }
 
+  .farmer-bar .field,
   .farmer-bar input {
     width: 100%;
+    max-width: none;
   }
 
   .game-shell {

@@ -29,7 +29,12 @@ test('lobby and waiting screens keep create/join/start controls', () => {
   assert.match(html, /id="create"/)
   assert.match(html, /id="join"/)
   assert.match(html, /id="myname"/)
+  assert.match(html, /for="myname"/)
+  assert.match(html, /for="roompass"/)
+  assert.match(html, /for="joincode"/)
   assert.match(nameInputs(2), /data-i="0"/)
+  assert.match(nameInputs(2), /for="pname0"/)
+  assert.match(nameInputs(2), /for="pname1"/)
   const waiting = waitingHtml({
     lineOn: true,
     notice: '',

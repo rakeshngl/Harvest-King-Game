@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { prefersReducedMotion, focusables, trapFocus } from '../src/a11y.js'
+import { prefersReducedMotion, focusables, trapFocus, escapeDismiss } from '../src/a11y.js'
 
 function mockNode(attrs = {}) {
   return {
@@ -57,4 +57,17 @@ test('trapFocus cycles Tab from last to first', () => {
   assert.equal(b.focused, true)
   release()
   assert.equal(root._on, null)
+})
+
+test('escapeDismiss prefers tutorial then inspect then landing trade win skippable action', () => {
+  assert.equal(escapeDismiss({ tutorialOn: true, inspectId: 3, landing: {}, tradeOpen: true, phase: 'over' }), 'tutorial')
+  assert.equal(escapeDismiss({ inspectId: 3, landing: {}, tradeOpen: true, phase: 'end' }), 'inspect')
+  assert.equal(escapeDismiss({ landing: { pid: 0 }, tradeOpen: true, phase: 'end' }), 'landing')
+  assert.equal(escapeDismiss({ tradeOpen: true, phase: 'end' }), 'trade')
+  assert.equal(escapeDismiss({ phase: 'over' }), 'win')
+  assert.equal(escapeDismiss({ phase: 'action', pending: { kind: 'fci' }, isMyTurn: true }), 'action')
+  assert.equal(escapeDismiss({ phase: 'action', pending: { kind: 'raise' }, isMyTurn: true }), null)
+  assert.equal(escapeDismiss({ phase: 'action', pending: { kind: 'auction' }, isMyTurn: true }), null)
+  assert.equal(escapeDismiss({ phase: 'action', pending: { kind: 'trade' }, isMyTurn: true }), null)
+  assert.equal(escapeDismiss({ phase: 'roll' }), null)
 })

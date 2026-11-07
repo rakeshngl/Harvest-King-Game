@@ -134,7 +134,7 @@ export function resumeTablesHtml(seats) {
 export function nameInputs(n) {
   return Array.from({ length: n }, (_, i) => {
     const pal = PLAYER_PALETTE[i]
-    return `<input data-i="${i}" maxlength="16" placeholder="${pal.name}" style="border-color:${pal.color}" />`
+    return `<label class="field" for="pname${i}"><span class="field-label">${t('farmerSeat', i + 1)}</span><input id="pname${i}" data-i="${i}" maxlength="16" placeholder="${pal.name}" style="border-color:${pal.color}" /></label>`
   }).join('')
 }
 
@@ -155,7 +155,7 @@ export function lobbyHtml({ lineOn, notice, hallStats, draftName, openTables, my
           <div class="en">${t('takeSeat')}</div>
           <p>${t('takeSeatHint')}</p>
         </div>
-        <input id="myname" maxlength="16" placeholder="${t('farmerName')}" value="${escapeHtml(draftName)}" required />
+        <label class="field" for="myname"><span class="field-label">${t('farmerName')}</span><input id="myname" maxlength="16" placeholder="${t('farmerName')}" value="${escapeHtml(draftName)}" required /></label>
       </div>
       ${resumeTablesHtml(seats)}
       <div id="opentables">${openTablesHtml(openTables)}</div>
@@ -166,11 +166,11 @@ export function lobbyHtml({ lineOn, notice, hallStats, draftName, openTables, my
           <div class="mode-kicker">${t('onlineTable')}</div>
           <h2>${t('playFriends')}</h2>
           <p>${t('playFriendsHint')}</p>
-          <input id="roompass" maxlength="24" placeholder="${t('password')}" />
+          <label class="field" for="roompass"><span class="field-label">${t('password')}</span><input id="roompass" maxlength="24" placeholder="${t('password')}" /></label>
           <button class="primary" id="create">${t('create')}</button>
           <div class="mode-split">${t('orJoin')}</div>
           <div class="names">
-            <input id="joincode" maxlength="6" placeholder="ABCD" />
+            <label class="field" for="joincode"><span class="field-label">${t('roomCode')}</span><input id="joincode" maxlength="6" placeholder="ABCD" /></label>
             <button class="primary" id="join">${t('join')}</button>
             <button class="ghost" id="watch">${t('watch')}</button>
           </div>

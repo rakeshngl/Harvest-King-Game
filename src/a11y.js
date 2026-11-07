@@ -14,6 +14,18 @@ export function focusables(root) {
   })
 }
 
+export const ESCAPE_SKIP_KINDS = new Set(['acquire', 'buyInfra', 'farmWork', 'fci', 'nabard', 'card', 'pickFarm'])
+
+export function escapeDismiss({ tutorialOn, inspectId, landing, tradeOpen, phase, pending, isMyTurn } = {}) {
+  if (tutorialOn) return 'tutorial'
+  if (inspectId != null && phase !== 'over') return 'inspect'
+  if (landing) return 'landing'
+  if (tradeOpen) return 'trade'
+  if (phase === 'over') return 'win'
+  if (isMyTurn && pending && ESCAPE_SKIP_KINDS.has(pending.kind)) return 'action'
+  return null
+}
+
 export function trapFocus(root) {
   if (!root || typeof root.addEventListener !== 'function') return () => {}
   const list = () => focusables(root)
