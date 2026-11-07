@@ -195,7 +195,7 @@ The pop-up is dismissed with a **Continue** button. It is displayed before any f
 
 ### Color-coded diary
 
-The **Farm diary** panel keeps the last 12 entries and colors each one by its outcome:
+The **Farm diary** panel pages through the log 20 entries at a time (`DIARY_PAGE`) and colors each one by its outcome:
 
 | Kind | Color | Meaning |
 | --- | --- | --- |

@@ -75,16 +75,16 @@ Multi-replica, WebSockets, mid-game seat late-join. One Coolify replica + specta
 - Visitor id is a client-chosen `localStorage` string; `GET /api/profile?visitor=` has no proof of possession. — done (HttpOnly HMAC `hk-vid`; query/body visitor ignored).
 - Seat tokens in query strings (EventSource) and in `data/rooms.json`.
 - Passwords are unsalted SHA-256. CORS `*`.
-- `state.log` unbounded; every action `writeFileSync`s the whole room map.
+- `state.log` unbounded; every action `writeFileSync`s the whole room map. — done (`LOG_CAP` 200; debounce `saveRooms` 250ms + flush on drain).
 - CI smoke only curls `/api/health`. `vite preview` has no `/api` proxy.
 - `start.mjs` does not forward SIGTERM to the API child.
 
 ### UX / a11y
 
-- Almost no labels, no focus trap, no Escape, tiles are click-only `<div>`s.
-- No `prefers-reduced-motion`, no high-contrast / colour-blind palette.
+- Almost no labels, no focus trap, no Escape, tiles are click-only `<div>`s. — done (labelled tile buttons, `:focus-visible`, modal Tab trap + `inert`; Escape still tutorial/inspect only; lobby inputs still placeholder-only).
+- No `prefers-reduced-motion`, no high-contrast / colour-blind palette. — reduced-motion done (dice skip spin); high-contrast still open.
 - Sound off does not mute music. — done (`musicGain` feeds `master`).
-- Win modal shows only the king; Play again returns to lobby.
+- Win modal shows only the king; Play again returns to lobby. — done (ranked standings; local rematch reseats; online host `POST /api/rematch`).
 - Google Fonts are a third-origin fetch the service worker ignores.
 
 ### Docs drift
