@@ -1496,6 +1496,11 @@ textarea:focus-visible {
 
 .modal p { color: #4a3724; margin-bottom: 12px; }
 
+.modal .field {
+  margin: 8px 0 12px;
+  width: 100%;
+}
+
 .tutorial-back {
   z-index: 30;
 }

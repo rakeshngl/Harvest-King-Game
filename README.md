@@ -74,7 +74,7 @@ You may also **tend** a growing crop to raise fertility, **irrigate** a field, o
 
 ### Auctions and trades
 
-Walk on an unowned farm (or pass an infrastructure yard) and the lot goes to a **village auction**. Bids step by Rs 100 from about half list price. The highest paying bid wins; if nobody bids, Village Hall keeps the lot. AFK on an auction, trade, acquire, or buy-infra prompt declines that prompt only — it does not skip the whole seat.
+Walk on an unowned farm (or pass an infrastructure yard) and the lot goes to a **village auction**. Bids step by Rs 100 from about half list price; you may type a higher bid. The highest paying bid wins; if nobody bids, Village Hall keeps the lot. Winning a farm on your own turn opens field work, same as buy or lease. AFK on an auction, trade, acquire, or buy-infra prompt declines that prompt only — it does not skip the whole seat.
 
 On your **end** phase, with no pending prompt, you may **offer a deal**: cash, owned land, and debt (capped at `LOAN_CAP`). The other farmer accepts or turns it down. CPU seats bid, pass, accept, and reject using the same engine.
 

@@ -22,7 +22,7 @@ Walk one item at a time. Commit and push each finished item to `origin/master`.
   7. Preview `/api` proxy (`vite.config.js` `preview` has none). `start.mjs` forwards SIGTERM/SIGINT to both children. — done
   8. Seat tokens: EventSource / session restore should not put the token in the query string (header or cookie). Human tokens still land in `data/rooms.json`. — done (HttpOnly `hk-seat` + `X-Seat-Token`; query `token` ignored; `rooms.json` still stores human tokens).
 9. Hail / pest / labour cards match their text: hail uses live prices (or wipes); pest goes through `forcePay` / insurance; labour is a choice, not auto-pay-or-haircut. Export-ban copy drops onion until the crop exists. — done (hail 50% live listed yield; pest uninsured `forcePay` + insurance log; labour hire-or-skip modal; ban copy spices only).
-10. `awardLot` opens `farmWork` like buy/lease. Optional custom bid field.
+10. `awardLot` opens `farmWork` like buy/lease. Optional custom bid field. — done (current-player farm win opens `farmWork`; infra stays end; auction modal `#bidamt` Rs 100 steps).
 11. Unify FCI with (or show EV against) open harvest in the warehouse modal. Decide: same modifiers minus volatility, or keep MSP-simple and print the numbers.
 12. AI tests (`chooseAction` buy/skip/bid/offer) + HTTP rematch success after `phase === 'over'`.
 

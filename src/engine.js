@@ -1079,6 +1079,10 @@ function awardLot(state, pid, tileId, map, price) {
     f.leasee = null
   }
   log(state, `${p.name} wins ${t.name} at auction for Rs ${price}.`, 'loss', { amount: price, pid, tileId })
+  if (!map && pid === state.turn) {
+    state.pending = { kind: 'farmWork', tileId }
+    state.phase = 'action'
+  }
   return true
 }
 
@@ -1097,6 +1101,7 @@ function settleAuction(state) {
     state.phase = 'end'
     return false
   }
+  if (state.pending && state.pending.kind === 'farmWork') return true
   state.pending = null
   state.phase = 'end'
   return true

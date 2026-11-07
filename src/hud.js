@@ -195,7 +195,10 @@ function auctionModal(state, pending, mine) {
       ${bidder ? t('highBid', escapeHtml(bidder.name), rs(pending.highBid)) : t('noBids')}
       <br/>${t('toBid', actor ? escapeHtml(actor.name) : '', rs(floor))}
     </div>
-    ${mine ? `<div class="actions">
+    ${mine ? `<label class="field" for="bidamt"><span class="field-label">${t('yourBid')}</span>
+      <input id="bidamt" type="number" min="${floor}" step="100" value="${floor}" ${canBid ? '' : 'disabled'} />
+    </label>
+    <div class="actions">
       <button class="work-btn gold" data-act="bid" ${canBid ? '' : 'disabled'}>${t('bidNow', rs(floor))}</button>
       <button class="ghost" data-act="passbid">${t('passBid')}</button>
     </div>` : `<p class="pcash">${t('waitingBid')}</p>`}`)

@@ -101,6 +101,18 @@ test('prices panel lists every crop', () => {
   })
 })
 
+test('auction modal has a custom bid field', () => {
+  const state = createGame(2, ['A', 'B'], { seed: 1 })
+  state.pending = {
+    kind: 'auction', tileId: 1, map: null, starter: 0, highBid: 0, highBidder: null, minBid: 600, passed: [], actor: 0
+  }
+  const html = actionModal(state, state.pending, true)
+  assert.match(html, /id="bidamt"/)
+  assert.match(html, /for="bidamt"/)
+  assert.match(html, /data-act="bid"/)
+  assert.match(html, /step="100"/)
+})
+
 test('labour shortage modal offers hire or skip', () => {
   const state = createGame(2, ['A', 'B'], { seed: 1 })
   state.pending = { kind: 'labour', amount: 600, card: { id: 'labour', title: 'Labour Shortage', text: 'Pay Rs 600 or skip your next harvest bonus.' } }

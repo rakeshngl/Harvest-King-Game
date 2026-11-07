@@ -1347,8 +1347,14 @@ async function handleAct(act) {
     if (!isMyTurn()) return
     const a = state.pending
     const floor = a && a.highBid > 0 ? a.highBid + 100 : (a ? a.minBid : 0)
-    if (await netAct({ type: 'bid', amount: floor })) return
-    bidAuction(state, floor)
+    const el = document.getElementById('bidamt')
+    let amount = floor
+    if (el) {
+      amount = Math.round(Number(el.value) / 100) * 100
+      if (!Number.isFinite(amount) || amount < floor) amount = floor
+    }
+    if (await netAct({ type: 'bid', amount })) return
+    bidAuction(state, amount)
     render()
     return
   }

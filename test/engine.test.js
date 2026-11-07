@@ -214,6 +214,34 @@ test('walk-on starts an auction and a bid awards the lot', () => {
   assert.equal(s.phase, 'end')
 })
 
+test('current player auction win opens farmWork', () => {
+  const s = createGame(2, ['A', 'B'])
+  s.pending = { kind: 'acquire', tileId: 1 }
+  s.phase = 'action'
+  declineAction(s)
+  assert.equal(passAuction(s), true)
+  const floor = s.pending.minBid
+  assert.equal(bidAuction(s, floor + 200), true)
+  assert.equal(s.farms[1].owner, 0)
+  assert.equal(s.players[0].cash, START_CASH - floor - 200)
+  assert.equal(s.pending.kind, 'farmWork')
+  assert.equal(s.pending.tileId, 1)
+  assert.equal(s.phase, 'action')
+})
+
+test('infra auction win ends the turn', () => {
+  const s = createGame(2, ['A', 'B'])
+  s.pending = { kind: 'buyInfra', tileId: 5, map: 'infra' }
+  s.phase = 'action'
+  declineAction(s)
+  assert.equal(passAuction(s), true)
+  const floor = s.pending.minBid
+  assert.equal(bidAuction(s, floor), true)
+  assert.equal(s.infra[5], 0)
+  assert.equal(s.pending, null)
+  assert.equal(s.phase, 'end')
+})
+
 test('all passes leave the lot with Village Hall', () => {
   const s = createGame(2, ['A', 'B'])
   s.pending = { kind: 'acquire', tileId: 1 }

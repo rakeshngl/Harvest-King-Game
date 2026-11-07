@@ -32,7 +32,7 @@ Grounded in the tree at `e5fbb56`. Already shipped and not re-proposed: rooms + 
 - Season-weighted weather (monsoon in kharif, hail in rabi hills).
 - Regroup belts (Vidarbha is `oil`, Shimla is wheat, Baghpat Cane is cotton).
 - FCI vs open-harvest EV in the warehouse modal.
-- Auction: custom bid field; `awardLot` should open `farmWork`.
+- Auction: custom bid field; `awardLot` should open `farmWork`. — done (`#bidamt`; current-player farm win opens `farmWork`).
 - Labour shortage as a cash cost on extra labour in peak season.
 - Organic / know-how as lasting counters (like `enam`), not one-shot cash.
 
