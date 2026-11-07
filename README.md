@@ -389,18 +389,16 @@ The process writes one JSON object per line to stdout (`ts`, `event`, fields). T
 
 ### Reverse proxy
 
-The frontend dev server proxies `/api` to the backend at `http://localhost:3001`:
+The frontend **dev** and **preview** servers proxy `/api` to the backend at `http://localhost:3001`:
 
 ```js
-// vite.config.js
-server: {
-  proxy: {
-    '/api': { target: 'http://localhost:3001', changeOrigin: true, timeout: 0 }
-  }
+// vite.config.js — same block on server and preview
+proxy: {
+  '/api': { target: 'http://localhost:3001', changeOrigin: true, timeout: 0 }
 }
 ```
 
-This keeps a single exposed port for preview environments and avoids cross-origin issues in development.
+`npm run dev` (`start.mjs`) starts the API and Vite together and forwards `SIGTERM` / `SIGINT` to both children so the API can drain. This keeps a single exposed port for preview environments and avoids cross-origin issues in development.
 
 ## API Reference
 
