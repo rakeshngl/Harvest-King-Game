@@ -1,6 +1,8 @@
 import crypto from 'node:crypto'
 
 export const COOKIE = 'hk-vid'
+export const SEAT_COOKIE = 'hk-seat'
+export const SEAT_HEADER = 'x-seat-token'
 
 export function mintId() {
   return crypto.randomBytes(16).toString('hex')

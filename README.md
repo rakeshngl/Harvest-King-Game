@@ -375,7 +375,7 @@ The lobby shows a **Your record** panel: games, wins, win rate, best net worth, 
 
 ### Live sync (SSE)
 
-Actions stay on REST (`POST /api/action`). The client opens `GET /api/events?code=...&token=...` as an EventSource. The server pushes a `snapshot` event on every room change and a comment ping every 15 seconds. `GET /api/session` returns the current snapshot once (used on boot). If several rolls were missed while disconnected, the client queues landing pop-ups from the farm diary so dice and cash changes can be fast-forwarded.
+Actions stay on REST (`POST /api/action`). The client opens `GET /api/events?code=...` as an EventSource. The seat token is an HttpOnly `hk-seat` cookie (minted on create/join); session restore may send `X-Seat-Token` instead. Query `token` is ignored. The server pushes a `snapshot` event on every room change and a comment ping every 15 seconds. `GET /api/session` returns the current snapshot once (used on boot). If several rolls were missed while disconnected, the client queues landing pop-ups from the farm diary so dice and cash changes can be fast-forwarded.
 
 Create is limited to 8 rooms per IP per 10 minutes; join/watch to 20. A started room can be watched by up to 12 spectators. Spectators cannot submit actions.
 
@@ -419,8 +419,8 @@ Base URL: `/api` (proxied to port 3001).
 | POST | `/api/preset` | `{ code, token, preset }` | Host-only, waiting room. Set match length (`short` / `classic` / `long`). |
 | POST | `/api/rematch` | `{ code, token }` | Host-only after `phase === 'over'`. Reseats the same farmers via `beginMatch`. |
 | POST | `/api/action` | `{ code, token, action }` | Submit a validated game action for the current turn. Spectators are rejected. |
-| GET | `/api/session` | `?code&token` | Current snapshot (boot / restore). |
-| GET | `/api/events` | `?code&token` | SSE stream of `snapshot` events. |
+| GET | `/api/session` | `?code` + cookie `hk-seat` or header `X-Seat-Token` | Current snapshot (boot / restore). Query `token` is ignored. |
+| GET | `/api/events` | `?code` + cookie `hk-seat` | SSE stream of `snapshot` events. Query `token` is ignored. |
 
 ### Action types
 

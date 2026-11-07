@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { COOKIE, mintId, pack, unpack, parseCookies } from '../server/visitor.js'
+import { COOKIE, SEAT_COOKIE, SEAT_HEADER, mintId, pack, unpack, parseCookies } from '../server/visitor.js'
 
 const SECRET = 'unit-secret'
 
@@ -26,4 +26,9 @@ test('parseCookies reads hk-vid', () => {
   const got = parseCookies(`a=1; ${COOKIE}=${raw}; b=two`)
   assert.equal(got[COOKIE], raw)
   assert.equal(got.a, '1')
+})
+
+test('seat cookie and header names stay stable', () => {
+  assert.equal(SEAT_COOKIE, 'hk-seat')
+  assert.equal(SEAT_HEADER, 'x-seat-token')
 })

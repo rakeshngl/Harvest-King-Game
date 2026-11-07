@@ -175,16 +175,24 @@ export async function pingPresence(playing) {
   return data
 }
 
+function seatHeaders(sess) {
+  const tok = sess && sess.token ? String(sess.token) : ''
+  return tok ? { 'X-Seat-Token': tok } : {}
+}
+
 export async function waitSnapshot(sess) {
-  const q = new URLSearchParams({ code: sess.code, token: sess.token })
-  const res = await fetch(apiUrl(`/api/session?${q}`), { credentials: creds() })
+  const q = new URLSearchParams({ code: sess.code })
+  const res = await fetch(apiUrl(`/api/session?${q}`), {
+    credentials: creds(),
+    headers: seatHeaders(sess)
+  })
   const data = await res.json().catch(() => ({ error: 'Network error' }))
   if (!res.ok) throw new Error(data.error || 'Session lost')
   return data
 }
 
 export function openEventStream(sess, { onSnapshot, onError, onOpen }) {
-  const q = new URLSearchParams({ code: sess.code, token: sess.token })
+  const q = new URLSearchParams({ code: sess.code })
   const source = new EventSource(apiUrl(`/api/events?${q}`), API ? { withCredentials: true } : undefined)
   source.addEventListener('snapshot', (ev) => {
     try {

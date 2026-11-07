@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { createServer } from 'node:net'
-import { COOKIE, pack } from '../server/visitor.js'
+import { COOKIE, SEAT_COOKIE, pack } from '../server/visitor.js'
 
 const VISITOR_SECRET = 'http-test-secret'
 const dataDir = mkdtempSync(join(tmpdir(), 'hk-http-'))
@@ -59,10 +59,11 @@ async function waitHealth() {
   throw new Error('server did not become healthy\n' + stdout)
 }
 
-async function api(method, path, body, cookie) {
+async function api(method, path, body, cookie, seatToken) {
   const headers = {}
   if (body) headers['Content-Type'] = 'application/json'
   if (cookie) headers.Cookie = cookie
+  if (seatToken) headers['X-Seat-Token'] = seatToken
   const res = await fetch(`http://127.0.0.1:${PORT}${path}`, {
     method,
     headers,
@@ -75,8 +76,8 @@ async function api(method, path, body, cookie) {
   return { status: res.status, json, cookies }
 }
 
-function cookiePair(setCookies) {
-  const row = (setCookies || []).find((c) => String(c).startsWith(COOKIE + '='))
+function cookiePair(setCookies, name = COOKIE) {
+  const row = (setCookies || []).find((c) => String(c).startsWith(name + '='))
   return row ? String(row).split(';')[0] : ''
 }
 
@@ -131,9 +132,32 @@ test('create join start and action drive a seeded table', async () => {
     assert.equal(skipped.status, 200)
   }
 
-  const session = await api('GET', `/api/session?code=${code}&token=${hostTok}`)
+  const seatCookie = cookiePair(created.cookies, SEAT_COOKIE)
+  assert.ok(seatCookie.startsWith(SEAT_COOKIE + '='))
+  assert.equal(seatCookie, `${SEAT_COOKIE}=${hostTok}`)
+
+  const leaked = await api('GET', `/api/session?code=${code}&token=${hostTok}`)
+  assert.equal(leaked.status, 404)
+
+  const session = await api('GET', `/api/session?code=${code}`, null, seatCookie)
   assert.equal(session.status, 200)
   assert.equal(session.json.code, code)
+
+  const viaHeader = await api('GET', `/api/session?code=${code}`, null, null, hostTok)
+  assert.equal(viaHeader.status, 200)
+  assert.equal(viaHeader.json.code, code)
+
+  const ac = new AbortController()
+  const events = await fetch(`http://127.0.0.1:${PORT}/api/events?code=${code}`, {
+    headers: { Cookie: seatCookie },
+    signal: ac.signal
+  })
+  assert.equal(events.status, 200)
+  assert.match(String(events.headers.get('content-type') || ''), /text\/event-stream/)
+  ac.abort()
+
+  const eventsLeak = await api('GET', `/api/events?code=${code}&token=${hostTok}`)
+  assert.equal(eventsLeak.status, 404)
 })
 
 test('cpu seats persist without tokens and stats write atomically', async () => {

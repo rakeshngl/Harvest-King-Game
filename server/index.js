@@ -16,7 +16,7 @@ import {
 import { LOAN_STEP, DEFAULT_PRESET } from '../src/data.js'
 import { dailyCode } from '../src/rng.js'
 import { PERSONAS, CPU_NAMES, chooseAction } from '../src/ai.js'
-import { COOKIE as VISITOR_COOKIE, mintId, pack, unpack, parseCookies } from './visitor.js'
+import { COOKIE as VISITOR_COOKIE, SEAT_COOKIE, SEAT_HEADER, mintId, pack, unpack, parseCookies } from './visitor.js'
 
 const PORT = Number(process.env.PORT) || 3001
 const rooms = new Map()
@@ -403,7 +403,7 @@ function visitorCookieFlags() {
 function corsHeaders() {
   const h = {
     'Access-Control-Allow-Origin': CORS_ORIGIN,
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Seat-Token',
     'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
   }
   if (CORS_ORIGIN !== '*') h['Access-Control-Allow-Credentials'] = 'true'
@@ -422,6 +422,53 @@ function withVisitor(req) {
     id: minted,
     headers: { 'Set-Cookie': `${VISITOR_COOKIE}=${pack(minted, VISITOR_SECRET)}; ${visitorCookieFlags()}` }
   }
+}
+
+function seatCookieName(code) {
+  const c = String(code || '').toUpperCase()
+  return c ? `${SEAT_COOKIE}-${c}` : SEAT_COOKIE
+}
+
+function seatCookieHeader(tok, code) {
+  const flags = visitorCookieFlags()
+  const named = `${seatCookieName(code)}=${tok}; ${flags}`
+  if (!code) return named
+  return [`${SEAT_COOKIE}=${tok}; ${flags}`, named]
+}
+
+function mergeHeaders(...parts) {
+  const out = {}
+  const cookies = []
+  for (const part of parts) {
+    if (!part) continue
+    for (const [k, v] of Object.entries(part)) {
+      if (k.toLowerCase() === 'set-cookie') {
+        if (Array.isArray(v)) cookies.push(...v)
+        else if (v) cookies.push(v)
+      } else {
+        out[k] = v
+      }
+    }
+  }
+  if (cookies.length === 1) out['Set-Cookie'] = cookies[0]
+  else if (cookies.length > 1) out['Set-Cookie'] = cookies
+  return out
+}
+
+function withSeat(tok, extra = {}, code) {
+  if (!tok) return extra
+  return mergeHeaders(extra, { 'Set-Cookie': seatCookieHeader(tok, code) })
+}
+
+function readSeatToken(req, code) {
+  const header = String(req.headers[SEAT_HEADER] || '').trim()
+  if (/^[0-9a-f]{32}$/i.test(header)) return header.toLowerCase()
+  const jar = parseCookies(req.headers.cookie)
+  const named = String(jar[seatCookieName(code)] || '').trim()
+  if (/^[0-9a-f]{32}$/i.test(named)) return named.toLowerCase()
+  const latest = String(jar[SEAT_COOKIE] || '').trim()
+  if (/^[0-9a-f]{32}$/i.test(latest)) return latest.toLowerCase()
+  return ''
 }
 
 function touchPresence(visitor, playing) {
@@ -449,12 +496,23 @@ function token() {
 
 function json(res, status, body, extra = {}) {
   const data = JSON.stringify(body)
-  res.writeHead(status, {
+  const headers = {
     'Content-Type': 'application/json',
     'Cache-Control': 'no-store',
-    ...corsHeaders(),
-    ...extra
-  })
+    ...corsHeaders()
+  }
+  const cookies = []
+  for (const [k, v] of Object.entries(extra || {})) {
+    if (k.toLowerCase() === 'set-cookie') {
+      if (Array.isArray(v)) cookies.push(...v)
+      else if (v) cookies.push(v)
+    } else {
+      headers[k] = v
+    }
+  }
+  if (cookies.length === 1) headers['Set-Cookie'] = cookies[0]
+  else if (cookies.length > 1) headers['Set-Cookie'] = cookies
+  res.writeHead(status, headers)
   res.end(data)
 }
 
@@ -940,7 +998,7 @@ const server = http.createServer(async (req, res) => {
       rooms.set(room.code, room)
       saveRooms()
       logEvent('room.create', { code: room.code, locked: !!room.passHash })
-      json(res, 200, { ...snapshot(room, 0), token: room.players[0].token }, vid.headers)
+      json(res, 200, { ...snapshot(room, 0), token: room.players[0].token }, withSeat(room.players[0].token, vid.headers, room.code))
       return
     }
 
@@ -967,7 +1025,7 @@ const server = http.createServer(async (req, res) => {
         if (body.name) existing.name = farmerName(body.name, existing.name)
         maybePassHost(room)
         bump(room)
-        json(res, 200, { ...snapshot(room, existing.seat), token: existing.token, resumed: true }, vid.headers)
+        json(res, 200, { ...snapshot(room, existing.seat), token: existing.token, resumed: true }, withSeat(existing.token, vid.headers, room.code))
         return
       }
       const watch = !!body.watch || !!body.spectator
@@ -989,7 +1047,7 @@ const server = http.createServer(async (req, res) => {
         const p = { seat: -1, name, token: token(), seen: Date.now(), spectator: true }
         room.spectators.push(p)
         bump(room)
-        json(res, 200, { ...snapshot(room, -1), token: p.token }, vid.headers)
+        json(res, 200, { ...snapshot(room, -1), token: p.token }, withSeat(p.token, vid.headers, room.code))
         return
       }
       if (room.players.length >= 4) {
@@ -1000,7 +1058,7 @@ const server = http.createServer(async (req, res) => {
       const p = { seat: room.players.length, name, token: token(), seen: Date.now(), visitor: vid.id }
       room.players.push(p)
       bump(room)
-      json(res, 200, { ...snapshot(room, p.seat), token: p.token }, vid.headers)
+      json(res, 200, { ...snapshot(room, p.seat), token: p.token }, withSeat(p.token, vid.headers, room.code))
       return
     }
 
@@ -1240,7 +1298,7 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && path === '/api/session') {
       const room = rooms.get(String(url.searchParams.get('code') || '').toUpperCase())
-      const tok = url.searchParams.get('token') || ''
+      const tok = readSeatToken(req, url.searchParams.get('code'))
       const p = room && memberByToken(room, tok)
       if (!room || !p) {
         json(res, 404, { error: 'Session not found' })
@@ -1248,13 +1306,13 @@ const server = http.createServer(async (req, res) => {
       }
       p.seen = Date.now()
       if (maybePassHost(room)) bump(room)
-      json(res, 200, snapshot(room, p.seat))
+      json(res, 200, snapshot(room, p.seat), withSeat(tok, {}, room.code))
       return
     }
 
     if (req.method === 'GET' && path === '/api/events') {
       const room = rooms.get(String(url.searchParams.get('code') || '').toUpperCase())
-      const tok = url.searchParams.get('token') || ''
+      const tok = readSeatToken(req, url.searchParams.get('code'))
       const p = room && memberByToken(room, tok)
       if (!room || !p) {
         json(res, 404, { error: 'Session not found' })
@@ -1266,6 +1324,7 @@ const server = http.createServer(async (req, res) => {
         'Cache-Control': 'no-store',
         Connection: 'keep-alive',
         'X-Accel-Buffering': 'no',
+        'Set-Cookie': seatCookieHeader(tok, room.code),
         ...corsHeaders()
       })
       if (typeof res.flushHeaders === 'function') res.flushHeaders()
