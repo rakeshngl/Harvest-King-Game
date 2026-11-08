@@ -1,5 +1,5 @@
 import { TILES, CROPS, GROUPS, LOAN_STEP, LOAN_CAP } from './data.js'
-import { currentPlayer, farmsOf, seasonOf, groupOwned, actingSeat, raisableLots } from './engine.js'
+import { currentPlayer, farmsOf, seasonOf, groupOwned, actingSeat, raisableLots, readyHarvestLots, harvestQuote } from './engine.js'
 import { rngNext } from './rng.js'
 
 export const PERSONAS = [
@@ -244,9 +244,12 @@ function nabardAction(state, p, knobs) {
 }
 
 function fciAction(state, p) {
-  const ready = farmsOf(state, p.id).filter((f) => f.stage === 'ripe' || (f.stage === 'seeded' && f.growLeft <= 0))
+  const ready = readyHarvestLots(state, p.id)
   if (!ready.length) return { type: 'skip' }
-  if (state.marketMod < 0.95 || ['hail', 'flood', 'drought'].includes(state.weather.id)) return { type: 'fci' }
+  const fci = ready.reduce((n, f) => n + ((harvestQuote(state, f.id, 'fci', p.id) || {}).revenue || 0), 0)
+  const open = ready.reduce((n, f) => n + ((harvestQuote(state, f.id, 'open', p.id) || {}).revenue || 0), 0)
+  if (fci >= open) return { type: 'fci' }
+  if (['hail', 'flood', 'drought'].includes(state.weather.id)) return { type: 'fci' }
   if (personaOf(p).id === 'thrifty') return { type: 'fci' }
   return { type: 'skip' }
 }

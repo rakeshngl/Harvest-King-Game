@@ -97,6 +97,8 @@ yield = crop.yield
 
 Revenue is `yield * currentPrice`. Listed prices already include `marketMod` from the last season tick or market card; harvest does not multiply it again. Profit/loss is revenue minus the seed and preparation cost basis.
 
+Landing on **Food Warehouse** lifts every ripe lot at listed price + 10%. Quantity uses the same field work as an open harvest (weather, irrigation, know-how, belt, tractor, seed bank) without volatility, hail/pest rolls, spoilage, eNAM, or market-yard extras. Fertility drops the same 0.08. The modal prints warehouse vs mandi EV so you can keep grain.
+
 ### Weather
 
 Each full round of turns updates the season and rolls new weather. Passing Village Hall pays harvest dues and ticks leases; it does not advance the season. Weather scales both growth and water availability.

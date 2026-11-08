@@ -101,6 +101,19 @@ test('prices panel lists every crop', () => {
   })
 })
 
+test('warehouse modal compares FCI and mandi payouts', () => {
+  const state = createGame(2, ['A', 'B'], { seed: 1 })
+  state.farms[1].owner = 0
+  state.farms[1].stage = 'ripe'
+  state.farms[1].crop = 'bajra'
+  state.farms[1].fertility = 1
+  state.pending = { kind: 'fci' }
+  const html = actionModal(state, state.pending, true)
+  assert.match(html, /data-act="fci"/)
+  assert.match(html, /warehouse/)
+  assert.match(html, /mandi/i)
+})
+
 test('auction modal has a custom bid field', () => {
   const state = createGame(2, ['A', 'B'], { seed: 1 })
   state.pending = {

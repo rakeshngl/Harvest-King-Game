@@ -4,7 +4,8 @@ import {
   createGame, harvest, forcePay, transfer, buyFarm, prepareLand, seedLand, skipTurn,
   nextTurn, netWorth, applyMove, takeLoan, sellToFci, declineAction, bidAuction, passAuction,
   offerTrade, acceptTrade, rejectTrade, actingSeat, finalStandings, presetById, rollDice, LOG_CAP,
-  raiseLot, giveUpRaise, mortgageFarm, fireSale, raisableLots, mortgageValue, chooseLabour
+  raiseLot, giveUpRaise, mortgageFarm, fireSale, raisableLots, mortgageValue, chooseLabour,
+  harvestQuote, readyHarvestLots
 } from '../src/engine.js'
 import { START_CASH, WIN_NET, PASS_GO, WEATHER, TILES, CROPS, INTEREST, SEASON_PRESETS, DEFAULT_PRESET, KISAN_CARDS } from '../src/data.js'
 import { dailySeed } from '../src/rng.js'
@@ -434,6 +435,33 @@ test('sellToFci clears irrigation and insurance', () => {
   assert.equal(s.farms[1].crop, null)
   assert.equal(s.farms[1].irrigated, false)
   assert.equal(s.farms[1].insured, false)
+})
+
+test('sellToFci uses harvest modifiers minus luck and drops fertility', () => {
+  const s = createGame(2, ['A', 'B'])
+  s.weather = FAIR
+  s.marketMod = 1
+  s.prices.bajra = CROPS.bajra.price
+  ripeField(s, 1, 'bajra')
+  s.farms[1].irrigated = true
+  const quote = harvestQuote(s, 1, 'fci', 0)
+  const open = harvestQuote(s, 1, 'open', 0)
+  const before = s.players[0].cash
+  assert.equal(sellToFci(s), true)
+  assert.equal(s.players[0].cash, before + quote.revenue)
+  assert.ok(quote.revenue > open.revenue)
+  assert.equal(s.farms[1].fertility, 0.92)
+  assert.equal(readyHarvestLots(s, 0).length, 0)
+})
+
+test('open harvest quote matches expected yield without luck', () => {
+  const s = createGame(2, ['A', 'B'])
+  s.weather = FAIR
+  s.marketMod = 1
+  s.prices.bajra = CROPS.bajra.price
+  ripeField(s, 1, 'bajra')
+  const quote = harvestQuote(s, 1, 'open', 0)
+  assert.equal(quote.revenue, expectedHarvest(s, 1))
 })
 
 test('short preset crowns a farmer at the lower winNet', () => {

@@ -3,7 +3,7 @@ import { t } from './i18n.js'
 import { escapeHtml } from './format.js'
 import { iconHtml } from './icons.js'
 import { diceHtml } from './dice.js'
-import { currentPlayer, netWorth, farmsOf, seasonOf, actingSeat, raisableLots, mortgageValue, redeemCost, finalStandings } from './engine.js'
+import { currentPlayer, netWorth, farmsOf, seasonOf, actingSeat, raisableLots, mortgageValue, redeemCost, finalStandings, readyHarvestLots, harvestQuote } from './engine.js'
 import { PERSONAS } from './ai.js'
 import { chromeToggleHtml, offlineBannerHtml } from './chrome.js'
 import { boardTilesHtml } from './board.js'
@@ -326,10 +326,25 @@ export function actionModal(state, pending, mine) {
   }
   if (pending.kind === 'farmWork') return farmWorkModal(state, pending.tileId)
   if (pending.kind === 'fci') {
-    const ready = farmsOf(state, p.id).filter((f) => f.stage === 'ripe' || (f.stage === 'seeded' && f.growLeft <= 0))
+    const ready = readyHarvestLots(state, p.id)
+    const lots = ready.map((f) => ({
+      f,
+      fci: harvestQuote(state, f.id, 'fci', p.id),
+      open: harvestQuote(state, f.id, 'open', p.id)
+    }))
+    const fciTotal = lots.reduce((n, row) => n + (row.fci ? row.fci.revenue : 0), 0)
+    const openTotal = lots.reduce((n, row) => n + (row.open ? row.open.revenue : 0), 0)
+    const rows = lots.map((row) => {
+      const name = escapeHtml(tileName(row.f.tile))
+      const crop = row.f.crop ? escapeHtml(cropName(row.f.crop)) : ''
+      const fci = row.fci ? rs(row.fci.revenue) : rs(0)
+      const open = row.open ? rs(row.open.revenue) : rs(0)
+      return `<div>${name}${crop ? ' · ' + crop : ''} — ${t('warehouseLot', fci, open)}</div>`
+    }).join('')
     return wrapModal(`
       <h2>${t('warehouse')}</h2>
       <p>${t('warehouseP', ready.length)}</p>
+      ${ready.length ? `<div class="farm-meta">${rows}<br/>${t('warehouseVs', rs(fciTotal), rs(openTotal))}</div>` : ''}
       <div class="actions">
         <button class="work-btn alt" data-act="fci" ${ready.length ? '' : 'disabled'}>${t('sellWh')}</button>
         <button class="ghost" data-act="skip">${t('keepGrain')}</button>

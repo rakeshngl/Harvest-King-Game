@@ -908,12 +908,7 @@ export function tendCrop(state, tileId) {
   return true
 }
 
-export function harvest(state, tileId) {
-  const p = currentPlayer(state)
-  const t = TILES[tileId]
-  const f = state.farms[tileId]
-  if (!canWork(state, tileId) || f.stage !== 'ripe' || !f.crop) return false
-  const crop = CROPS[f.crop]
+function baseYield(state, p, f, t, crop) {
   const w = state.weather
   let y = crop.yield * f.fertility * w.mod
   if (f.irrigated) y *= 1.2
@@ -924,8 +919,61 @@ export function harvest(state, tileId) {
   }
   if (p.knowHow > 0) y *= 1.12
   if (groupOwned(state, p.id, t.group)) y *= 1.15
-  const ownsSeed = state.infra[25] === p.id
-  if (ownsSeed) y *= 1.08
+  if (state.infra[25] === p.id) y *= 1.08
+  if (state.infra[5] === p.id) y *= 1.06
+  return y
+}
+
+function floodCut(t, crop, w, y) {
+  if (w.id === 'flood' && t.soil === 'alluvial' && crop.water < 0.7) return y * 0.7
+  return y
+}
+
+function openPrice(state, p, crop) {
+  let price = state.prices[crop.id]
+  if (p.enam > 0) price *= 1.05
+  if (state.infra[35] === p.id) price *= 1.06
+  return price
+}
+
+function withSkipBonus(p, revenue) {
+  if (!p.skipHarvestBonus) return revenue
+  return Math.round(revenue * 0.85)
+}
+
+export function readyHarvestLots(state, pid) {
+  return farmsOf(state, pid).filter((f) => f.stage === 'ripe' || (f.stage === 'seeded' && f.growLeft <= 0))
+}
+
+export function harvestQuote(state, tileId, channel, pid) {
+  const p = state.players[pid != null ? pid : state.turn]
+  const t = TILES[tileId]
+  const f = state.farms[tileId]
+  if (!p || !t || !f || !f.crop) return null
+  const crop = CROPS[f.crop]
+  if (!crop) return null
+  let y = floodCut(t, crop, state.weather, baseYield(state, p, f, t, crop))
+  y = Math.max(0, y)
+  const price = channel === 'fci' ? state.prices[crop.id] * 1.1 : openPrice(state, p, crop)
+  const revenue = withSkipBonus(p, Math.round(y * price))
+  return {
+    tileId,
+    cropId: crop.id,
+    qty: Math.round(y * 10) / 10,
+    price: Math.round(price),
+    revenue,
+    pnl: revenue - crop.seed - t.prepare
+  }
+}
+
+export function harvest(state, tileId) {
+  const p = currentPlayer(state)
+  const t = TILES[tileId]
+  const f = state.farms[tileId]
+  if (!canWork(state, tileId) || f.stage !== 'ripe' || !f.crop) return false
+  const crop = CROPS[f.crop]
+  const w = state.weather
+  let y = baseYield(state, p, f, t, crop)
   const vol = 1 + (rngNext(state) * 2 - 1) * crop.vol
   y *= vol
   let disaster = false
@@ -934,10 +982,8 @@ export function harvest(state, tileId) {
     disaster = true
     log(state, `Hail shredded part of the ${t.name} harvest.`, 'loss', { tileId })
   }
-  if (w.id === 'flood' && t.soil === 'alluvial' && crop.water < 0.7) {
-    y *= 0.7
-    disaster = true
-  }
+  y = floodCut(t, crop, w, y)
+  if (w.id === 'flood' && t.soil === 'alluvial' && crop.water < 0.7) disaster = true
   if (rngNext(state) < 0.16) {
     disaster = true
     if (f.insured) {
@@ -950,12 +996,7 @@ export function harvest(state, tileId) {
     }
   }
   y = Math.max(0, y)
-  let price = state.prices[crop.id]
-  if (p.enam > 0) price *= 1.05
-  const ownsYard = state.infra[35] === p.id
-  if (ownsYard) price *= 1.06
-  const ownsTractor = state.infra[5] === p.id
-  if (ownsTractor) y *= 1.06
+  const price = openPrice(state, p, crop)
   const ownsCold = state.infra[15] === p.id
   if (!ownsCold && rngNext(state) < 0.12) {
     y *= 0.75
@@ -968,7 +1009,7 @@ export function harvest(state, tileId) {
   let revenue = Math.round(y * price)
   const costBasis = crop.seed + t.prepare
   if (p.skipHarvestBonus) {
-    revenue = Math.round(revenue * 0.85)
+    revenue = withSkipBonus(p, revenue)
     p.skipHarvestBonus = false
   }
   const pnl = revenue - costBasis
@@ -990,7 +1031,7 @@ export function harvest(state, tileId) {
 
 export function sellToFci(state) {
   const p = currentPlayer(state)
-  const ripe = farmsOf(state, p.id).filter((f) => f.stage === 'ripe' || (f.stage === 'seeded' && f.growLeft <= 0))
+  const ripe = readyHarvestLots(state, p.id)
   if (!ripe.length) {
     log(state, `${p.name} has no ready harvest for the food warehouse.`, 'info', { pid: p.id })
     state.phase = 'end'
@@ -1001,15 +1042,20 @@ export function sellToFci(state) {
     const f = state.farms[row.id]
     f.stage = 'ripe'
     const crop = CROPS[f.crop]
-    const msp = Math.round(state.prices[crop.id] * 1.1)
-    const qty = Math.round(crop.yield * f.fertility * 0.9)
-    const revenue = qty * msp
-    p.cash += revenue
-    f.lastYield = qty
-    f.lastPnl = revenue - crop.seed
-    log(state, `Warehouse lifts ${crop.name} from ${TILES[row.id].name} at support price Rs ${msp} x ${qty} = Rs ${revenue}.`, 'gain', { amount: revenue, pid: p.id, tileId: row.id })
+    const quote = harvestQuote(state, row.id, 'fci', p.id)
+    if (!crop || !quote) return
+    p.cash += quote.revenue
+    f.lastYield = quote.qty
+    f.lastPnl = quote.pnl
+    log(state, `Warehouse lifts ${crop.name} from ${TILES[row.id].name} at support price Rs ${quote.price} x ${quote.qty} = Rs ${quote.revenue}.`, 'gain', { amount: quote.revenue, pid: p.id, tileId: row.id })
+    f.fertility = clamp(f.fertility - 0.08, 0.5, 2)
     clearCrop(f)
+    if (f.leasee === p.id && f.leaseTurns <= 1) {
+      f.leasee = null
+      f.leaseTurns = 0
+    }
   })
+  p.skipHarvestBonus = false
   state.phase = 'end'
   state.pending = null
   checkWin(state)

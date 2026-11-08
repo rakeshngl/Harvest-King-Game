@@ -31,7 +31,7 @@ Grounded in the tree at `e5fbb56`. Already shipped and not re-proposed: rooms + 
 - More Farmer/Market cards via existing `fn` keys.
 - Season-weighted weather (monsoon in kharif, hail in rabi hills).
 - Regroup belts (Vidarbha is `oil`, Shimla is wheat, Baghpat Cane is cotton).
-- FCI vs open-harvest EV in the warehouse modal.
+- FCI vs open-harvest EV in the warehouse modal. — done (same modifiers minus luck; MSP +10%; modal prints both).
 - Auction: custom bid field; `awardLot` should open `farmWork`. — done (`#bidamt`; current-player farm win opens `farmWork`).
 - Labour shortage as a cash cost on extra labour in peak season.
 - Organic / know-how as lasting counters (like `enam`), not one-shot cash.
@@ -49,7 +49,7 @@ Multi-replica, WebSockets, mid-game seat late-join. One Coolify replica + specta
 ### Economy / farming
 
 - Mortgage is automatic, idle-only, not a player choice. Ripe land and infra never fire-sale. — done (player-chosen raise: mortgage farms or fire-sale infra/utility).
-- FCI harvest ignores weather, irrigation, insurance, pests, tractor/seed/yard/cold, `enam`, `knowHow`, group bonus, volatility; does not reset fertility.
+- FCI harvest ignores weather, irrigation, insurance, pests, tractor/seed/yard/cold, `enam`, `knowHow`, group bonus, volatility; does not reset fertility. — done (shared yield minus luck/pests/spoilage/eNAM/yard; fertility drops 0.08).
 - Tax tiles say “X% or flat” but the engine uses `Math.max(flat, pct)`. — done (EN/HI/TA copy is “the greater of”).
 - Insurance and irrigation are permanent once bought. — done (`clearCrop` on harvest/FCI/wipe/mortgage/lease expiry).
 - Season clock ticks on every Village Hall pass, not per round. — done (full round via `nextTurn` wrap).
