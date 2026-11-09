@@ -5,7 +5,7 @@ import {
   nextTurn, netWorth, applyMove, takeLoan, sellToFci, declineAction, bidAuction, passAuction,
   offerTrade, acceptTrade, rejectTrade, actingSeat, finalStandings, presetById, rollDice, LOG_CAP,
   raiseLot, giveUpRaise, mortgageFarm, fireSale, raisableLots, mortgageValue, chooseLabour,
-  harvestQuote, readyHarvestLots
+  harvestQuote, readyHarvestLots, irrigate, insure
 } from '../src/engine.js'
 import { START_CASH, WIN_NET, PASS_GO, WEATHER, TILES, CROPS, INTEREST, SEASON_PRESETS, DEFAULT_PRESET, KISAN_CARDS } from '../src/data.js'
 import { dailySeed } from '../src/rng.js'
@@ -423,6 +423,60 @@ test('irrigation lasts until the crop is cleared', () => {
   nextTurn(s)
   assert.equal(s.farms[1].irrigated, true)
   assert.equal(s.farms[1].insured, true)
+})
+
+test('idle land cannot be irrigated or insured', () => {
+  const s = createGame(2, ['A', 'B'])
+  s.farms[1].owner = 0
+  s.farms[1].stage = 'idle'
+  assert.equal(irrigate(s, 1), false)
+  assert.equal(insure(s, 1), false)
+  assert.equal(s.farms[1].irrigated, false)
+  assert.equal(s.farms[1].insured, false)
+  s.farms[1].stage = 'prepared'
+  assert.equal(irrigate(s, 1), false)
+  assert.equal(insure(s, 1), false)
+})
+
+test('seeded land can be irrigated and insured', () => {
+  const s = createGame(2, ['A', 'B'])
+  s.farms[1].owner = 0
+  s.farms[1].stage = 'seeded'
+  s.farms[1].crop = 'bajra'
+  s.farms[1].growLeft = 1
+  const cash = s.players[0].cash
+  assert.equal(irrigate(s, 1), true)
+  assert.equal(insure(s, 1), true)
+  assert.equal(s.farms[1].irrigated, true)
+  assert.equal(s.farms[1].insured, true)
+  assert.equal(s.players[0].cash, cash - 900 - 600)
+})
+
+test('mortgage clears idle irrigation and insurance', () => {
+  const s = createGame(2, ['A', 'B'])
+  s.farms[1].owner = 0
+  s.farms[1].stage = 'idle'
+  s.farms[1].irrigated = true
+  s.farms[1].insured = true
+  assert.equal(mortgageFarm(s, 1), true)
+  assert.equal(s.farms[1].irrigated, false)
+  assert.equal(s.farms[1].insured, false)
+})
+
+test('village lease expiry clears idle irrigation and insurance', () => {
+  const s = createGame(2, ['A', 'B'])
+  const restore = stubRandom(s, 0.5)
+  s.farms[1].leasee = 0
+  s.farms[1].leaseTurns = 1
+  s.farms[1].stage = 'idle'
+  s.farms[1].irrigated = true
+  s.farms[1].insured = true
+  s.players[0].pos = 38
+  applyMove(s, [1, 1])
+  restore()
+  assert.equal(s.farms[1].leasee, null)
+  assert.equal(s.farms[1].irrigated, false)
+  assert.equal(s.farms[1].insured, false)
 })
 
 test('sellToFci clears irrigation and insurance', () => {

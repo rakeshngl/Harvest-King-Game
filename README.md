@@ -70,7 +70,7 @@ idle -> prepared -> seeded -> ripe -> (harvest) -> idle
 4. **Grow** - At the start of your turn, each of your seeded fields advances its growth counter. When it reaches zero the crop becomes `ripe`.
 5. **Harvest** - Collect a yield and get paid. The engine computes yield from crop base yield, field fertility, weather, irrigation, knowledge, group ownership, and a volatility roll. Price comes from the current market. The log reports profit or loss against the seed and preparation cost basis.
 
-You may also **tend** a growing crop to raise fertility, **irrigate** a field, or **insure** it against disaster. Irrigation and insurance last for that crop only — harvest, warehouse, mortgage, wipe, and lease expiry clear them. After your main action has resolved, you get one free "labour" farm action per turn (working one of your fields).
+You may also **tend** a growing crop to raise fertility, **irrigate** a seeded or ripe field, or **insure** it against disaster. Irrigation and insurance last for that crop only — harvest, warehouse, mortgage, wipe, and village lease expiry clear them. Idle or prepared land cannot carry the flags. After your main action has resolved, you get one free "labour" farm action per turn (working one of your fields).
 
 ### Auctions and trades
 

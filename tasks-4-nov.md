@@ -25,6 +25,7 @@ Walk one item at a time. Commit and push each finished item to `origin/master`.
 10. `awardLot` opens `farmWork` like buy/lease. Optional custom bid field. — done (current-player farm win opens `farmWork`; infra stays end; auction modal `#bidamt` Rs 100 steps).
 11. Unify FCI with (or show EV against) open harvest in the warehouse modal. Decide: same modifiers minus volatility, or keep MSP-simple and print the numbers. — done (same field work minus luck; MSP +10%; modal prints warehouse vs mandi).
 12. AI tests (`chooseAction` buy/skip/bid/offer) + HTTP rematch success after `phase === 'over'`. — done (`test/ai.test.js`; host rematch after skip-to-over on short preset).
+13. Idle irrigate/insure cannot outlive the crop. — done (`irrigate`/`insure` require seeded or ripe; mortgage and village lease expiry always `clearCrop`).
 
 ## Later (fits current engine)
 
@@ -58,7 +59,7 @@ Multi-replica, WebSockets, mid-game seat late-join. One Coolify replica + specta
 - FCI vs mandi is not a real choice until modifiers or an EV line exist. — done (shared yield minus luck; warehouse modal prints both).
 - Tax “or” is a lie.
 - Cards (hail, pest, labour, onion ban, organic) still disagree with their text.
-- Irrigation on idle land is a leftover snowball after sequence 12.
+- Irrigation on idle land is a leftover snowball after sequence 12. — done (seeded/ripe only; mortgage and village lease expiry clear flags).
 
 ### Ops
 

@@ -126,6 +126,29 @@ test('auction modal has a custom bid field', () => {
   assert.match(html, /step="100"/)
 })
 
+test('idle farm work has no irrigate or insure buttons', () => {
+  const state = createGame(2, ['A', 'B'], { seed: 1 })
+  state.farms[1].owner = 0
+  state.farms[1].stage = 'idle'
+  state.pending = { kind: 'farmWork', tileId: 1 }
+  const html = actionModal(state, state.pending, true)
+  assert.match(html, /data-act="prepare"/)
+  assert.doesNotMatch(html, /data-act="irrigate"/)
+  assert.doesNotMatch(html, /data-act="insure"/)
+})
+
+test('seeded farm work offers irrigate and insure', () => {
+  const state = createGame(2, ['A', 'B'], { seed: 1 })
+  state.farms[1].owner = 0
+  state.farms[1].stage = 'seeded'
+  state.farms[1].crop = 'bajra'
+  state.farms[1].growLeft = 1
+  state.pending = { kind: 'farmWork', tileId: 1 }
+  const html = actionModal(state, state.pending, true)
+  assert.match(html, /data-act="irrigate"/)
+  assert.match(html, /data-act="insure"/)
+})
+
 test('labour shortage modal offers hire or skip', () => {
   const state = createGame(2, ['A', 'B'], { seed: 1 })
   state.pending = { kind: 'labour', amount: 600, card: { id: 'labour', title: 'Labour Shortage', text: 'Pay Rs 600 or skip your next harvest bonus.' } }

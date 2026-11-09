@@ -227,9 +227,7 @@ function tickLeases(state, p) {
       if (f.leaseTurns <= 0) {
         f.leasee = null
         f.leaseTurns = 0
-        if (f.stage !== 'idle' && f.owner == null) {
-          clearCrop(f)
-        }
+        if (f.owner == null) clearCrop(f)
         log(state, `A lease held by ${p.name} expired.`, 'info', { pid: p.id })
       }
     }
@@ -437,7 +435,7 @@ export function mortgageFarm(state, tileId, opts = {}) {
   const cash = mortgageValue(tileId)
   const hadCrop = f.stage !== 'idle'
   f.mortgaged = true
-  if (hadCrop) clearCrop(f)
+  clearCrop(f)
   p.cash += cash
   log(state, `${p.name} mortgages ${t.name} for Rs ${cash}.${hadCrop ? ' Standing crop is lost.' : ''}`, 'loss', { amount: cash, pid: p.id, tileId })
   return true
@@ -868,10 +866,14 @@ export function seedLand(state, tileId, cropId) {
   return true
 }
 
+function hasStandingCrop(f) {
+  return !!f && (f.stage === 'seeded' || f.stage === 'ripe')
+}
+
 export function irrigate(state, tileId) {
   const p = currentPlayer(state)
   const f = state.farms[tileId]
-  if (!canWork(state, tileId) || f.irrigated) return false
+  if (!canWork(state, tileId) || !hasStandingCrop(f) || f.irrigated) return false
   const ownsWater = state.utilities[12] === p.id || state.utilities[28] === p.id
   const cost = ownsWater ? 400 : 900
   if (p.cash < cost) return false
@@ -884,7 +886,7 @@ export function irrigate(state, tileId) {
 export function insure(state, tileId) {
   const p = currentPlayer(state)
   const f = state.farms[tileId]
-  if (!canWork(state, tileId) || f.insured) return false
+  if (!canWork(state, tileId) || !hasStandingCrop(f) || f.insured) return false
   const cost = 600
   if (p.cash < cost) return false
   p.cash -= cost

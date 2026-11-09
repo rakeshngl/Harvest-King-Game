@@ -268,8 +268,12 @@ function farmWorkModal(state, tileId) {
     if (f.stage === 'ripe') {
       acts.push(`<button class="work-btn alt" data-act="harvest">${t('harvestNow')}</button>`)
     }
-    if (!f.irrigated) acts.push(`<button class="work-btn" data-act="irrigate">${t('irrigate')} ${rs((state.utilities[12] === p.id || state.utilities[28] === p.id) ? 400 : 900)}</button>`)
-    if (!f.insured) acts.push(`<button class="work-btn" data-act="insure">${t('insure')} ${rs(600)}</button>`)
+    if ((f.stage === 'seeded' || f.stage === 'ripe') && !f.irrigated) {
+      acts.push(`<button class="work-btn" data-act="irrigate">${t('irrigate')} ${rs((state.utilities[12] === p.id || state.utilities[28] === p.id) ? 400 : 900)}</button>`)
+    }
+    if ((f.stage === 'seeded' || f.stage === 'ripe') && !f.insured) {
+      acts.push(`<button class="work-btn" data-act="insure">${t('insure')} ${rs(600)}</button>`)
+    }
     if (f.owner === p.id) {
       acts.push(`<button class="ghost" data-act="mortgage">${t('mortgagePlot', rs(mortgageValue(tileId)))}</button>`)
       if (f.stage !== 'idle') body += `<p>${t('ripeMortgage')}</p>`
