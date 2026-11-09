@@ -68,7 +68,7 @@ Multi-replica, WebSockets, mid-game seat late-join. One Coolify replica + specta
 ### AI
 
 - Never offers a trade (receive-only). `DIFF.gamble` unused. Difficulty is miss chance only. — done (CPU cash-for-land offers; `gamble` stretches buys/bids; hard `luck` 0.12).
-- No AI tests. Trade eval is list-price arithmetic.
+- No AI tests. Trade eval is list-price arithmetic. — tests done (`test/ai.test.js` buy/skip/bid/offer); eval still list-price.
 
 ### Ops
 

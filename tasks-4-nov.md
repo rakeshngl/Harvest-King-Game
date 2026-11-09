@@ -24,7 +24,7 @@ Walk one item at a time. Commit and push each finished item to `origin/master`.
 9. Hail / pest / labour cards match their text: hail uses live prices (or wipes); pest goes through `forcePay` / insurance; labour is a choice, not auto-pay-or-haircut. Export-ban copy drops onion until the crop exists. — done (hail 50% live listed yield; pest uninsured `forcePay` + insurance log; labour hire-or-skip modal; ban copy spices only).
 10. `awardLot` opens `farmWork` like buy/lease. Optional custom bid field. — done (current-player farm win opens `farmWork`; infra stays end; auction modal `#bidamt` Rs 100 steps).
 11. Unify FCI with (or show EV against) open harvest in the warehouse modal. Decide: same modifiers minus volatility, or keep MSP-simple and print the numbers. — done (same field work minus luck; MSP +10%; modal prints warehouse vs mandi).
-12. AI tests (`chooseAction` buy/skip/bid/offer) + HTTP rematch success after `phase === 'over'`.
+12. AI tests (`chooseAction` buy/skip/bid/offer) + HTTP rematch success after `phase === 'over'`. — done (`test/ai.test.js`; host rematch after skip-to-over on short preset).
 
 ## Later (fits current engine)
 
@@ -73,6 +73,6 @@ Multi-replica, WebSockets, mid-game seat late-join. One Coolify replica + specta
 
 ### Tests
 
-- 81 passing; no `test/ai.test.js`.
-- HTTP rematch never asserts the success path after `phase === 'over'`.
+- 81 passing; no `test/ai.test.js`. — done (`test/ai.test.js` buy/skip/bid/offer).
+- HTTP rematch never asserts the success path after `phase === 'over'`. — done.
 - Goldens assert `seasonIndex` on skip-42; buy-42 does not.

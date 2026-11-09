@@ -237,6 +237,48 @@ test('rematch is host-only after the match ends', async () => {
   assert.match(hostLive.json.error, /Finish the match/)
 })
 
+test('host rematch after phase over reseats the same table', async () => {
+  const created = await api('POST', '/api/create', { name: 'A', visitor: 'rematch-win-a' })
+  assert.equal(created.status, 200)
+  const code = created.json.code
+  const hostTok = created.json.token
+  const joined = await api('POST', '/api/join', { code, name: 'B', visitor: 'rematch-win-b' })
+  assert.equal(joined.status, 200)
+  const guestTok = joined.json.token
+  const preset = await api('POST', '/api/preset', { code, token: hostTok, preset: 'short' })
+  assert.equal(preset.status, 200)
+  const started = await api('POST', '/api/start', { code, token: hostTok })
+  assert.equal(started.status, 200)
+  let snap = started.json
+  const tok = [hostTok, guestTok]
+  let steps = 0
+  while (snap.state.phase !== 'over' && steps < 800) {
+    steps += 1
+    const state = snap.state
+    const pending = state.pending
+    let seat = state.turn
+    if (pending && pending.kind === 'auction') seat = pending.actor
+    else if (pending && pending.kind === 'trade') seat = pending.to
+    else if (pending && pending.kind === 'raise') seat = pending.pid
+    let type = 'endTurn'
+    if (state.phase === 'roll') type = 'roll'
+    else if (state.phase === 'action') type = 'skip'
+    const res = await api('POST', '/api/action', { code, token: tok[seat], action: { type } })
+    assert.equal(res.status, 200, res.json.error || type)
+    snap = res.json
+  }
+  assert.equal(snap.state.phase, 'over')
+  const guestOver = await api('POST', '/api/rematch', { code, token: guestTok })
+  assert.equal(guestOver.status, 403)
+  const again = await api('POST', '/api/rematch', { code, token: hostTok })
+  assert.equal(again.status, 200)
+  assert.equal(again.json.started, true)
+  assert.equal(again.json.state.phase, 'roll')
+  assert.equal(again.json.state.winner, null)
+  assert.equal(again.json.preset, 'short')
+  assert.deepEqual(again.json.players.map((p) => p.name), ['A', 'B'])
+})
+
 test('SIGTERM drains then health is 503', async () => {
   const before = await api('GET', '/api/health')
   assert.equal(before.json.draining, false)
