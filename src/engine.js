@@ -188,9 +188,17 @@ function gain(state, player, amount, reason) {
 }
 
 function drawCard(state, kind) {
-  const deck = kind === 'kisan' ? state.kisan : state.mandi
+  const deckKey = kind === 'kisan' ? 'kisan' : 'mandi'
   const key = kind === 'kisan' ? 'kisanI' : 'mandiI'
-  const card = deck[state[key] % deck.length]
+  let deck = state[deckKey]
+  if (!deck.length) return null
+  if (state[key] >= deck.length) {
+    state[deckKey] = shuffle(deck, state)
+    state[key] = 0
+    deck = state[deckKey]
+    log(state, `The ${kind === 'kisan' ? 'Farmer Card' : 'Market Prices'} deck is shuffled.`, 'info')
+  }
+  const card = deck[state[key]]
   state[key] += 1
   return card
 }

@@ -544,6 +544,48 @@ test('classic winNet is not reached at the short target', () => {
   assert.notEqual(s.phase, 'over')
 })
 
+test('farmer deck reshuffles after a full pass', () => {
+  const s = createGame(2, ['A', 'B'], { seed: 1 })
+  s.kisan = [kisanCard('pmkisan'), kisanCard('subsidy')]
+  s.kisanI = 0
+  s.players[0].pos = 0
+  applyMove(s, [1, 1])
+  assert.equal(s.kisanI, 1)
+  s.phase = 'roll'
+  s.pending = null
+  s.players[0].pos = 0
+  applyMove(s, [1, 1])
+  assert.equal(s.kisanI, 2)
+  s.phase = 'roll'
+  s.pending = null
+  s.players[0].pos = 0
+  applyMove(s, [1, 1])
+  assert.equal(s.kisanI, 1)
+  assert.equal(s.kisan.length, 2)
+  assert.ok(s.log.some((row) => row.text === 'The Farmer Card deck is shuffled.'))
+})
+
+test('market deck reshuffles after a full pass', () => {
+  const s = createGame(2, ['A', 'B'], { seed: 1 })
+  s.mandi = s.mandi.slice(0, 2)
+  s.mandiI = 0
+  s.players[0].pos = 5
+  applyMove(s, [1, 1])
+  assert.equal(s.mandiI, 1)
+  s.phase = 'roll'
+  s.pending = null
+  s.players[0].pos = 5
+  applyMove(s, [1, 1])
+  assert.equal(s.mandiI, 2)
+  s.phase = 'roll'
+  s.pending = null
+  s.players[0].pos = 5
+  applyMove(s, [1, 1])
+  assert.equal(s.mandiI, 1)
+  assert.equal(s.mandi.length, 2)
+  assert.ok(s.log.some((row) => row.text === 'The Market Prices deck is shuffled.'))
+})
+
 test('the same daily seed shuffles the same decks', () => {
   const a = createGame(2, ['A', 'B'], { daily: '2026-10-18' })
   const b = createGame(2, ['A', 'B'], { daily: '2026-10-18' })

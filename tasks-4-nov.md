@@ -29,7 +29,7 @@ Walk one item at a time. Commit and push each finished item to `origin/master`.
 
 ## Later (fits current engine)
 
-- Decks reshuffle when an index wraps.
+- Decks reshuffle when an index wraps. — done (10 Nov #1).
 - Drop or use `state.doubles`.
 - Soil types besides hail+hill and flood+alluvial.
 - Season-weighted weather (monsoon in kharif, hail in rabi hills).

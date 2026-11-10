@@ -137,11 +137,11 @@ The richest living farmer wins if nobody hits the target by the last season.
 
 ### Farmer Cards (18)
 
-Fate cards include support payments, timely monsoon boosts, dry spells, fall armyworm, diesel hikes, seed subsidies, soil health cards, hailstorms, export quota and ban, canal rotation, cooperative dividends, insurance claims, farm school training, cold storage failure, organic certification, support price hikes, and labour shortage.
+Fate cards include support payments, timely monsoon boosts, dry spells, fall armyworm, diesel hikes, seed subsidies, soil health cards, hailstorms, export quota and ban, canal rotation, cooperative dividends, insurance claims, farm school training, cold storage failure, organic certification, support price hikes, and labour shortage. After the last card, the deck is shuffled again.
 
 ### Market Cards (12)
 
-Market cards include festival demand, market glut, government procurement, middleman fees, warehouse receipts, highway strike, commodity spikes, unseasonal rain, online market listing, interest relief, urea shortage, and a cane fructose order.
+Market cards include festival demand, market glut, government procurement, middleman fees, warehouse receipts, highway strike, commodity spikes, unseasonal rain, online market listing, interest relief, urea shortage, and a cane fructose order. After the last card, the deck is shuffled again.
 
 ### Loans and insolvency
 
