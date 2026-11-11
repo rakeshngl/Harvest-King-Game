@@ -13,7 +13,7 @@ Walk one item at a time. Commit and push each finished item to `origin/master`.
 ## Suggested sequence (small → larger)
 
 1. Reshuffle Farmer and Market decks when the draw index wraps. Keep engine log English. Goldens may change if seed-42 draws past one cycle — regen only if they fail. — done (`drawCard` reshuffles at wrap; diary “deck is shuffled.”).
-2. Flood copy matches the engine: alluvial + thirsty crops, not orchards. EN/HI/TA together.
+2. Flood copy matches the engine: alluvial + thirsty crops, not orchards. EN/HI/TA together. — done (`WEATHER.flood` + HI/TA packs).
 3. Drop `state.doubles` (no extra-turn rule today). If you later want doubles-as-extra-roll, that is a new item.
 4. CI smoke beyond `GET /api/health`: after the server is up, `POST /api/create` and assert 200 + `code`. Lint/test/build already run.
 5. Room passwords: salted hash (scrypt or pbkdf2), not unsalted SHA-256. Keep `passOk` compatible with empty (unlocked) rooms. CORS stays env `CORS_ORIGIN` (default `*` for local); document that production must set it — do not change the default here.

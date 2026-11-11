@@ -108,7 +108,7 @@ Each full round of turns updates the season and rolls new weather. Passing Villa
 | Fair Skies | 1.00 | 1.00 | Average growing weather |
 | Good Monsoon | 1.25 | 1.30 | Water-loving crops thrive |
 | Drought | 0.65 | 0.45 | Yields fall unless irrigated or drought-hardy |
-| Flooding | 0.70 | 1.60 | Paddy mixed; alluvial lowlands and non-water crops suffer |
+| Flooding | 0.70 | 1.60 | Alluvial lowlands flood; thirsty crops lose yield |
 | Hail Belt | 0.75 | 1.00 | Hill and orchard crops take a beating |
 
 ### Seasons

@@ -55,6 +55,10 @@ test('English names match data.js', () => {
     assert.match(ban.text, /Spice panic/)
     assert.doesNotMatch(ban.text, /onion/i)
     assert.doesNotMatch(cardText(ban), /onion|प्याज|வெங்காயம்/i)
+    const flood = WEATHER.find((w) => w.id === 'flood')
+    assert.match(flood.text, /alluvial/i)
+    assert.doesNotMatch(flood.text, /orchard/i)
+    assert.doesNotMatch(weatherText(flood), /orchard|बाग|தோட்ட/i)
   })
 })
 
@@ -83,6 +87,8 @@ test('Hindi and Tamil translate tiles, crops, cards, weather, stages', () => {
     const ban = KISAN_CARDS.find((c) => c.id === 'ban')
     assert.match(cardText(ban), /मसाला/)
     assert.doesNotMatch(cardText(ban), /प्याज/)
+    assert.match(weatherText({ id: 'flood' }), /जलोढ़/)
+    assert.doesNotMatch(weatherText({ id: 'flood' }), /बाग/)
   })
   withLang('ta', () => {
     assert.equal(tileName(TILES[23]), 'தஞ்சாவூர் நெல்')
@@ -95,6 +101,8 @@ test('Hindi and Tamil translate tiles, crops, cards, weather, stages', () => {
     const ban = KISAN_CARDS.find((c) => c.id === 'ban')
     assert.match(cardText(ban), /மசாலா/)
     assert.doesNotMatch(cardText(ban), /வெங்காயம்/)
+    assert.match(weatherText({ id: 'flood' }), /வண்டல்/)
+    assert.doesNotMatch(weatherText({ id: 'flood' }), /தோட்ட/)
   })
 })
 

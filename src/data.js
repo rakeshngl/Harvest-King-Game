@@ -139,7 +139,7 @@ export const WEATHER = [
   { id: 'normal', name: 'Fair Skies', mod: 1, water: 1, text: 'Average growing weather.' },
   { id: 'monsoon', name: 'Good Monsoon', mod: 1.25, water: 1.3, text: 'Fields drink well. Water-loving crops thrive.' },
   { id: 'drought', name: 'Drought', mod: 0.65, water: 0.45, text: 'Yields fall unless irrigated or drought-hardy.' },
-  { id: 'flood', name: 'Flooding', mod: 0.7, water: 1.6, text: 'Low-lying paddy mixed luck; orchards suffer.' },
+  { id: 'flood', name: 'Flooding', mod: 0.7, water: 1.6, text: 'Alluvial lowlands flood; thirsty crops lose yield.' },
   { id: 'hail', name: 'Hail Belt', mod: 0.75, water: 1, text: 'Hill and orchard crops take a beating.' }
 ]
 

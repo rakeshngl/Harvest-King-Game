@@ -38,7 +38,7 @@ Walk one item at a time. Commit and push each finished item to `origin/master`.
 - More Farmer/Market cards via existing `fn` keys.
 - Labour shortage as a cash cost on extra labour in peak season.
 - Organic / know-how as lasting counters (organic is still one-shot cash; knowHow is already a 2-turn counter).
-- Flood weather text vs rules (copy says orchards; engine is alluvial + low water).
+- Flood weather text vs rules (copy says orchards; engine is alluvial + low water). — done (10 Nov #2).
 - High-contrast / colour-blind palettes.
 - Google Fonts offline (SW skips other origins) or self-host Mukta/Cinzel/Tiro.
 - Unsalted SHA-256 room passwords; CORS default `*`.
