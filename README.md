@@ -91,8 +91,9 @@ yield = crop.yield
       * [1.15 if entire group owned]
       * [1.08 if owns Seed Bank]
       * [1.06 if owns Tractor Stand]
+      * soil weather (unirrigated drought: black 1.10, red/laterite 0.90, arid 0.85; hail on hill 0.85)
       * randomVolatility(crop.vol)
-      -> disaster modifiers (hail, flood, pests, spoilage)
+      -> disaster modifiers (hail shred, flood, pests, spoilage)
 ```
 
 Revenue is `yield * currentPrice`. Listed prices already include `marketMod` from the last season tick or market card; harvest does not multiply it again. Profit/loss is revenue minus the seed and preparation cost basis.
@@ -107,9 +108,9 @@ Each full round of turns updates the season and rolls new weather. Passing Villa
 | --- | --- | --- | --- |
 | Fair Skies | 1.00 | 1.00 | Average growing weather |
 | Good Monsoon | 1.25 | 1.30 | Water-loving crops thrive |
-| Drought | 0.65 | 0.45 | Yields fall unless irrigated or drought-hardy |
+| Drought | 0.65 | 0.45 | Yields fall unless irrigated or drought-hardy. Black soil holds better; red/laterite dry faster; arid takes an extra cut |
 | Flooding | 0.70 | 1.60 | Alluvial lowlands flood; thirsty crops lose yield |
-| Hail Belt | 0.75 | 1.00 | Hill and orchard crops take a beating |
+| Hail Belt | 0.75 | 1.00 | Hill and orchard crops take a beating; hill soil takes an extra cut |
 
 ### Seasons
 

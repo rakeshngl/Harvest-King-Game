@@ -930,11 +930,21 @@ function baseYield(state, p, f, t, crop) {
   if (groupOwned(state, p.id, t.group)) y *= 1.15
   if (state.infra[25] === p.id) y *= 1.08
   if (state.infra[5] === p.id) y *= 1.06
-  return y
+  return soilWeather(t, f, w, y)
 }
 
 function floodCut(t, crop, w, y) {
   if (w.id === 'flood' && t.soil === 'alluvial' && crop.water < 0.7) return y * 0.7
+  return y
+}
+
+function soilWeather(t, f, w, y) {
+  if (w.id === 'drought' && !f.irrigated) {
+    if (t.soil === 'black') return y * 1.1
+    if (t.soil === 'red' || t.soil === 'laterite') return y * 0.9
+    if (t.soil === 'arid') return y * 0.85
+  }
+  if (w.id === 'hail' && t.soil === 'hill') return y * 0.85
   return y
 }
 

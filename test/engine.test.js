@@ -18,6 +18,16 @@ function stubRandom(state, value) {
   return () => { state._rng = orig }
 }
 
+function soilWeather(t, f, w, y) {
+  if (w.id === 'drought' && !f.irrigated) {
+    if (t.soil === 'black') return y * 1.1
+    if (t.soil === 'red' || t.soil === 'laterite') return y * 0.9
+    if (t.soil === 'arid') return y * 0.85
+  }
+  if (w.id === 'hail' && t.soil === 'hill') return y * 0.85
+  return y
+}
+
 function expectedHarvest(state, tileId) {
   const f = state.farms[tileId]
   const crop = CROPS[f.crop]
@@ -28,6 +38,7 @@ function expectedHarvest(state, tileId) {
     y *= Math.max(0.45, Math.min(1.15, 1 - Math.abs(crop.water - w.water) * 0.5))
     y *= 0.7 + crop.drought * 0.3
   }
+  y = soilWeather(TILES[tileId], f, w, y)
   const vol = 1 + (0.5 * 2 - 1) * crop.vol
   y *= vol
   return Math.round(Math.max(0, y) * state.prices[crop.id])
@@ -517,6 +528,51 @@ test('open harvest quote matches expected yield without luck', () => {
   ripeField(s, 1, 'bajra')
   const quote = harvestQuote(s, 1, 'open', 0)
   assert.equal(quote.revenue, expectedHarvest(s, 1))
+})
+
+test('black soil holds drought better than red, laterite, or arid', () => {
+  const s = createGame(2, ['A', 'B'])
+  s.weather = WEATHER.find((w) => w.id === 'drought')
+  s.marketMod = 1
+  s.prices.bajra = CROPS.bajra.price
+  function qty(tileId) {
+    for (const f of Object.values(s.farms)) f.owner = null
+    ripeField(s, tileId, 'bajra')
+    return harvestQuote(s, tileId, 'open', 0).qty
+  }
+  const black = qty(3)
+  const red = qty(9)
+  const laterite = qty(21)
+  const arid = qty(1)
+  const alluvial = qty(13)
+  assert.ok(black > alluvial)
+  assert.ok(red < alluvial)
+  assert.equal(red, laterite)
+  assert.ok(arid < red)
+})
+
+test('irrigation skips drought soil cuts', () => {
+  const s = createGame(2, ['A', 'B'])
+  s.weather = WEATHER.find((w) => w.id === 'drought')
+  s.marketMod = 1
+  s.prices.bajra = CROPS.bajra.price
+  ripeField(s, 3, 'bajra')
+  s.farms[3].irrigated = true
+  ripeField(s, 9, 'bajra')
+  s.farms[9].irrigated = true
+  assert.equal(harvestQuote(s, 3, 'open', 0).qty, harvestQuote(s, 9, 'open', 0).qty)
+})
+
+test('hill soil takes an extra hail cut', () => {
+  const s = createGame(2, ['A', 'B'])
+  s.weather = WEATHER.find((w) => w.id === 'hail')
+  s.marketMod = 1
+  s.prices.bajra = CROPS.bajra.price
+  ripeField(s, 19, 'bajra')
+  const hill = harvestQuote(s, 19, 'open', 0).qty
+  ripeField(s, 13, 'bajra')
+  const alluvial = harvestQuote(s, 13, 'open', 0).qty
+  assert.ok(hill < alluvial)
 })
 
 test('short preset crowns a farmer at the lower winNet', () => {

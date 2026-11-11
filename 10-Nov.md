@@ -17,7 +17,7 @@ Walk one item at a time. Commit and push each finished item to `origin/master`.
 3. Drop `state.doubles` (no extra-turn rule today). If you later want doubles-as-extra-roll, that is a new item. — done (removed from `createGame` / `nextTurn`).
 4. CI smoke beyond `GET /api/health`: after the server is up, `POST /api/create` and assert 200 + `code`. Lint/test/build already run. — done (`.github/workflows/ci.yml`).
 5. Room passwords: salted hash (scrypt or pbkdf2), not unsalted SHA-256. Keep `passOk` compatible with empty (unlocked) rooms. CORS stays env `CORS_ORIGIN` (default `*` for local); document that production must set it — do not change the default here. — done (`scrypt$salt$hash`; empty still unlocked; legacy 64-hex SHA-256 still verifies).
-6. Soil besides hail+hill and flood+alluvial: black holds drought better, red/laterite dries faster, arid extra drought cut, hill extra hail. Display-only soils should move the needle a little, not a new board.
+6. Soil besides hail+hill and flood+alluvial: black holds drought better, red/laterite dries faster, arid extra drought cut, hill extra hail. Display-only soils should move the needle a little, not a new board. — done (`soilWeather` on unirrigated drought and hill hail; flood unchanged).
 7. Season-weighted weather: monsoon more likely in kharif, hail more likely in rabi hills, drought in zaid. Still uses `WEATHER` ids.
 8. Belt regroup: Vidarbha Cotton → `cotton`, Shimla Orchards → `hill` or `orchard`, Baghpat Cane → `gangetic`. Regen goldens if farm ownership snapshots shift.
 9. Organic as a lasting counter (like `knowHow` / `enam`), not instant Rs 800. Card still targets Sikkim Organic / spice farms; harvest or net-worth reads the counter.
