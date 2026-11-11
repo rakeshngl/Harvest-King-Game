@@ -160,6 +160,23 @@ test('create join start and action drive a seeded table', async () => {
   assert.equal(eventsLeak.status, 404)
 })
 
+test('locked table needs the password and stores a salted hash', async () => {
+  const created = await api('POST', '/api/create', { name: 'A', password: 'kisan' })
+  assert.equal(created.status, 200)
+  assert.equal(created.json.locked, true)
+  const code = created.json.code
+  const denied = await api('POST', '/api/join', { code, name: 'B' })
+  assert.equal(denied.status, 403)
+  const wrong = await api('POST', '/api/join', { code, name: 'B', password: 'nope' })
+  assert.equal(wrong.status, 403)
+  const joined = await api('POST', '/api/join', { code, name: 'B', password: 'kisan' })
+  assert.equal(joined.status, 200)
+  const saved = JSON.parse(readFileSync(join(dataDir, 'rooms.json'), 'utf8'))
+  const room = saved.rooms.find((r) => r.code === code)
+  assert.ok(room)
+  assert.match(room.passHash, /^scrypt\$[0-9a-f]{32}\$[0-9a-f]{64}$/)
+})
+
 test('cpu seats persist without tokens and stats write atomically', async () => {
   const created = await api('POST', '/api/create', { name: 'Host', visitor: 'persist-a' })
   assert.equal(created.status, 200)

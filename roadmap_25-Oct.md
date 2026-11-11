@@ -74,7 +74,7 @@ Multi-replica, WebSockets, mid-game seat late-join. One Coolify replica + specta
 
 - Visitor id is a client-chosen `localStorage` string; `GET /api/profile?visitor=` has no proof of possession. — done (HttpOnly HMAC `hk-vid`; query/body visitor ignored).
 - Seat tokens in query strings (EventSource) and in `data/rooms.json`. — query done (`hk-seat` cookie / `X-Seat-Token`); human tokens still in `rooms.json`.
-- Passwords are unsalted SHA-256. CORS `*`.
+- Passwords are unsalted SHA-256. CORS `*`. — passwords done (scrypt salt); CORS still env `CORS_ORIGIN` (default `*`).
 - `state.log` unbounded; every action `writeFileSync`s the whole room map. — done (`LOG_CAP` 200; debounce `saveRooms` 250ms + flush on drain).
 - CI smoke only curls `/api/health`. `vite preview` has no `/api` proxy. — done (preview shares the `/api` proxy; CI also `POST /api/create`).
 - `start.mjs` does not forward SIGTERM to the API child. — done (SIGTERM/SIGINT to both children).

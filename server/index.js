@@ -593,15 +593,39 @@ function farmerName(value, fallback) {
   return raw || fallback
 }
 
+const SCRYPT_N = 16384
+const SCRYPT_R = 8
+const SCRYPT_P = 1
+const SCRYPT_KEYLEN = 32
+const SCRYPT_PREFIX = 'scrypt$'
+
 function passHash(value) {
   const raw = String(value || '').trim()
   if (!raw) return ''
-  return crypto.createHash('sha256').update(raw).digest('hex')
+  const salt = crypto.randomBytes(16)
+  const hash = crypto.scryptSync(raw, salt, SCRYPT_KEYLEN, { N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P })
+  return SCRYPT_PREFIX + salt.toString('hex') + '$' + hash.toString('hex')
 }
 
 function passOk(room, value) {
-  if (!room.passHash) return true
-  return passHash(value) === room.passHash
+  const stored = String(room && room.passHash || '')
+  if (!stored) return true
+  const raw = String(value || '').trim()
+  if (!raw) return false
+  if (stored.startsWith(SCRYPT_PREFIX)) {
+    const parts = stored.split('$')
+    if (parts.length !== 3) return false
+    const salt = Buffer.from(parts[1], 'hex')
+    const expected = Buffer.from(parts[2], 'hex')
+    if (salt.length !== 16 || expected.length !== SCRYPT_KEYLEN) return false
+    const actual = crypto.scryptSync(raw, salt, SCRYPT_KEYLEN, { N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P })
+    return crypto.timingSafeEqual(expected, actual)
+  }
+  if (/^[0-9a-f]{64}$/i.test(stored)) {
+    const legacy = crypto.createHash('sha256').update(raw).digest('hex')
+    return crypto.timingSafeEqual(Buffer.from(stored, 'hex'), Buffer.from(legacy, 'hex'))
+  }
+  return false
 }
 
 function writeSse(res, event, body) {
