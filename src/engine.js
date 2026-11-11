@@ -1,5 +1,5 @@
 import {
-  TILES, CROPS, GROUPS, KISAN_CARDS, MANDI_CARDS, WEATHER,
+  TILES, CROPS, GROUPS, KISAN_CARDS, MANDI_CARDS, WEATHER, WEATHER_WEIGHTS,
   PLAYER_PALETTE, SEASONS, START_CASH, PASS_GO, WIN_NET, MAX_SEASONS,
   LOAN_STEP, LOAN_CAP, INTEREST, SEASON_PRESETS, DEFAULT_PRESET
 } from './data.js'
@@ -241,9 +241,21 @@ function tickLeases(state, p) {
   })
 }
 
+function pickWeather(state) {
+  const weights = WEATHER_WEIGHTS[seasonOf(state).id] || {}
+  let total = 0
+  for (const row of WEATHER) total += weights[row.id] || 1
+  let roll = rngNext(state) * total
+  for (const row of WEATHER) {
+    roll -= weights[row.id] || 1
+    if (roll < 0) return row
+  }
+  return WEATHER[WEATHER.length - 1]
+}
+
 function advanceSeasonMaybe(state) {
   state.seasonIndex += 1
-  const w = WEATHER[Math.floor(rngNext(state) * WEATHER.length)]
+  const w = pickWeather(state)
   state.weather = w
   state.marketMod = clamp(state.marketMod + (rngNext(state) * 0.16 - 0.08), 0.7, 1.4)
   Object.keys(state.prices).forEach((cid) => {

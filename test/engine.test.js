@@ -7,7 +7,7 @@ import {
   raiseLot, giveUpRaise, mortgageFarm, fireSale, raisableLots, mortgageValue, chooseLabour,
   harvestQuote, readyHarvestLots, irrigate, insure
 } from '../src/engine.js'
-import { START_CASH, WIN_NET, PASS_GO, WEATHER, TILES, CROPS, INTEREST, SEASON_PRESETS, DEFAULT_PRESET, KISAN_CARDS } from '../src/data.js'
+import { START_CASH, WIN_NET, PASS_GO, WEATHER, WEATHER_WEIGHTS, TILES, CROPS, INTEREST, SEASON_PRESETS, DEFAULT_PRESET, KISAN_CARDS } from '../src/data.js'
 import { dailySeed } from '../src/rng.js'
 
 const FAIR = WEATHER.find((w) => w.id === 'normal')
@@ -573,6 +573,50 @@ test('hill soil takes an extra hail cut', () => {
   ripeField(s, 13, 'bajra')
   const alluvial = harvestQuote(s, 13, 'open', 0).qty
   assert.ok(hill < alluvial)
+})
+
+function wrapSeason(state) {
+  state.turn = state.players.length - 1
+  state.phase = 'end'
+  nextTurn(state)
+}
+
+test('season weights cover every weather id', () => {
+  for (const season of ['kharif', 'rabi', 'zaid']) {
+    const weights = WEATHER_WEIGHTS[season]
+    assert.ok(weights)
+    for (const w of WEATHER) assert.ok(weights[w.id] > 0)
+  }
+})
+
+test('a zero roll always picks fair skies', () => {
+  const s = createGame(2, ['A', 'B'], { seasons: 24, winNet: 999999 })
+  const restore = stubRandom(s, 0)
+  wrapSeason(s)
+  restore()
+  assert.equal(s.weather.id, 'normal')
+})
+
+test('kharif leans monsoon, rabi hail, zaid drought', () => {
+  const tally = { kharif: {}, rabi: {}, zaid: {} }
+  for (const season of Object.keys(tally)) {
+    for (const w of WEATHER) tally[season][w.id] = 0
+  }
+  for (let seed = 1; seed <= 120; seed++) {
+    const s = createGame(2, ['A', 'B'], { seed, seasons: 24, winNet: 999999 })
+    wrapSeason(s)
+    tally.rabi[s.weather.id] += 1
+    wrapSeason(s)
+    tally.zaid[s.weather.id] += 1
+    wrapSeason(s)
+    tally.kharif[s.weather.id] += 1
+  }
+  assert.ok(tally.kharif.monsoon > tally.kharif.hail)
+  assert.ok(tally.kharif.monsoon > tally.kharif.drought)
+  assert.ok(tally.rabi.hail > tally.rabi.flood)
+  assert.ok(tally.rabi.hail > tally.rabi.monsoon)
+  assert.ok(tally.zaid.drought > tally.zaid.monsoon)
+  assert.ok(tally.zaid.drought > tally.zaid.flood)
 })
 
 test('short preset crowns a farmer at the lower winNet', () => {

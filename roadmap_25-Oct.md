@@ -29,7 +29,7 @@ Grounded in the tree at `e5fbb56`. Already shipped and not re-proposed: rooms + 
 
 - Crops: soybean, maize, onion, potato, chili, turmeric, coconut, rubber.
 - More Farmer/Market cards via existing `fn` keys.
-- Season-weighted weather (monsoon in kharif, hail in rabi hills).
+- Season-weighted weather (monsoon in kharif, hail in rabi hills). — done (10 Nov #7).
 - Regroup belts (Vidarbha is `oil`, Shimla is wheat, Baghpat Cane is cotton).
 - FCI vs open-harvest EV in the warehouse modal. — done (same modifiers minus luck; MSP +10%; modal prints both).
 - Auction: custom bid field; `awardLot` should open `farmWork`. — done (`#bidamt`; current-player farm win opens `farmWork`).

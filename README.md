@@ -102,7 +102,7 @@ Landing on **Food Warehouse** lifts every ripe lot at listed price + 10%. Quanti
 
 ### Weather
 
-Each full round of turns updates the season and rolls new weather. Passing Village Hall pays harvest dues and ticks leases; it does not advance the season. Weather scales both growth and water availability.
+Each full round of turns updates the season and rolls new weather, weighted by season: monsoon is likelier in kharif, hail in rabi, drought in zaid. Passing Village Hall pays harvest dues and ticks leases; it does not advance the season. Weather scales both growth and water availability.
 
 | Weather | Growth | Water | Notes |
 | --- | --- | --- | --- |

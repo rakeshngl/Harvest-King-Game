@@ -143,6 +143,12 @@ export const WEATHER = [
   { id: 'hail', name: 'Hail Belt', mod: 0.75, water: 1, text: 'Hill and orchard crops take a beating.' }
 ]
 
+export const WEATHER_WEIGHTS = {
+  kharif: { normal: 2, monsoon: 4, drought: 1, flood: 2, hail: 1 },
+  rabi: { normal: 2, monsoon: 1, drought: 1, flood: 1, hail: 3 },
+  zaid: { normal: 2, monsoon: 1, drought: 4, flood: 1, hail: 2 }
+}
+
 export const START_CASH = 12000
 export const PASS_GO = 1500
 export const WIN_NET = 75000
