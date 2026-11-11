@@ -33,7 +33,7 @@ Walk one item at a time. Commit and push each finished item to `origin/master`.
 - Drop or use `state.doubles`. — done (10 Nov #3; dropped).
 - Soil types besides hail+hill and flood+alluvial. — done (10 Nov #6; drought black/red/laterite/arid, hail hill).
 - Season-weighted weather (monsoon in kharif, hail in rabi hills). — done (10 Nov #7).
-- Regroup belts (Vidarbha is `oil`, Shimla is wheat, Baghpat Cane is cotton).
+- Regroup belts (Vidarbha is `oil`, Shimla is wheat, Baghpat Cane is cotton). — done (10 Nov #8: cotton / hill / gangetic).
 - Crops: soybean, maize, onion, potato, chili, turmeric, coconut, rubber.
 - More Farmer/Market cards via existing `fn` keys.
 - Labour shortage as a cash cost on extra labour in peak season.

@@ -581,6 +581,12 @@ function wrapSeason(state) {
   nextTurn(state)
 }
 
+test('Vidarbha cotton, Shimla hill, Baghpat gangetic', () => {
+  assert.equal(TILES[8].group, 'cotton')
+  assert.equal(TILES[19].group, 'hill')
+  assert.equal(TILES[11].group, 'gangetic')
+})
+
 test('season weights cover every weather id', () => {
   for (const season of ['kharif', 'rabi', 'zaid']) {
     const weights = WEATHER_WEIGHTS[season]

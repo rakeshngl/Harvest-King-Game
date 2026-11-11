@@ -19,7 +19,7 @@ Walk one item at a time. Commit and push each finished item to `origin/master`.
 5. Room passwords: salted hash (scrypt or pbkdf2), not unsalted SHA-256. Keep `passOk` compatible with empty (unlocked) rooms. CORS stays env `CORS_ORIGIN` (default `*` for local); document that production must set it — do not change the default here. — done (`scrypt$salt$hash`; empty still unlocked; legacy 64-hex SHA-256 still verifies).
 6. Soil besides hail+hill and flood+alluvial: black holds drought better, red/laterite dries faster, arid extra drought cut, hill extra hail. Display-only soils should move the needle a little, not a new board. — done (`soilWeather` on unirrigated drought and hill hail; flood unchanged).
 7. Season-weighted weather: monsoon more likely in kharif, hail more likely in rabi hills, drought in zaid. Still uses `WEATHER` ids. — done (`WEATHER_WEIGHTS`; one `rngNext` still).
-8. Belt regroup: Vidarbha Cotton → `cotton`, Shimla Orchards → `hill` or `orchard`, Baghpat Cane → `gangetic`. Regen goldens if farm ownership snapshots shift.
+8. Belt regroup: Vidarbha Cotton → `cotton`, Shimla Orchards → `hill` or `orchard`, Baghpat Cane → `gangetic`. Regen goldens if farm ownership snapshots shift. — done (Vidarbha `cotton`, Shimla `hill`, Baghpat `gangetic`).
 9. Organic as a lasting counter (like `knowHow` / `enam`), not instant Rs 800. Card still targets Sikkim Organic / spice farms; harvest or net-worth reads the counter.
 10. High-contrast / colour-blind palette. CSS tokens + a chrome toggle; keep the saffron/green/navy board as default.
 11. Self-host Mukta / Cinzel / Tiro (or drop third-origin Google Fonts). SW already skips other origins, so PWA Hindi/Tamil fall back today.
