@@ -54,7 +54,7 @@ Multi-replica, WebSockets, mid-game seat late-join. One Coolify replica + specta
 - Insurance and irrigation are permanent once bought. — done (`clearCrop` on harvest/FCI/wipe/mortgage/lease expiry; idle/prepared land cannot irrigate or insure).
 - Season clock ticks on every Village Hall pass, not per round. — done (full round via `nextTurn` wrap).
 - Decks never reshuffle after the opening shuffle. — done (`drawCard` reshuffles Farmer/Market when the index wraps).
-- `state.doubles` is dead. Soil types other than hail+hill and flood+alluvial do nothing.
+- `state.doubles` is dead. Soil types other than hail+hill and flood+alluvial do nothing. — doubles dropped (10 Nov #3).
 - Market panel shows only the first 12 of 18 crops. — done (prices pane lists all 18).
 
 ### Cards vs text

@@ -30,7 +30,7 @@ Walk one item at a time. Commit and push each finished item to `origin/master`.
 ## Later (fits current engine)
 
 - Decks reshuffle when an index wraps. — done (10 Nov #1).
-- Drop or use `state.doubles`.
+- Drop or use `state.doubles`. — done (10 Nov #3; dropped).
 - Soil types besides hail+hill and flood+alluvial.
 - Season-weighted weather (monsoon in kharif, hail in rabi hills).
 - Regroup belts (Vidarbha is `oil`, Shimla is wheat, Baghpat Cane is cotton).

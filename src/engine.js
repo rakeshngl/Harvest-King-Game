@@ -104,7 +104,6 @@ export function createGame(playerCount = 2, names = [], opts = {}) {
     logId: 0,
     phase: 'roll',
     lastDice: [1, 1],
-    doubles: 0,
     pending: null,
     winner: null,
     started: true,
@@ -1426,7 +1425,6 @@ export function nextTurn(state) {
   growCrops(state, state.players[state.turn])
   state.phase = 'roll'
   state.pending = null
-  state.doubles = 0
   state.labourUsed = false
   return state
 }

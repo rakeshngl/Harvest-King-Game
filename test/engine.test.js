@@ -62,6 +62,7 @@ test('new game seats farmers with village cash', () => {
   assert.equal(s.players[0].cash, START_CASH)
   assert.equal(s.phase, 'roll')
   assert.equal(s.turn, 0)
+  assert.equal(s.doubles, undefined)
   assert.equal(netWorth(s, s.players[0]), START_CASH)
 })
 
