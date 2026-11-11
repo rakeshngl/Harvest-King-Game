@@ -43,15 +43,24 @@ jobs:
           node server/index.js > server.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          healthy=0
           for attempt in $(seq 1 30); do
             if curl -sf http://127.0.0.1:3001/api/health > /dev/null; then
               echo "health ok"
-              exit 0
+              healthy=1
+              break
             fi
             sleep 0.5
           done
-          echo "server did not become healthy"
-          cat server.log
-          exit 1
+          if [ "$healthy" != 1 ]; then
+            echo "server did not become healthy"
+            cat server.log
+            exit 1
+          fi
+          created=$(curl -sf -X POST http://127.0.0.1:3001/api/create \
+            -H 'Content-Type: application/json' \
+            -d '{"name":"CI"}')
+          echo "$created" | grep -q '"code"'
+          echo "create ok"
         env:
           PORT: 3001

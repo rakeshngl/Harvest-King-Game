@@ -76,7 +76,7 @@ Multi-replica, WebSockets, mid-game seat late-join. One Coolify replica + specta
 - Seat tokens in query strings (EventSource) and in `data/rooms.json`. — query done (`hk-seat` cookie / `X-Seat-Token`); human tokens still in `rooms.json`.
 - Passwords are unsalted SHA-256. CORS `*`.
 - `state.log` unbounded; every action `writeFileSync`s the whole room map. — done (`LOG_CAP` 200; debounce `saveRooms` 250ms + flush on drain).
-- CI smoke only curls `/api/health`. `vite preview` has no `/api` proxy. — done (preview shares the `/api` proxy).
+- CI smoke only curls `/api/health`. `vite preview` has no `/api` proxy. — done (preview shares the `/api` proxy; CI also `POST /api/create`).
 - `start.mjs` does not forward SIGTERM to the API child. — done (SIGTERM/SIGINT to both children).
 
 ### UX / a11y

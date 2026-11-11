@@ -42,7 +42,7 @@ Walk one item at a time. Commit and push each finished item to `origin/master`.
 - High-contrast / colour-blind palettes.
 - Google Fonts offline (SW skips other origins) or self-host Mukta/Cinzel/Tiro.
 - Unsalted SHA-256 room passwords; CORS default `*`.
-- CI smoke beyond `GET /api/health`.
+- CI smoke beyond `GET /api/health`. — done (10 Nov #4; create after health).
 
 ## Later (needs accounts / new board)
 

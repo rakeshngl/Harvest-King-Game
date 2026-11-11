@@ -343,7 +343,7 @@ npm run lint
 npm run lint:fix
 ```
 
-CI runs on every push and pull request (`.github/workflows/ci.yml`): Node 20 and 22, then `npm ci`, lint, tests, build, and an API health smoke check.
+CI runs on every push and pull request (`.github/workflows/ci.yml`): Node 20 and 22, then `npm ci`, lint, tests, build, and an API smoke check (`GET /api/health` then `POST /api/create`).
 
 ## How to Play Online
 
