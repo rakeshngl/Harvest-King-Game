@@ -20,7 +20,7 @@ Walk one item at a time. Commit and push each finished item to `origin/master`.
 6. Soil besides hail+hill and flood+alluvial: black holds drought better, red/laterite dries faster, arid extra drought cut, hill extra hail. Display-only soils should move the needle a little, not a new board. — done (`soilWeather` on unirrigated drought and hill hail; flood unchanged).
 7. Season-weighted weather: monsoon more likely in kharif, hail more likely in rabi hills, drought in zaid. Still uses `WEATHER` ids. — done (`WEATHER_WEIGHTS`; one `rngNext` still).
 8. Belt regroup: Vidarbha Cotton → `cotton`, Shimla Orchards → `hill` or `orchard`, Baghpat Cane → `gangetic`. Regen goldens if farm ownership snapshots shift. — done (Vidarbha `cotton`, Shimla `hill`, Baghpat `gangetic`).
-9. Organic as a lasting counter (like `knowHow` / `enam`), not instant Rs 800. Card still targets Sikkim Organic / spice farms; harvest or net-worth reads the counter.
+9. Organic as a lasting counter (like `knowHow` / `enam`), not instant Rs 800. Card still targets Sikkim Organic / spice farms; harvest or net-worth reads the counter. — done (`organic` 2 seasons; spice/Sikkim harvest ×1.1 and +Rs 400 net).
 10. High-contrast / colour-blind palette. CSS tokens + a chrome toggle; keep the saffron/green/navy board as default.
 11. Self-host Mukta / Cinzel / Tiro (or drop third-origin Google Fonts). SW already skips other origins, so PWA Hindi/Tamil fall back today.
 12. Extra crops via existing tile `crops` lists: soybean, maize, onion, potato, chili, turmeric, coconut, rubber. One or two per belt, not a new map. Onion unblocks the old export-ban flavour.

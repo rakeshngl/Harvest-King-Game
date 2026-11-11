@@ -37,7 +37,7 @@ Walk one item at a time. Commit and push each finished item to `origin/master`.
 - Crops: soybean, maize, onion, potato, chili, turmeric, coconut, rubber.
 - More Farmer/Market cards via existing `fn` keys.
 - Labour shortage as a cash cost on extra labour in peak season.
-- Organic / know-how as lasting counters (organic is still one-shot cash; knowHow is already a 2-turn counter).
+- Organic / know-how as lasting counters (organic is still one-shot cash; knowHow is already a 2-turn counter). — organic done (10 Nov #9).
 - Flood weather text vs rules (copy says orchards; engine is alluvial + low water). — done (10 Nov #2).
 - High-contrast / colour-blind palettes.
 - Google Fonts offline (SW skips other origins) or self-host Mukta/Cinzel/Tiro.
@@ -58,7 +58,7 @@ Multi-replica, WebSockets, mid-game seat late-join. One Coolify replica + specta
 
 - FCI vs mandi is not a real choice until modifiers or an EV line exist. — done (shared yield minus luck; warehouse modal prints both).
 - Tax “or” is a lie.
-- Cards (hail, pest, labour, onion ban, organic) still disagree with their text.
+- Cards (hail, pest, labour, onion ban, organic) still disagree with their text. — hail/pest/labour/ban done; organic is a lasting premium (10 Nov #9).
 - Irrigation on idle land is a leftover snowball after sequence 12. — done (seeded/ripe only; mortgage and village lease expiry clear flags).
 
 ### Ops

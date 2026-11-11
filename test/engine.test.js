@@ -39,6 +39,8 @@ function expectedHarvest(state, tileId) {
     y *= 0.7 + crop.drought * 0.3
   }
   y = soilWeather(TILES[tileId], f, w, y)
+  const p = state.players[state.turn]
+  if (p.organic > 0 && (TILES[tileId].group === 'spice' || tileId === 39)) y *= 1.1
   const vol = 1 + (0.5 * 2 - 1) * crop.vol
   y *= vol
   return Math.round(Math.max(0, y) * state.prices[crop.id])
@@ -580,6 +582,52 @@ function wrapSeason(state) {
   state.phase = 'end'
   nextTurn(state)
 }
+
+test('organic card sets a lasting counter instead of cash', () => {
+  const s = createGame(2, ['A', 'B'])
+  s.farms[21].owner = 0
+  s.farms[1].owner = 0
+  const before = s.players[0].cash
+  drawKisan(s, 'organic')
+  assert.equal(s.players[0].organic, 2)
+  assert.equal(s.players[0].cash, before)
+  assert.equal(s.pending.card.id, 'organic')
+})
+
+test('organic premium lifts spice harvest not millet', () => {
+  const s = createGame(2, ['A', 'B'])
+  s.weather = FAIR
+  s.marketMod = 1
+  s.prices.bajra = CROPS.bajra.price
+  s.prices.spices = CROPS.spices.price
+  ripeField(s, 21, 'spices')
+  ripeField(s, 1, 'bajra')
+  const spice = harvestQuote(s, 21, 'open', 0).qty
+  const millet = harvestQuote(s, 1, 'open', 0).qty
+  s.players[0].organic = 2
+  assert.ok(harvestQuote(s, 21, 'open', 0).qty > spice)
+  assert.equal(harvestQuote(s, 1, 'open', 0).qty, millet)
+})
+
+test('organic cert adds net worth on spice and Sikkim land', () => {
+  const s = createGame(2, ['A', 'B'])
+  s.farms[21].owner = 0
+  s.farms[1].owner = 0
+  const base = netWorth(s, s.players[0])
+  s.players[0].organic = 2
+  assert.equal(netWorth(s, s.players[0]), base + 400)
+  s.farms[39].owner = 0
+  assert.equal(netWorth(s, s.players[0]), base + 800 + TILES[39].price)
+})
+
+test('organic counter ticks down with the season', () => {
+  const s = createGame(2, ['A', 'B'], { seasons: 24, winNet: 999999 })
+  s.players[0].organic = 2
+  const restore = stubRandom(s, 0.5)
+  wrapSeason(s)
+  restore()
+  assert.equal(s.players[0].organic, 1)
+})
 
 test('Vidarbha cotton, Shimla hill, Baghpat gangetic', () => {
   assert.equal(TILES[8].group, 'cotton')

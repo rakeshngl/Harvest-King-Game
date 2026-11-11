@@ -55,7 +55,7 @@ Done: online mixed tables (1 human + 1 to 3 CPUs).
 - Policy cards: loan waiver, fertilizer subsidy, export ban with real board effects
 - Livestock / dairy as a side loop on a few tiles
 - Water table: over-irrigation lowers future yield on canal/borewell belts
-- Soil carbon / organic cert as a slow investment (card exists; make it a track)
+- Soil carbon / organic cert as a slow investment (card exists; make it a track) — organic is a 2-season harvest premium on spice/Sikkim
 - 5 to 6 players (needs more coins, more belts, or a bigger board)
 - Shorter / longer match presets (12 / 18 / 24 seasons, different WIN_NET) — done (lobby + host waiting-room selector)
 - Sandbox / tutor match with forced good monsoon

@@ -115,7 +115,7 @@ export const KISAN_CARDS = [
   { id: 'insurance', title: 'Crop Insurance Claim', text: 'If any field is insured, collect Rs 2500.', fn: 'insuranceClaim', amount: 2500 },
   { id: 'kvk', title: 'Farm School Training', text: 'All your farms gain irrigation know-how this season.', fn: 'knowHow' },
   { id: 'coldfail', title: 'Cold Storage Failure', text: 'If you do not own Cold Storage, pay Rs 900.', fn: 'unlessOwn', tile: 15, amount: 900 },
-  { id: 'organic', title: 'Organic Certification', text: 'Sikkim Organic or spice farms you own earn +Rs 800 now.', fn: 'organicBonus', amount: 800 },
+  { id: 'organic', title: 'Organic Certification', text: 'Sikkim Organic and spice harvests pay a premium this season.', fn: 'organicBonus' },
   { id: 'msp', title: 'Support Price Hike', text: 'Wheat, paddy and cotton support price rises 15%.', fn: 'mspHike', crops: ['wheat', 'rice', 'cotton'], pct: 0.15 },
   { id: 'labour', title: 'Labour Shortage', text: 'Pay Rs 600 or skip your next harvest bonus.', fn: 'labour', amount: 600 }
 ]

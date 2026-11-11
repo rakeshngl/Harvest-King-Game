@@ -66,6 +66,7 @@ export function createGame(playerCount = 2, names = [], opts = {}) {
     freePrep: false,
     knowHow: 0,
     enam: 0,
+    organic: 0,
     infra: [],
     utilities: [],
     cpu: !!cpu[i],
@@ -136,6 +137,7 @@ export function netWorth(state, player) {
       if (f.irrigated) worth += 800
       if (f.insured) worth += 400
       if (f.stage !== 'idle') worth += 300
+      if (player.organic > 0 && (t.group === 'spice' || t.id === 39)) worth += 400
     }
     if (t.type === 'infra' && state.infra[t.id] === player.id) worth += t.price
     if (t.type === 'utility' && state.utilities[t.id] === player.id) worth += t.price
@@ -267,6 +269,7 @@ function advanceSeasonMaybe(state) {
   state.players.forEach((pl) => {
     if (pl.knowHow > 0) pl.knowHow -= 1
     if (pl.enam > 0) pl.enam -= 1
+    if (pl.organic > 0) pl.organic -= 1
     if (pl.debt > 0) {
       const interest = Math.round(pl.debt * INTEREST)
       pl.debt += interest
@@ -736,9 +739,7 @@ function applyCard(state, p, card) {
       if (state.infra[card.tile] !== p.id) forcePay(state, p, card.amount, card.title, { type: 'card', deck: cardDeck(state, p), card })
       break
     case 'organicBonus':
-      farmsOf(state, p.id).forEach((f) => {
-        if (f.tile.group === 'spice' || f.tile.id === 39) gain(state, p, card.amount, f.tile.name)
-      })
+      p.organic = 2
       break
     case 'mspHike':
       card.crops.forEach((cid) => {
@@ -939,6 +940,7 @@ function baseYield(state, p, f, t, crop) {
     y *= 0.7 + crop.drought * 0.3
   }
   if (p.knowHow > 0) y *= 1.12
+  if (p.organic > 0 && (t.group === 'spice' || t.id === 39)) y *= 1.1
   if (groupOwned(state, p.id, t.group)) y *= 1.15
   if (state.infra[25] === p.id) y *= 1.08
   if (state.infra[5] === p.id) y *= 1.06
