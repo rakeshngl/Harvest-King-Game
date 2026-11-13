@@ -16,6 +16,46 @@
   --corner: 108px;
 }
 
+html.contrast {
+  --saffron: #FFB300;
+  --saffron-deep: #FF6F00;
+  --white: #FFFFFF;
+  --green: #00C853;
+  --green-deep: #1B5E20;
+  --navy: #000000;
+  --navy-soft: #111111;
+  --gold: #FFD600;
+  --earth: #000000;
+  --soil: #424242;
+  --ink: #000000;
+  --panel: #FFFFFF;
+  --shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+}
+
+html.contrast body {
+  background: #000000;
+  color: #FFFFFF;
+}
+
+html.contrast .farmer-bar,
+html.contrast .panel,
+html.contrast .modal,
+html.contrast .side-card {
+  background: #FFFFFF;
+  color: #000000;
+  border-color: #000000;
+}
+
+html.contrast .count-btn,
+html.contrast button {
+  border-color: #000000;
+}
+
+html.contrast a,
+html.contrast .primary {
+  outline: 2px solid #000000;
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {

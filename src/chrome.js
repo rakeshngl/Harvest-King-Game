@@ -1,5 +1,6 @@
 import { t, currentLang, LANGS } from './i18n.js'
 import { isMuted, isMusicOn } from './sound.js'
+import { isContrastOn } from './contrast.js'
 import { iconHtml } from './icons.js'
 import { TUTORIAL_STEPS, clampTutorialStep } from './tutorial.js'
 
@@ -11,6 +12,7 @@ export function offlineBannerHtml(lineOn) {
 export function chromeToggleHtml() {
   const off = isMuted()
   const musicOff = !isMusicOn()
+  const contrast = isContrastOn()
   return `
     <div class="chrome-toggles">
       <div class="lang-toggle" id="langtoggle">${LANGS.map((l) =>
@@ -18,6 +20,7 @@ export function chromeToggleHtml() {
       ).join('')}</div>
       <button class="count-btn sound-btn${off ? ' off' : ''}" id="soundtoggle" type="button" aria-pressed="${off ? 'false' : 'true'}">${off ? t('soundOff') : t('soundOn')}</button>
       <button class="count-btn sound-btn${musicOff ? ' off' : ''}" id="musictoggle" type="button" aria-pressed="${musicOff ? 'false' : 'true'}">${musicOff ? t('musicOff') : t('musicOn')}</button>
+      <button class="count-btn sound-btn${contrast ? '' : ' off'}" id="contrasttoggle" type="button" aria-pressed="${contrast ? 'true' : 'false'}">${contrast ? t('contrastOn') : t('contrastOff')}</button>
       <button class="count-btn sound-btn" id="helptoggle" type="button">${t('howToFarm')}</button>
     </div>`
 }

@@ -39,7 +39,7 @@ Walk one item at a time. Commit and push each finished item to `origin/master`.
 - Labour shortage as a cash cost on extra labour in peak season.
 - Organic / know-how as lasting counters (organic is still one-shot cash; knowHow is already a 2-turn counter). — organic done (10 Nov #9).
 - Flood weather text vs rules (copy says orchards; engine is alluvial + low water). — done (10 Nov #2).
-- High-contrast / colour-blind palettes.
+- High-contrast / colour-blind palettes. — done (10 Nov #10; chrome toggle, default board stays).
 - Google Fonts offline (SW skips other origins) or self-host Mukta/Cinzel/Tiro.
 - Unsalted SHA-256 room passwords; CORS default `*`. — passwords done (10 Nov #5, scrypt); CORS still `*` unless `CORS_ORIGIN` is set.
 - CI smoke beyond `GET /api/health`. — done (10 Nov #4; create after health).

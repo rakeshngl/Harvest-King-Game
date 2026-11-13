@@ -75,7 +75,7 @@ Done: player trading (land, cash, debt); auctions when someone declines to buy.
 
 - Telugu, Marathi, Bengali UI chrome (Hindi / Tamil done)
 - Reduced-motion mode (dice 3D + token bob) — done (`prefers-reduced-motion` skips dice spin)
-- Dark board / high-contrast / color-blind palettes
+- Dark board / high-contrast / color-blind palettes — high-contrast chrome toggle done (10 Nov #10)
 - PWA / Add to Home Screen — done (manifest, maskable icons, production SW, offline lobby + local play)
 - Spectator-friendly big-board TV mode
 - Tutorial overlay for the farming cycle — done (6 steps, first visit + How to farm)

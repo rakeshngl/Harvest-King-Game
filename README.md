@@ -21,6 +21,7 @@ There is no jail. Instead, the board is loaded with agricultural complications: 
 - **English / Hindi / Tamil** via an English | Hindi | Tamil toggle (`localStorage` `hk-lang`). Board tiles, crops, cards, weather, and diary display localize; engine log strings stay English for golden fixtures.
 - **Web Audio cues**: dice rattle, coin, harvest, insolvency, cards, and a win fanfare, synthesized in the browser (no audio assets) with a **Sound on / off** toggle (`localStorage` `hk-mute`). Sound off is a master bus: it also silences the music bed.
 - **Seasonal music bed**: a synthesized ambient loop that shifts tempo and scale with the season and weather, with its own **Music on / off** toggle (`localStorage` `hk-music`).
+- **High-contrast palette**: chrome toggle (`localStorage` `hk-contrast`) swaps CSS tokens; the saffron/green/navy board stays the default.
 - **Indian number formatting**: money uses lakh/crore shorthand (Rs 12,000 / Rs 1.2 lakh / Rs 1.5 crore) and `en-IN` digit grouping for counts.
 - **Phone layout**: the 40-tile board shrinks to the viewport, side panels tab, and the roll dock stays under the board.
 - **Installable PWA**: Add to Home Screen. The production service worker precaches the shell so the lobby, pass-and-play and vs computer still open offline. Online rooms still need the network.

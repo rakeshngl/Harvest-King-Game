@@ -82,7 +82,7 @@ Multi-replica, WebSockets, mid-game seat late-join. One Coolify replica + specta
 ### UX / a11y
 
 - Almost no labels, no focus trap, no Escape, tiles are click-only `<div>`s. — done (labelled tile buttons, `:focus-visible`, modal Tab trap + `inert`; Escape closes tutorial/inspect/landing/win/trade-panel and skippable actions; lobby inputs labelled).
-- No `prefers-reduced-motion`, no high-contrast / colour-blind palette. — reduced-motion done (dice skip spin); high-contrast still open.
+- No `prefers-reduced-motion`, no high-contrast / colour-blind palette. — reduced-motion done (dice skip spin); high-contrast chrome toggle done (10 Nov #10).
 - Sound off does not mute music. — done (`musicGain` feeds `master`).
 - Win modal shows only the king; Play again returns to lobby. — done (ranked standings; local rematch reseats; online host `POST /api/rematch`).
 - Google Fonts are a third-origin fetch the service worker ignores.

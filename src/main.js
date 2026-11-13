@@ -16,6 +16,7 @@ import {
 import { PERSONAS, CPU_NAMES, chooseAction, describeAction } from './ai.js'
 import { t, setLang, currentLang } from './i18n.js'
 import { playCue, isMuted, toggleMute, toggleMusic, startMusic, stopMusic, setMusicScene } from './sound.js'
+import { toggleContrast } from './contrast.js'
 import { fmtCount } from './format.js'
 import { todayKey, dailyCode } from './rng.js'
 import { registerPwa } from './pwa.js'
@@ -183,6 +184,13 @@ function bindLang() {
   if (music) {
     music.addEventListener('click', () => {
       toggleMusic()
+      render()
+    })
+  }
+  const contrast = document.getElementById('contrasttoggle')
+  if (contrast) {
+    contrast.addEventListener('click', () => {
+      toggleContrast()
       render()
     })
   }

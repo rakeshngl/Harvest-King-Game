@@ -9,6 +9,7 @@ import { TILES, CROPS } from '../src/data.js'
 
 test('chrome and tutorial markup keep their ids', () => {
   assert.match(chromeToggleHtml(), /id="langtoggle"/)
+  assert.match(chromeToggleHtml(), /id="contrasttoggle"/)
   assert.match(chromeToggleHtml(), /id="helptoggle"/)
   assert.match(tutorialHtml(true, 0), /id="tutorial"/)
   assert.equal(tutorialHtml(false, 0), '')
