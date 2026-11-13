@@ -7,21 +7,21 @@
   "winner": 0,
   "logId": 15,
   "cash": [
-    12000,
-    7200
+    10200,
+    8640
   ],
   "pos": [
-    7,
-    14
+    15,
+    11
   ],
   "logHead": "Seasons end. A is Harvest King with Rs 12000.",
   "farms": [
     [
-      8,
-      1
+      6,
+      0
     ],
     [
-      14,
+      11,
       1
     ]
   ]

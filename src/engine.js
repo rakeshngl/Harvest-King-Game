@@ -736,7 +736,9 @@ function applyCard(state, p, card) {
       p.knowHow = 2
       break
     case 'unlessOwn':
-      if (state.infra[card.tile] !== p.id) forcePay(state, p, card.amount, card.title, { type: 'card', deck: cardDeck(state, p), card })
+      if (state.infra[card.tile] !== p.id && state.utilities[card.tile] !== p.id) {
+        forcePay(state, p, card.amount, card.title, { type: 'card', deck: cardDeck(state, p), card })
+      }
       break
     case 'organicBonus':
       p.organic = 2

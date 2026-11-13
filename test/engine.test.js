@@ -7,7 +7,7 @@ import {
   raiseLot, giveUpRaise, mortgageFarm, fireSale, raisableLots, mortgageValue, chooseLabour,
   harvestQuote, readyHarvestLots, irrigate, insure
 } from '../src/engine.js'
-import { START_CASH, WIN_NET, PASS_GO, WEATHER, WEATHER_WEIGHTS, TILES, CROPS, INTEREST, SEASON_PRESETS, DEFAULT_PRESET, KISAN_CARDS } from '../src/data.js'
+import { START_CASH, WIN_NET, PASS_GO, WEATHER, WEATHER_WEIGHTS, TILES, CROPS, INTEREST, SEASON_PRESETS, DEFAULT_PRESET, KISAN_CARDS, MANDI_CARDS } from '../src/data.js'
 import { dailySeed } from '../src/rng.js'
 
 const FAIR = WEATHER.find((w) => w.id === 'normal')
@@ -61,10 +61,22 @@ function kisanCard(id) {
   return KISAN_CARDS.find((c) => c.id === id)
 }
 
+function mandiCard(id) {
+  return MANDI_CARDS.find((c) => c.id === id)
+}
+
 function drawKisan(state, id) {
   state.kisan = [kisanCard(id)]
   state.kisanI = 0
   state.players[0].pos = 0
+  applyMove(state, [1, 1])
+  return state
+}
+
+function drawMandi(state, id) {
+  state.mandi = [mandiCard(id)]
+  state.mandiI = 0
+  state.players[0].pos = 5
   applyMove(state, [1, 1])
   return state
 }
@@ -940,6 +952,51 @@ test('extra crops sow on their belts and mint into prices', () => {
   s.pending = { kind: 'farmWork', tileId: 32 }
   assert.equal(seedLand(s, 32, 'onion'), true)
   assert.equal(s.farms[32].crop, 'onion')
+})
+
+test('new farmer cards use existing fn keys', () => {
+  const s = createGame(2, ['A', 'B'])
+  const before = s.players[0].cash
+  drawKisan(s, 'kcc')
+  assert.equal(s.players[0].cash, before + 1800)
+  const t = createGame(2, ['A', 'B'])
+  t.utilities[28] = 0
+  const cash = t.players[0].cash
+  drawKisan(t, 'powercut')
+  assert.equal(t.players[0].cash, cash)
+  const u = createGame(2, ['A', 'B'])
+  const pay = u.players[0].cash
+  drawKisan(u, 'powercut')
+  assert.equal(u.players[0].cash, pay - 800)
+  const v = createGame(2, ['A', 'B'])
+  ripeField(v, 1, 'moong')
+  const pulse = v.players[0].cash
+  drawKisan(v, 'pulsebonus')
+  assert.equal(v.players[0].cash, pulse + 1200)
+  const w = createGame(2, ['A', 'B'])
+  const mustard = w.prices.mustard
+  drawKisan(w, 'oilhike')
+  assert.equal(w.prices.mustard, Math.round(mustard * 1.2))
+  assert.equal(w.prices.wheat, createGame(2, ['A', 'B']).prices.wheat)
+})
+
+test('new market cards use existing fn keys', () => {
+  const s = createGame(2, ['A', 'B'])
+  const onion = s.prices.onion
+  const wheat = s.prices.wheat
+  drawMandi(s, 'import')
+  assert.equal(s.prices.onion, Math.round(onion * 0.82))
+  assert.equal(s.prices.wheat, wheat)
+  const t = createGame(2, ['A', 'B'])
+  t.infra[5] = 0
+  const cash = t.players[0].cash
+  drawMandi(t, 'tractor')
+  assert.equal(t.players[0].cash, cash + 1100)
+  const u = createGame(2, ['A', 'B'])
+  ripeField(u, 14, 'jute')
+  const jute = u.players[0].cash
+  drawMandi(u, 'juteorder')
+  assert.equal(u.players[0].cash, jute + 1400)
 })
 
 test('export ban drops onion with spices', () => {

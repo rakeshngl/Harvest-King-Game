@@ -125,7 +125,13 @@ export const KISAN_CARDS = [
   { id: 'coldfail', title: 'Cold Storage Failure', text: 'If you do not own Cold Storage, pay Rs 900.', fn: 'unlessOwn', tile: 15, amount: 900 },
   { id: 'organic', title: 'Organic Certification', text: 'Sikkim Organic and spice harvests pay a premium this season.', fn: 'organicBonus' },
   { id: 'msp', title: 'Support Price Hike', text: 'Wheat, paddy and cotton support price rises 15%.', fn: 'mspHike', crops: ['wheat', 'rice', 'cotton'], pct: 0.15 },
-  { id: 'labour', title: 'Labour Shortage', text: 'Pay Rs 600 or skip your next harvest bonus.', fn: 'labour', amount: 600 }
+  { id: 'labour', title: 'Labour Shortage', text: 'Pay Rs 600 or skip your next harvest bonus.', fn: 'labour', amount: 600 },
+  { id: 'kcc', title: 'Kisan Credit Card', text: 'Collect Rs 1800 from the treasury.', fn: 'gain', amount: 1800 },
+  { id: 'powercut', title: 'Power Cut', text: 'If you do not own Borewell Grid, pay Rs 800.', fn: 'unlessOwn', tile: 28, amount: 800 },
+  { id: 'seedbank', title: 'Certified Seed Dividend', text: 'If you own Seed Bank, collect Rs 1400.', fn: 'ifOwn', tile: 25, amount: 1400 },
+  { id: 'pulsebonus', title: 'Pulse Mission', text: 'Mung bean holders collect Rs 1200.', fn: 'ifCropField', crops: ['moong'], amount: 1200 },
+  { id: 'oilhike', title: 'Cooking Oil Rally', text: 'Mustard, groundnut and soybean jump 20%.', fn: 'priceBoostCrops', crops: ['mustard', 'groundnut', 'soybean'], pct: 0.2 },
+  { id: 'levy', title: 'Panchayat Levy', text: 'Pay Rs 250 per owned or leased farm.', fn: 'perFarm', amount: 250 }
 ]
 
 export const MANDI_CARDS = [
@@ -140,7 +146,13 @@ export const MANDI_CARDS = [
   { id: 'eNAM', title: 'Online Market Listing', text: 'Collect Rs 500 and unlock +5% sale price this season.', fn: 'enam' },
   { id: 'loanwaiver', title: 'Interest Relief', text: 'Rural bank interest waived once. Debt reduced by Rs 1500.', fn: 'debtCut', amount: 1500 },
   { id: 'fertilizer', title: 'Urea Shortage', text: 'Preparation costs rise. Pay Rs 500 now.', fn: 'pay', amount: 500 },
-  { id: 'bonus', title: 'Cane Fructose Order', text: 'Sugarcane holders collect Rs 1600.', fn: 'ifCropField', crops: ['sugarcane'], amount: 1600 }
+  { id: 'bonus', title: 'Cane Fructose Order', text: 'Sugarcane holders collect Rs 1600.', fn: 'ifCropField', crops: ['sugarcane'], amount: 1600 },
+  { id: 'diwali', title: 'Diwali Buying', text: 'All market prices rise 10%.', fn: 'market', pct: 0.1 },
+  { id: 'import', title: 'Cheap Import', text: 'Onion, potato and chili fall 18%.', fn: 'priceDrop', crops: ['onion', 'potato', 'chili'], pct: 0.18 },
+  { id: 'horti', title: 'Horticulture Boom', text: 'Mango, grape and apple jump 22%.', fn: 'priceBoostCrops', crops: ['mango', 'grape', 'apple'], pct: 0.22 },
+  { id: 'juteorder', title: 'Jute Bag Order', text: 'Jute holders collect Rs 1400.', fn: 'ifCropField', crops: ['jute'], amount: 1400 },
+  { id: 'yardfee', title: 'Yard Cess', text: 'If you do not own Market Yard, pay Rs 700.', fn: 'unlessOwn', tile: 35, amount: 700 },
+  { id: 'tractor', title: 'Custom Hire Rebate', text: 'If you own Tractor Stand, collect Rs 1100.', fn: 'ifOwn', tile: 5, amount: 1100 }
 ]
 
 export const WEATHER = [

@@ -35,7 +35,7 @@ Walk one item at a time. Commit and push each finished item to `origin/master`.
 - Season-weighted weather (monsoon in kharif, hail in rabi hills). — done (10 Nov #7).
 - Regroup belts (Vidarbha is `oil`, Shimla is wheat, Baghpat Cane is cotton). — done (10 Nov #8: cotton / hill / gangetic).
 - Crops: soybean, maize, onion, potato, chili, turmeric, coconut, rubber. — done (10 Nov #12).
-- More Farmer/Market cards via existing `fn` keys.
+- More Farmer/Market cards via existing `fn` keys. — done (10 Nov later; 6+6, existing fn).
 - Labour shortage as a cash cost on extra labour in peak season.
 - Organic / know-how as lasting counters (organic is still one-shot cash; knowHow is already a 2-turn counter). — organic done (10 Nov #9).
 - Flood weather text vs rules (copy says orchards; engine is alluvial + low water). — done (10 Nov #2).

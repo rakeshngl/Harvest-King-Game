@@ -59,6 +59,14 @@ test('English names match data.js', () => {
     assert.match(organic.text, /premium/i)
     assert.doesNotMatch(organic.text, /800/)
     assert.doesNotMatch(cardText(organic), /800|८००/)
+    for (const id of ['kcc', 'powercut', 'seedbank', 'pulsebonus', 'oilhike', 'levy']) {
+      assert.ok(KISAN_CARDS.find((c) => c.id === id), id)
+    }
+    for (const id of ['diwali', 'import', 'horti', 'juteorder', 'yardfee', 'tractor']) {
+      assert.ok(MANDI_CARDS.find((c) => c.id === id), id)
+    }
+    assert.equal(cardTitle(KISAN_CARDS.find((c) => c.id === 'kcc')), 'Kisan Credit Card')
+    assert.equal(cardTitle(MANDI_CARDS.find((c) => c.id === 'diwali')), 'Diwali Buying')
     const flood = WEATHER.find((w) => w.id === 'flood')
     assert.match(flood.text, /alluvial/i)
     assert.doesNotMatch(flood.text, /orchard/i)
@@ -93,6 +101,8 @@ test('Hindi and Tamil translate tiles, crops, cards, weather, stages', () => {
     assert.match(cardText(ban), /मसाला/)
     assert.equal(cropName('onion'), 'प्याज')
     assert.equal(cropName('soybean'), 'सोयाबीन')
+    assert.equal(cardTitle(KISAN_CARDS.find((c) => c.id === 'kcc')), 'किसान क्रेडिट कार्ड')
+    assert.equal(cardTitle(MANDI_CARDS.find((c) => c.id === 'diwali')), 'दिवाली खरीद')
     assert.match(weatherText({ id: 'flood' }), /जलोढ़/)
     assert.doesNotMatch(weatherText({ id: 'flood' }), /बाग/)
   })
@@ -109,6 +119,8 @@ test('Hindi and Tamil translate tiles, crops, cards, weather, stages', () => {
     assert.match(cardText(ban), /மசாலா/)
     assert.equal(cropName('onion'), 'வெங்காயம்')
     assert.equal(cropName('rubber'), 'ரப்பர்')
+    assert.equal(cardTitle(KISAN_CARDS.find((c) => c.id === 'kcc')), 'கிசான் கடன் அட்டை')
+    assert.equal(cardTitle(MANDI_CARDS.find((c) => c.id === 'diwali')), 'தீபாவளி வாங்குதல்')
     assert.match(weatherText({ id: 'flood' }), /வண்டல்/)
     assert.doesNotMatch(weatherText({ id: 'flood' }), /தோட்ட/)
   })

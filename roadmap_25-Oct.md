@@ -28,7 +28,7 @@ Grounded in the tree at `e5fbb56`. Already shipped and not re-proposed: rooms + 
 ## Later (fits current engine)
 
 - Crops: soybean, maize, onion, potato, chili, turmeric, coconut, rubber. — done (10 Nov #12).
-- More Farmer/Market cards via existing `fn` keys.
+- More Farmer/Market cards via existing `fn` keys. — done (6 Farmer + 6 Market).
 - Season-weighted weather (monsoon in kharif, hail in rabi hills). — done (10 Nov #7).
 - Regroup belts (Vidarbha is `oil`, Shimla is wheat, Baghpat Cane is cotton). — done (10 Nov #8).
 - FCI vs open-harvest EV in the warehouse modal. — done (same modifiers minus luck; MSP +10%; modal prints both).
