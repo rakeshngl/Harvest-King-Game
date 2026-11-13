@@ -73,10 +73,10 @@ function cropScore(state, p, tile, cropId, knobs) {
   const persona = personaOf(p)
   if (persona.id === 'thrifty') {
     if (cost > 900) y *= 0.7
-    if (['bajra', 'jowar', 'moong', 'mustard'].includes(crop.id)) y *= 1.25
+    if (['bajra', 'jowar', 'moong', 'mustard', 'maize', 'soybean'].includes(crop.id)) y *= 1.25
   }
   if (persona.id === 'gambler') {
-    if (['spices', 'cumin', 'saffron', 'cotton', 'apple'].includes(crop.id)) y *= 1.35
+    if (['spices', 'cumin', 'saffron', 'cotton', 'apple', 'chili', 'turmeric', 'onion'].includes(crop.id)) y *= 1.35
     if (off) y *= 1.1
   }
   if (knobs.gambled && crop.vol >= 0.32) y *= 1.22

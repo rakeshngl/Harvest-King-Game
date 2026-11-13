@@ -5,33 +5,30 @@
   "preset": "short",
   "policy": "skip",
   "winner": 0,
-  "logId": 24,
+  "logId": 21,
   "cash": [
     12000,
     12000
   ],
   "pos": [
-    15,
-    15
+    7,
+    14
   ],
   "seasonIndex": 2,
   "lastDice": [
-    6,
-    1
+    3,
+    3
   ],
   "log": [
     "Seasons end. A is Harvest King with Rs 12000.",
-    "Summer season. Weather: Hail Belt. Hill and orchard crops take a beating.",
-    "No bid for Cold Storage. It stays with Village Hall.",
-    "B passes on Cold Storage.",
-    "A passes on Cold Storage.",
-    "Cold Storage goes to auction. Opening bid Rs 1000.",
-    "B rolls 6+1 and reaches Cold Storage.",
-    "No bid for Cold Storage. It stays with Village Hall.",
-    "A passes on Cold Storage.",
-    "B passes on Cold Storage.",
-    "Cold Storage goes to auction. Opening bid Rs 1000.",
-    "A rolls 5+5 and reaches Cold Storage.",
+    "Summer season. Weather: Drought. Yields fall unless irrigated or drought-hardy.",
+    "No bid for Hooghly Jute. It stays with Village Hall.",
+    "B passes on Hooghly Jute.",
+    "A passes on Hooghly Jute.",
+    "Hooghly Jute goes to auction. Opening bid Rs 1400.",
+    "B rolls 3+3 and reaches Hooghly Jute.",
+    "Government Procurement: Collect Rs 1800 if you hold wheat or paddy fields.",
+    "A rolls 1+1 and reaches Market Prices.",
     "Winter season. Weather: Drought. Yields fall unless irrigated or drought-hardy.",
     "No bid for Vidarbha Cotton. It stays with Village Hall.",
     "B passes on Vidarbha Cotton.",

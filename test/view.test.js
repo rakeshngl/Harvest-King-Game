@@ -96,7 +96,7 @@ test('prices panel lists every crop', () => {
     landingQueue: [],
     inspectId: null
   })
-  assert.equal(Object.keys(CROPS).length, 18)
+  assert.equal(Object.keys(CROPS).length, 26)
   Object.values(CROPS).forEach((c) => {
     assert.match(html, new RegExp(c.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
   })

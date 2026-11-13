@@ -27,7 +27,7 @@ Grounded in the tree at `e5fbb56`. Already shipped and not re-proposed: rooms + 
 
 ## Later (fits current engine)
 
-- Crops: soybean, maize, onion, potato, chili, turmeric, coconut, rubber.
+- Crops: soybean, maize, onion, potato, chili, turmeric, coconut, rubber. — done (10 Nov #12).
 - More Farmer/Market cards via existing `fn` keys.
 - Season-weighted weather (monsoon in kharif, hail in rabi hills). — done (10 Nov #7).
 - Regroup belts (Vidarbha is `oil`, Shimla is wheat, Baghpat Cane is cotton). — done (10 Nov #8).
@@ -55,14 +55,14 @@ Multi-replica, WebSockets, mid-game seat late-join. One Coolify replica + specta
 - Season clock ticks on every Village Hall pass, not per round. — done (full round via `nextTurn` wrap).
 - Decks never reshuffle after the opening shuffle. — done (`drawCard` reshuffles Farmer/Market when the index wraps).
 - `state.doubles` is dead. Soil types other than hail+hill and flood+alluvial do nothing. — doubles dropped (10 Nov #3); soils move drought/hail (10 Nov #6).
-- Market panel shows only the first 12 of 18 crops. — done (prices pane lists all 18).
+- Market panel shows only the first 12 of 18 crops. — done (prices pane lists every crop; 26 after 10 Nov #12).
 
 ### Cards vs text
 
 - Hail: pays expected value, crop stays. — done (50% of live listed yield; crop stays).
 - Pest: wipes crops if cash is short; no mortgage/insolvency. — done (uninsured fee through `forcePay`; insurance covers the rest).
 - Labour: auto-pays or applies 15% harvest haircut; no choice. — done (hire Rs 600 or skip next harvest bonus).
-- Export ban mentions onion; onion crop does not exist. — done (spice panic copy; onion crop still later).
+- Export ban mentions onion; onion crop does not exist. — done (10 Nov #12; onion + spice prices fall 20%).
 - Organic cert is an instant cash bonus, not a track.
 
 ### AI

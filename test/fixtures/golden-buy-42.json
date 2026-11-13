@@ -5,24 +5,23 @@
   "preset": "short",
   "policy": "buy",
   "winner": 0,
-  "logId": 21,
+  "logId": 15,
   "cash": [
     12000,
-    10000
+    7200
   ],
   "pos": [
-    15,
-    15
-  ],
-  "seasonIndex": 2,
-  "lastDice": [
-    6,
-    1
+    7,
+    14
   ],
   "logHead": "Seasons end. A is Harvest King with Rs 12000.",
   "farms": [
     [
       8,
+      1
+    ],
+    [
+      14,
       1
     ]
   ]

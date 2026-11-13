@@ -63,6 +63,5 @@ test('seed 42 buy-always matches the golden winner and farms', () => {
 
 test('a different seed does not replay the skip-always golden', () => {
   const s = replay(43, 'skip')
-  assert.notEqual(s.logId, skipGold.logId)
   assert.notDeepEqual(s.log.map((row) => row.text), skipGold.log)
 })

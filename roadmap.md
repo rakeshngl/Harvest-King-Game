@@ -64,7 +64,7 @@ Done: player trading (land, cash, debt); auctions when someone declines to buy.
 
 ## Content
 
-- More crops: soybean, maize, onion, potato, rubber, coconut, chili, turmeric
+- More crops: soybean, maize, onion, potato, rubber, coconut, chili, turmeric — done (10 Nov #12; existing tile lists)
 - More belts or a second map (South-only, Northeast, one-state district map)
 - Alternate boards: compact 28-tile quick farm, or 52-tile all India
 - Card expansions (more Farmer / Market cards) without engine rewrites

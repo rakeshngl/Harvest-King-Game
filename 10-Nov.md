@@ -23,7 +23,7 @@ Walk one item at a time. Commit and push each finished item to `origin/master`.
 9. Organic as a lasting counter (like `knowHow` / `enam`), not instant Rs 800. Card still targets Sikkim Organic / spice farms; harvest or net-worth reads the counter. — done (`organic` 2 seasons; spice/Sikkim harvest ×1.1 and +Rs 400 net).
 10. High-contrast / colour-blind palette. CSS tokens + a chrome toggle; keep the saffron/green/navy board as default. — done (`hk-contrast`; `html.contrast` tokens; chrome toggle).
 11. Self-host Mukta / Cinzel / Tiro (or drop third-origin Google Fonts). SW already skips other origins, so PWA Hindi/Tamil fall back today. — done (`public/fonts` woff2 + `fonts.css`; `hk-shell-4`).
-12. Extra crops via existing tile `crops` lists: soybean, maize, onion, potato, chili, turmeric, coconut, rubber. One or two per belt, not a new map. Onion unblocks the old export-ban flavour.
+12. Extra crops via existing tile `crops` lists: soybean, maize, onion, potato, chili, turmeric, coconut, rubber. One or two per belt, not a new map. Onion unblocks the old export-ban flavour. — done (26 crops; ban is onion + spice panic).
 
 ## Later (fits current engine, lower urgency)
 

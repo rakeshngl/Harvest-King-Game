@@ -16,7 +16,7 @@ Walk one item at a time. Commit and push each finished item to `origin/master`.
 1. Stop double `marketMod` in `harvest` (and AI EV). One-line fairness; regenerates goldens if seed-42 buy path harvests. — done
 2. Tax copy vs `Math.max`: either honour the cheaper of pct/flat, or change EN/HI/TA text to “the greater of”. — done (copy matches `Math.max`; no tax-choice UI)
 3. Sound off mutes music (`musicGain` currently bypasses `master` in `src/sound.js`). Keep the Music toggle; mute is a master bus. — done
-4. Market panel lists all 18 crops (`src/hud.js` `slice(0, 12)`). — done
+4. Market panel lists all 18 crops (`src/hud.js` `slice(0, 12)`). — done (now 26).
   5. Docs leftovers: README diary “last 12” (`DIARY_PAGE` is 20); `public/roadmap.html` intro still says in-memory rooms; `roadmap_25-Oct.md` Notes block lists shipped bugs. — done
   6. Escape closes landing / action / win / trade (today tutorial + inspect only). Lobby inputs get labels. — done (Escape also skippable action kinds; raise/auction/trade-offer stay).
   7. Preview `/api` proxy (`vite.config.js` `preview` has none). `start.mjs` forwards SIGTERM/SIGINT to both children. — done
@@ -34,7 +34,7 @@ Walk one item at a time. Commit and push each finished item to `origin/master`.
 - Soil types besides hail+hill and flood+alluvial. — done (10 Nov #6; drought black/red/laterite/arid, hail hill).
 - Season-weighted weather (monsoon in kharif, hail in rabi hills). — done (10 Nov #7).
 - Regroup belts (Vidarbha is `oil`, Shimla is wheat, Baghpat Cane is cotton). — done (10 Nov #8: cotton / hill / gangetic).
-- Crops: soybean, maize, onion, potato, chili, turmeric, coconut, rubber.
+- Crops: soybean, maize, onion, potato, chili, turmeric, coconut, rubber. — done (10 Nov #12).
 - More Farmer/Market cards via existing `fn` keys.
 - Labour shortage as a cash cost on extra labour in peak season.
 - Organic / know-how as lasting counters (organic is still one-shot cash; knowHow is already a 2-turn counter). — organic done (10 Nov #9).
@@ -58,7 +58,7 @@ Multi-replica, WebSockets, mid-game seat late-join. One Coolify replica + specta
 
 - FCI vs mandi is not a real choice until modifiers or an EV line exist. — done (shared yield minus luck; warehouse modal prints both).
 - Tax “or” is a lie.
-- Cards (hail, pest, labour, onion ban, organic) still disagree with their text. — hail/pest/labour/ban done; organic is a lasting premium (10 Nov #9).
+- Cards (hail, pest, labour, onion ban, organic) still disagree with their text. — hail/pest/labour/ban/organic done; onion ban restored (10 Nov #12).
 - Irrigation on idle land is a leftover snowball after sequence 12. — done (seeded/ripe only; mortgage and village lease expiry clear flags).
 
 ### Ops

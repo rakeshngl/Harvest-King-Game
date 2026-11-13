@@ -154,7 +154,7 @@ When a player cannot pay, a **raise** prompt opens. The farmer mortgages owned f
 
 ## Crops
 
-Eighteen crops are modeled, each with a season, seed cost, grow time (in turns), base yield, base price, price volatility, drought tolerance, and water need.
+Twenty-six crops are modeled, each with a season, seed cost, grow time (in turns), base yield, base price, price volatility, drought tolerance, and water need.
 
 | Crop | Season | Seed | Grow | Yield | Price |
 | --- | --- | --- | --- | --- | --- |
@@ -176,6 +176,14 @@ Eighteen crops are modeled, each with a season, seed cost, grow time (in turns),
 | Cumin | Winter | 1400 | 1 | 7 | 380 |
 | Saffron | Winter | 3200 | 2 | 4 | 900 |
 | Mung Bean | Summer | 500 | 1 | 10 | 120 |
+| Soybean | Monsoon | 750 | 1 | 17 | 88 |
+| Maize | Monsoon | 500 | 1 | 22 | 48 |
+| Onion | Winter | 850 | 1 | 18 | 95 |
+| Potato | Winter | 800 | 1 | 22 | 68 |
+| Chili | Monsoon | 1100 | 1 | 9 | 210 |
+| Turmeric | Monsoon | 1250 | 2 | 10 | 190 |
+| Coconut | Monsoon | 1800 | 2 | 12 | 150 |
+| Rubber | Monsoon | 2400 | 2 | 8 | 270 |
 
 ## Winning
 

@@ -904,6 +904,62 @@ test('labour shortage is a hire-or-skip choice', () => {
   assert.equal(t.players[0].skipHarvestBonus, false)
 })
 
+test('extra crops sow on their belts and mint into prices', () => {
+  const extra = ['soybean', 'maize', 'onion', 'potato', 'chili', 'turmeric', 'coconut', 'rubber']
+  extra.forEach((id) => {
+    assert.ok(CROPS[id], id)
+    assert.equal(CROPS[id].id, id)
+  })
+  const s = createGame(2, ['A', 'B'])
+  extra.forEach((id) => assert.equal(s.prices[id], CROPS[id].price))
+  TILES.filter((t) => t.type === 'farm').forEach((t) => {
+    t.crops.forEach((cid) => assert.ok(CROPS[cid], `${t.name} ${cid}`))
+  })
+  const spots = [
+    [3, 'maize'],
+    [6, 'soybean'],
+    [8, 'soybean'],
+    [9, 'chili'],
+    [11, 'potato'],
+    [16, 'potato'],
+    [18, 'onion'],
+    [19, 'potato'],
+    [21, 'coconut'],
+    [23, 'turmeric'],
+    [24, 'rubber'],
+    [29, 'maize'],
+    [31, 'chili'],
+    [32, 'onion']
+  ]
+  spots.forEach(([tileId, crop]) => {
+    assert.ok(TILES[tileId].crops.includes(crop), `${TILES[tileId].name} ${crop}`)
+  })
+  s.farms[32].owner = 0
+  s.farms[32].stage = 'prepared'
+  s.phase = 'action'
+  s.pending = { kind: 'farmWork', tileId: 32 }
+  assert.equal(seedLand(s, 32, 'onion'), true)
+  assert.equal(s.farms[32].crop, 'onion')
+})
+
+test('export ban drops onion with spices', () => {
+  const s = createGame(2, ['A', 'B'])
+  const before = {
+    onion: s.prices.onion,
+    spices: s.prices.spices,
+    cumin: s.prices.cumin,
+    wheat: s.prices.wheat
+  }
+  drawKisan(s, 'ban')
+  assert.equal(s.prices.onion, Math.round(before.onion * 0.8))
+  assert.equal(s.prices.spices, Math.round(before.spices * 0.8))
+  assert.equal(s.prices.cumin, Math.round(before.cumin * 0.8))
+  assert.equal(s.prices.wheat, before.wheat)
+  const ban = kisanCard('ban')
+  assert.match(ban.text, /Onion panic/)
+  assert.deepEqual(ban.crops, ['onion', 'spices', 'cumin'])
+})
+
 test('farm diary keeps the newest LOG_CAP entries', () => {
   const s = createGame(4, ['A', 'B', 'C', 'D'], { seed: 1, seasons: 24, winNet: 999999 })
   let steps = 0
