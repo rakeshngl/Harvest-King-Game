@@ -1,5 +1,5 @@
 /* Harvest King service worker. Bump VERSION when the shell changes. */
-const VERSION = 'hk-shell-3'
+const VERSION = 'hk-shell-4'
 const SHELL = 'hk-shell-' + VERSION
 const ASSETS = 'hk-assets-' + VERSION
 const API_CACHE = 'hk-api-' + VERSION
@@ -7,6 +7,7 @@ const API_CACHE = 'hk-api-' + VERSION
 const PRECACHE = [
   '/',
   '/index.html',
+  '/fonts.css',
   '/manifest.webmanifest',
   '/hero.webp',
   '/icons/icon-32.png',
@@ -80,6 +81,12 @@ async function precacheShell(cache) {
   const re = /(?:href|src)="(\/assets\/[^"]+)"/g
   let m
   while ((m = re.exec(html))) extra.push(m[1])
+  const fontsCss = await cache.match('/fonts.css')
+  if (fontsCss) {
+    const css = await fontsCss.text()
+    const fontRe = /url\((\/fonts\/[^)]+)\)/g
+    while ((m = fontRe.exec(css))) extra.push(m[1])
+  }
   if (extra.length) await addSoft(cache, extra)
 }
 
@@ -88,7 +95,7 @@ function isApi(url) {
 }
 
 function isAsset(url) {
-  return url.pathname.startsWith('/assets/')
+  return url.pathname.startsWith('/assets/') || url.pathname.startsWith('/fonts/')
 }
 
 function isStream(req, url) {

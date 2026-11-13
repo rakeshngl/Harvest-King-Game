@@ -30,7 +30,7 @@ Accounts/login stay deferred (needs OAuth or email credentials).
 
 - `public/manifest.webmanifest` with maskable icons, theme colour, standalone display.
 - Hand-written `public/sw.js` (no new dependency): precache shell, cache-first hashed assets, network-first `/api` with offline fallback.
-- Register from `src/pwa.js` in the production build only (`CACHE_VERSION` = `hk-shell-3`).
+- Register from `src/pwa.js` in the production build only (`CACHE_VERSION` = `hk-shell-4`).
 - Offline banner on lobby, waiting room and board; pass-and-play and vs computer still work. Online rooms still need the network.
 
 ## 5. Tutorial overlay (done)

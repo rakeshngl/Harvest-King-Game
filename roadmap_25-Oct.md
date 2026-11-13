@@ -85,10 +85,10 @@ Multi-replica, WebSockets, mid-game seat late-join. One Coolify replica + specta
 - No `prefers-reduced-motion`, no high-contrast / colour-blind palette. — reduced-motion done (dice skip spin); high-contrast chrome toggle done (10 Nov #10).
 - Sound off does not mute music. — done (`musicGain` feeds `master`).
 - Win modal shows only the king; Play again returns to lobby. — done (ranked standings; local rematch reseats; online host `POST /api/rematch`).
-- Google Fonts are a third-origin fetch the service worker ignores.
+- Google Fonts are a third-origin fetch the service worker ignores. — done (10 Nov #11; self-hosted Mukta / Cinzel / Tiro).
 
 ### Docs drift
 
 - README: “Online rooms stay human-only” is false; Vite proxy timeout and Node 18 are stale; project tree omits several `src/` modules. — done
 - `public/roadmap.html` still lists persistence and SSE as open. — done
-- `tasks-18-oct.md` still says `CACHE_VERSION` = `hk-shell-1` (code is `hk-shell-2`). — done (`hk-shell-3`).
+- `tasks-18-oct.md` still says `CACHE_VERSION` = `hk-shell-1` (code is `hk-shell-2`). — done (`hk-shell-4`).

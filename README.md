@@ -24,7 +24,7 @@ There is no jail. Instead, the board is loaded with agricultural complications: 
 - **High-contrast palette**: chrome toggle (`localStorage` `hk-contrast`) swaps CSS tokens; the saffron/green/navy board stays the default.
 - **Indian number formatting**: money uses lakh/crore shorthand (Rs 12,000 / Rs 1.2 lakh / Rs 1.5 crore) and `en-IN` digit grouping for counts.
 - **Phone layout**: the 40-tile board shrinks to the viewport, side panels tab, and the roll dock stays under the board.
-- **Installable PWA**: Add to Home Screen. The production service worker precaches the shell so the lobby, pass-and-play and vs computer still open offline. Online rooms still need the network.
+- **Installable PWA**: Add to Home Screen. The production service worker precaches the shell and self-hosted Mukta / Cinzel / Tiro woff2 files so Hindi/Tamil type still loads offline. Online rooms still need the network.
 - **Farming-cycle tutorial**: six-step overlay on first visit (`localStorage` `hk-tutorial`). Reopen it from **How to farm** in the chrome.
 
 ## Board
@@ -263,7 +263,9 @@ The only dependency is Vite (dev dependency). The server runs on the Node standa
 ├── package.json
 ├── public/
 │   ├── manifest.webmanifest
-│   ├── sw.js           # Precache shell, cache-first assets, network-first /api
+│   ├── sw.js           # Precache shell, cache-first assets/fonts, network-first /api
+│   ├── fonts.css       # Self-hosted Mukta / Cinzel / Tiro @font-face
+│   ├── fonts/          # Local woff2 (no Google Fonts)
 │   ├── hero.webp
 │   └── icons/          # 192/512 any + maskable, apple-touch, favicon
 ├── server/

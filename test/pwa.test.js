@@ -12,7 +12,7 @@ test('CACHE_VERSION matches the service worker', () => {
 })
 
 test('service worker precaches the shell', () => {
-  for (const path of ['/', '/index.html', '/manifest.webmanifest', '/hero.webp', '/icons/icon-192.png', '/icons/icon-512.png']) {
+  for (const path of ['/', '/index.html', '/fonts.css', '/manifest.webmanifest', '/hero.webp', '/icons/icon-192.png', '/icons/icon-512.png']) {
     assert.match(sw, new RegExp(`'${path}'`))
   }
   assert.match(sw, /cacheFirst/)
