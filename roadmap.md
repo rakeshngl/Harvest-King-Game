@@ -49,7 +49,7 @@ Done: online mixed tables (1 human + 1 to 3 CPUs).
 - MSP vs open mandi vs export as a real choice, not only FCI landing
 - Crop rotation bonus / monoculture fertility penalty
 - Intercropping on large tiles
-- Labour market: extra labour actions cost cash in peak season
+- Labour market: extra labour actions cost cash in peak season — done (monsoon extra labour Rs 400)
 - Farmer producer org / cooperative tile (pool harvest, share bonus)
 - Climate event deck: El Nino year, heatwave, unseasonal rain as a season modifier
 - Policy cards: loan waiver, fertilizer subsidy, export ban with real board effects

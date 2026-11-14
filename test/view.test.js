@@ -150,6 +150,36 @@ test('seeded farm work offers irrigate and insure', () => {
   assert.match(html, /data-act="insure"/)
 })
 
+test('end-phase extra labour hint names the monsoon fee', () => {
+  const ctx = {
+    lineOn: true,
+    notice: '',
+    cpuNote: '',
+    rolling: false,
+    online: false,
+    session: null,
+    mySeat: 0,
+    isMyTurn: true,
+    humanSeat: 0,
+    sideTab: 'farmers',
+    diaryPage: 0,
+    tradeOpen: false,
+    tradeDraft: { to: '', cashGive: '', cashTake: '', landGive: '', landTake: '', debtGive: '', debtTake: '' },
+    landing: null,
+    landingQueue: [],
+    inspectId: null
+  }
+  const state = createGame(2, ['A', 'B'], { seed: 1 })
+  state.phase = 'end'
+  state.farms[1].owner = 0
+  const html = gameHtml(state, ctx)
+  assert.match(html, /Peak-season extra labour/)
+  state.seasonIndex = 1
+  const winter = gameHtml(state, ctx)
+  assert.match(winter, /Extra labour: work one owned field/)
+  assert.doesNotMatch(winter, /Peak-season extra labour/)
+})
+
 test('labour shortage modal offers hire or skip', () => {
   const state = createGame(2, ['A', 'B'], { seed: 1 })
   state.pending = { kind: 'labour', amount: 600, card: { id: 'labour', title: 'Labour Shortage', text: 'Pay Rs 600 or skip your next harvest bonus.' } }

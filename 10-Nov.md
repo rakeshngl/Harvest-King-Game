@@ -28,7 +28,7 @@ Walk one item at a time. Commit and push each finished item to `origin/master`.
 ## Later (fits current engine, lower urgency)
 
 - Human tokens still written to `data/rooms.json` (CPU tokens already blanked). Needed today for process-restart resume. Real fix is cookie-only restore (`hk-seat`) and omit tokens from disk — do not blank them until resume still works.
-- Labour shortage as a cash cost on extra labour in peak season (hire-or-skip already shipped).
+- Labour shortage as a cash cost on extra labour in peak season. — done (monsoon extra labour Rs 400; Village Hall / Farm Fair stay free).
 - More Farmer/Market cards via existing `fn` keys. — done (6 Farmer + 6 Market; `unlessOwn` also checks utilities).
 - AI trade eval still list-price arithmetic.
 

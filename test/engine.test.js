@@ -5,9 +5,9 @@ import {
   nextTurn, netWorth, applyMove, takeLoan, sellToFci, declineAction, bidAuction, passAuction,
   offerTrade, acceptTrade, rejectTrade, actingSeat, finalStandings, presetById, rollDice, LOG_CAP,
   raiseLot, giveUpRaise, mortgageFarm, fireSale, raisableLots, mortgageValue, chooseLabour,
-  harvestQuote, readyHarvestLots, irrigate, insure
+  harvestQuote, readyHarvestLots, irrigate, insure, openFarmWork, extraLabourCost
 } from '../src/engine.js'
-import { START_CASH, WIN_NET, PASS_GO, WEATHER, WEATHER_WEIGHTS, TILES, CROPS, INTEREST, SEASON_PRESETS, DEFAULT_PRESET, KISAN_CARDS, MANDI_CARDS } from '../src/data.js'
+import { START_CASH, WIN_NET, PASS_GO, WEATHER, WEATHER_WEIGHTS, TILES, CROPS, INTEREST, SEASON_PRESETS, DEFAULT_PRESET, KISAN_CARDS, MANDI_CARDS, PEAK_LABOUR } from '../src/data.js'
 import { dailySeed } from '../src/rng.js'
 
 const FAIR = WEATHER.find((w) => w.id === 'normal')
@@ -884,6 +884,49 @@ test('pest with short cash opens a raise instead of wiping the crop', () => {
   assert.equal(s.pending.kind, 'raise')
   assert.equal(s.farms[1].stage, 'ripe')
   assert.equal(s.farms[1].crop, 'bajra')
+})
+
+test('extra labour costs cash in monsoon and is free otherwise', () => {
+  const s = createGame(2, ['A', 'B'])
+  s.farms[1].owner = 0
+  s.phase = 'end'
+  assert.equal(extraLabourCost(s), PEAK_LABOUR)
+  const cash = s.players[0].cash
+  assert.equal(openFarmWork(s, 1), true)
+  assert.equal(s.players[0].cash, cash - PEAK_LABOUR)
+  assert.equal(s.labourUsed, true)
+  assert.equal(s.pending.kind, 'farmWork')
+  assert.match(s.log[0].text, /peak-season extra labour/)
+
+  const t = createGame(2, ['A', 'B'])
+  t.farms[1].owner = 0
+  t.seasonIndex = 1
+  t.phase = 'end'
+  assert.equal(extraLabourCost(t), 0)
+  const winter = t.players[0].cash
+  assert.equal(openFarmWork(t, 1), true)
+  assert.equal(t.players[0].cash, winter)
+
+  const u = createGame(2, ['A', 'B'])
+  u.farms[1].owner = 0
+  u.phase = 'end'
+  u.players[0].cash = 100
+  assert.equal(openFarmWork(u, 1), false)
+  assert.equal(u.labourUsed, false)
+  assert.equal(u.phase, 'end')
+  assert.equal(u.players[0].cash, 100)
+  assert.equal(u.pending, null)
+})
+
+test('village labour day stays free in monsoon', () => {
+  const s = createGame(2, ['A', 'B'])
+  s.farms[1].owner = 0
+  s.phase = 'action'
+  s.pending = { kind: 'pickFarm', reason: 'Village labour day — work one field.' }
+  const cash = s.players[0].cash
+  assert.equal(openFarmWork(s, 1), true)
+  assert.equal(s.players[0].cash, cash)
+  assert.equal(s.labourUsed, false)
 })
 
 test('labour shortage is a hire-or-skip choice', () => {

@@ -3,7 +3,7 @@ import { t } from './i18n.js'
 import { escapeHtml } from './format.js'
 import { iconHtml } from './icons.js'
 import { diceHtml } from './dice.js'
-import { currentPlayer, netWorth, farmsOf, seasonOf, actingSeat, raisableLots, mortgageValue, redeemCost, finalStandings, readyHarvestLots, harvestQuote } from './engine.js'
+import { currentPlayer, netWorth, farmsOf, seasonOf, actingSeat, raisableLots, mortgageValue, redeemCost, finalStandings, readyHarvestLots, harvestQuote, extraLabourCost } from './engine.js'
 import { PERSONAS } from './ai.js'
 import { chromeToggleHtml, offlineBannerHtml } from './chrome.js'
 import { boardTilesHtml } from './board.js'
@@ -456,7 +456,9 @@ export function gameHtml(state, ctx) {
   const season = seasonOf(state)
   const mine = ctx.isMyTurn && actingSeat(state) === state.turn
   const me = state.players[ctx.mySeat]
-  const canWork = ctx.isMyTurn && ((state.phase === 'end' && !state.labourUsed) || (state.pending && state.pending.kind === 'pickFarm'))
+  const labourCost = extraLabourCost(state)
+  const canAffordLabour = !labourCost || (me && me.cash >= labourCost)
+  const canWork = ctx.isMyTurn && ((state.phase === 'end' && !state.labourUsed && canAffordLabour) || (state.pending && state.pending.kind === 'pickFarm'))
   return `
   <div class="game-shell">
     <div class="board-wrap">
@@ -499,7 +501,7 @@ export function gameHtml(state, ctx) {
           <button class="ghost" id="endturn" ${!mine || state.phase !== 'end' ? 'disabled' : ''}>${t('endTurn')}</button>
         </div>
         ${mine && state.phase === 'end' && !state.labourUsed && farmsOf(state, ctx.mySeat).length
-          ? '<div class="tsub labour-hint">' + t('extraLabour') + '</div>'
+          ? '<div class="tsub labour-hint">' + (labourCost ? t('extraLabourPeak', rs(labourCost)) : t('extraLabour')) + '</div>'
           : ''}
         ${ctx.cpuNote ? `<p class="cpu-note">${escapeHtml(ctx.cpuNote)}</p>` : ''}
         ${ctx.notice ? `<p class="notice">${escapeHtml(ctx.notice)}</p>` : ''}

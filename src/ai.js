@@ -1,5 +1,5 @@
 import { TILES, CROPS, GROUPS, LOAN_STEP, LOAN_CAP } from './data.js'
-import { currentPlayer, farmsOf, seasonOf, groupOwned, actingSeat, raisableLots, readyHarvestLots, harvestQuote } from './engine.js'
+import { currentPlayer, farmsOf, seasonOf, groupOwned, actingSeat, raisableLots, readyHarvestLots, harvestQuote, extraLabourCost } from './engine.js'
 import { rngNext } from './rng.js'
 
 export const PERSONAS = [
@@ -390,10 +390,13 @@ export function chooseAction(state, difficulty = 'normal') {
 
   if (state.phase === 'end') {
     if (!state.labourUsed) {
-      const pick = pickWork(state, p, knobs)
-      if (pick) {
-        if (pick.stage === 'ripe' || pick.stage === 'prepared' || pick.stage === 'idle' || pick.stage === 'seeded') {
-          return { type: 'work', tileId: pick.id }
+      const cost = extraLabourCost(state)
+      if (!cost || p.cash >= cost) {
+        const pick = pickWork(state, p, knobs)
+        if (pick) {
+          if (pick.stage === 'ripe' || pick.stage === 'prepared' || pick.stage === 'idle' || pick.stage === 'seeded') {
+            return { type: 'work', tileId: pick.id }
+          }
         }
       }
     }

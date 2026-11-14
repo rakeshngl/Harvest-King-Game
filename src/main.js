@@ -5,7 +5,7 @@ import {
   buyFarm, leaseFarm, buyInfra, prepareLand, seedLand, irrigate, insure,
   harvest, tendCrop, sellToFci, takeLoan, repayLoan, declineAction, nextTurn,
   unmortgage, openFarmWork, actingSeat, bidAuction, passAuction, offerTrade,
-  raiseLot, giveUpRaise, mortgageFarm, chooseLabour,
+  raiseLot, giveUpRaise, mortgageFarm, chooseLabour, extraLabourCost,
   acceptTrade, rejectTrade, finalStandings, presetById, seasonOf
 } from './engine.js'
 import { blankProfile, applyMatch } from './profile.js'
@@ -1429,8 +1429,12 @@ function inspectTile(id) {
     return
   }
   if (isMyTurn() && state.phase === 'end' && !state.labourUsed) {
-    workField(id)
-    return
+    const cost = extraLabourCost(state)
+    const me = state.players[state.turn]
+    if (!cost || (me && me.cash >= cost)) {
+      workField(id)
+      return
+    }
   }
   if (isMyTurn() && state.phase === 'action') return
   inspectId = id

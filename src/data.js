@@ -182,3 +182,5 @@ export const DEFAULT_PRESET = 'classic'
 export const LOAN_STEP = 3000
 export const LOAN_CAP = 9000
 export const INTEREST = 0.12
+export const PEAK_LABOUR = 400
+export const PEAK_SEASON = 'kharif'

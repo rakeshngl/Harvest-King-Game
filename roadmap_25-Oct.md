@@ -33,7 +33,7 @@ Grounded in the tree at `e5fbb56`. Already shipped and not re-proposed: rooms + 
 - Regroup belts (Vidarbha is `oil`, Shimla is wheat, Baghpat Cane is cotton). — done (10 Nov #8).
 - FCI vs open-harvest EV in the warehouse modal. — done (same modifiers minus luck; MSP +10%; modal prints both).
 - Auction: custom bid field; `awardLot` should open `farmWork`. — done (`#bidamt`; current-player farm win opens `farmWork`).
-- Labour shortage as a cash cost on extra labour in peak season.
+- Labour shortage as a cash cost on extra labour in peak season. — done (monsoon extra labour Rs 400; Village Hall / Farm Fair stay free).
 - Organic / know-how as lasting counters (like `enam`), not one-shot cash. — organic done (10 Nov #9).
 
 ## Later (needs accounts / new board)

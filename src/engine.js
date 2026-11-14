@@ -1,7 +1,7 @@
 import {
   TILES, CROPS, GROUPS, KISAN_CARDS, MANDI_CARDS, WEATHER, WEATHER_WEIGHTS,
   PLAYER_PALETTE, SEASONS, START_CASH, PASS_GO, WIN_NET, MAX_SEASONS,
-  LOAN_STEP, LOAN_CAP, INTEREST, SEASON_PRESETS, DEFAULT_PRESET
+  LOAN_STEP, LOAN_CAP, INTEREST, SEASON_PRESETS, DEFAULT_PRESET, PEAK_LABOUR, PEAK_SEASON
 } from './data.js'
 import { rngNext, freshSeed, dailySeed } from './rng.js'
 
@@ -118,6 +118,10 @@ export function createGame(playerCount = 2, names = [], opts = {}) {
 
 export function seasonOf(state) {
   return SEASONS[state.seasonIndex % SEASONS.length]
+}
+
+export function extraLabourCost(state) {
+  return seasonOf(state).id === PEAK_SEASON ? PEAK_LABOUR : 0
 }
 
 export function tileAt(id) {
@@ -1465,6 +1469,12 @@ export function openFarmWork(state, tileId) {
     return true
   }
   if (state.phase === 'end' && !state.labourUsed) {
+    const cost = extraLabourCost(state)
+    if (cost) {
+      if (p.cash < cost) return false
+      p.cash -= cost
+      log(state, `${p.name} pays Rs ${cost} — peak-season extra labour.`, 'loss', { amount: cost, pid: p.id })
+    }
     state.labourUsed = true
     state.pending = { kind: 'farmWork', tileId }
     state.phase = 'action'

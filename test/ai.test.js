@@ -37,6 +37,16 @@ test('chooseAction bids on an open village auction', () => {
   assert.equal(act.amount % 100, 0)
 })
 
+test('chooseAction skips extra labour when monsoon cash is short', () => {
+  const s = cpuGame('landlord')
+  s.phase = 'end'
+  s.pending = null
+  s.labourUsed = false
+  s.farms[1].owner = 0
+  s.players[0].cash = 100
+  assert.equal(chooseAction(s, 'hard').type, 'endTurn')
+})
+
 test('chooseAction offers cash for a rival belt closer', () => {
   const s = cpuGame('landlord')
   s.phase = 'end'
