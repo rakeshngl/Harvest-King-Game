@@ -16,9 +16,10 @@ export function focusables(root) {
 
 export const ESCAPE_SKIP_KINDS = new Set(['acquire', 'buyInfra', 'farmWork', 'fci', 'nabard', 'card', 'pickFarm', 'labour'])
 
-export function escapeDismiss({ tutorialOn, inspectId, landing, tradeOpen, phase, pending, isMyTurn } = {}) {
+export function escapeDismiss({ tutorialOn, inspectId, landing, gazette, tradeOpen, phase, pending, isMyTurn } = {}) {
   if (tutorialOn) return 'tutorial'
   if (inspectId != null && phase !== 'over') return 'inspect'
+  if (gazette) return 'gazette'
   if (landing) return 'landing'
   if (tradeOpen) return 'trade'
   if (phase === 'over') return 'win'
@@ -29,7 +30,7 @@ export function escapeDismiss({ tutorialOn, inspectId, landing, tradeOpen, phase
 export function trapFocus(root) {
   if (!root || typeof root.addEventListener !== 'function') return () => {}
   const list = () => focusables(root)
-  const preferred = root.querySelector && root.querySelector('.primary, #landok, #tutnext, #again')
+  const preferred = root.querySelector && root.querySelector('.primary, #landok, #gazetteok, #tutnext, #again')
   const start = preferred || list()[0]
   if (start && typeof start.focus === 'function') start.focus()
   function onKey(e) {

@@ -1636,11 +1636,18 @@ textarea:focus-visible {
 
 .farm-meta { font-size: 13px; background: #fff; padding: 8px; margin-bottom: 10px; }
 
-.modal.landing {
+.modal.landing,
+.modal.gazette {
   width: min(470px, 100%);
   border-color: var(--navy);
   background: linear-gradient(180deg, #fffdf8 0%, var(--white) 100%);
   animation: land-pop 0.22s ease-out;
+}
+
+.gazette-body {
+  font-size: 15px;
+  line-height: 1.45;
+  margin: 0 0 12px;
 }
 
 @keyframes land-pop {
@@ -2094,7 +2101,8 @@ textarea:focus-visible {
     transform: none;
   }
 
-  .modal.landing {
+  .modal.landing,
+  .modal.gazette {
     animation: none;
   }
 }

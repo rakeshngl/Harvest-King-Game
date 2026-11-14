@@ -20,7 +20,10 @@ const child = spawn(process.execPath, ['server/index.js'], {
     DRAIN_MS: '3',
     TURN_MS: '90',
     TRUST_PROXY: '0',
-    VISITOR_SECRET
+    VISITOR_SECRET,
+    USER_LLM_API_KEY: '',
+    USER_LLM_BASE_URL: '',
+    USER_LLM_MODEL: ''
   },
   stdio: ['ignore', 'pipe', 'pipe']
 })
@@ -88,6 +91,18 @@ test('health reports persist and sse', async () => {
   assert.equal(json.ok, true)
   assert.equal(json.draining, false)
   assert.equal(json.transport, 'sse')
+})
+
+test('gazette without a user key returns empty polish', async () => {
+  const { status, json } = await api('POST', '/api/gazette', {
+    facts: { seasonId: 'kharif', weatherId: 'normal', marketMod: 1, movers: [], leader: { name: 'A', net: 12000 } },
+    lang: 'en'
+  })
+  assert.equal(status, 200)
+  assert.equal(json.text, '')
+  assert.equal(json.polished, false)
+  const missing = await api('POST', '/api/gazette', { lang: 'en' })
+  assert.equal(missing.status, 400)
 })
 
 test('create join start and action drive a seeded table', async () => {

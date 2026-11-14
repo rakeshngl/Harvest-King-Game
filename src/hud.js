@@ -151,6 +151,19 @@ export function wrapModal(inner) {
   return `<div class="modal-back" role="dialog" aria-modal="true"><div class="modal">${inner}</div></div>`
 }
 
+export function gazetteModal(gazette) {
+  if (!gazette || !gazette.text) return ''
+  return `
+    <div class="modal-back" role="dialog" aria-modal="true">
+      <div class="modal gazette">
+        <div class="tag">${t('gazetteTag')}</div>
+        <h2>${t('gazetteTag')}</h2>
+        <p class="gazette-body">${escapeHtml(gazette.text)}</p>
+        <div class="actions"><button class="primary" id="gazetteok">${t('continue')}</button></div>
+      </div>
+    </div>`
+}
+
 export function landingModal(state, landing, landingQueue) {
   const player = state.players[landing.pid] || currentPlayer(state)
   const tile = TILES[landing.tileId]
@@ -439,8 +452,9 @@ export function winModal(state, ctx = {}) {
       </div>`
 }
 
-export function modalHtml(state, { landing, landingQueue, inspectId, isMyTurn, online, session, hostSeat }) {
+export function modalHtml(state, { landing, landingQueue, inspectId, isMyTurn, online, session, hostSeat, gazette }) {
   if (state.phase === 'over') return winModal(state, { online, session, hostSeat })
+  if (gazette && gazette.text) return gazetteModal(gazette)
   if (landing) return landingModal(state, landing, landingQueue)
   if (state.phase === 'action' && state.pending && (state.pending.kind === 'auction' || state.pending.kind === 'trade' || state.pending.kind === 'raise')) {
     return actionModal(state, state.pending, isMyTurn)
@@ -541,5 +555,5 @@ export function gameHtml(state, ctx) {
       </div>
     </div>
   </div>
-  ${modalHtml(state, { landing: ctx.landing, landingQueue: ctx.landingQueue, inspectId: ctx.inspectId, isMyTurn: ctx.isMyTurn, online: ctx.online, session: ctx.session, hostSeat: ctx.hostSeat })}`
+  ${modalHtml(state, { landing: ctx.landing, landingQueue: ctx.landingQueue, inspectId: ctx.inspectId, isMyTurn: ctx.isMyTurn, online: ctx.online, session: ctx.session, hostSeat: ctx.hostSeat, gazette: ctx.gazette })}`
 }

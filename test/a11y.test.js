@@ -59,9 +59,10 @@ test('trapFocus cycles Tab from last to first', () => {
   assert.equal(root._on, null)
 })
 
-test('escapeDismiss prefers tutorial then inspect then landing trade win skippable action', () => {
+test('escapeDismiss prefers tutorial then inspect then gazette then landing trade win skippable action', () => {
   assert.equal(escapeDismiss({ tutorialOn: true, inspectId: 3, landing: {}, tradeOpen: true, phase: 'over' }), 'tutorial')
   assert.equal(escapeDismiss({ inspectId: 3, landing: {}, tradeOpen: true, phase: 'end' }), 'inspect')
+  assert.equal(escapeDismiss({ gazette: { text: 'hi' }, landing: { pid: 0 }, tradeOpen: true, phase: 'end' }), 'gazette')
   assert.equal(escapeDismiss({ landing: { pid: 0 }, tradeOpen: true, phase: 'end' }), 'landing')
   assert.equal(escapeDismiss({ tradeOpen: true, phase: 'end' }), 'trade')
   assert.equal(escapeDismiss({ phase: 'over' }), 'win')

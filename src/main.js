@@ -11,10 +11,11 @@ import {
 import { blankProfile, applyMatch } from './profile.js'
 import {
   createRoom, joinRoom, startRoom, sendAction, waitSnapshot, openEventStream,
-  kickSeat, passHost, setPreset, addCpu, rematchRoom, loadSession, saveSession, savedSeat, savedSeats, forgetSeat, pingPresence, fetchLobby, fetchProfile
+  kickSeat, passHost, setPreset, addCpu, rematchRoom, loadSession, saveSession, savedSeat, savedSeats, forgetSeat, pingPresence, fetchLobby, fetchProfile, polishGazette
 } from './net.js'
 import { PERSONAS, CPU_NAMES, chooseAction, describeAction } from './ai.js'
 import { t, setLang, currentLang } from './i18n.js'
+import { gazetteFacts, gazetteTemplate } from './gazette.js'
 import { playCue, isMuted, toggleMute, toggleMusic, startMusic, stopMusic, setMusicScene } from './sound.js'
 import { toggleContrast } from './contrast.js'
 import { fmtCount } from './format.js'
@@ -63,6 +64,9 @@ let lineOn = typeof navigator === 'undefined' || navigator.onLine !== false
 let sideTab = 'farmers'
 let tradeDraft = { to: '', cashGive: '', cashTake: '', landGive: '', landTake: '', debtGive: '', debtTake: '' }
 let tradeOpen = false
+let gazette = null
+let gazetteGen = 0
+let lastSeasonIndex = 0
 let tutorialOn = !loadTutorialSeen()
 let tutorialStep = 0
 let releaseTrap = null
@@ -372,6 +376,25 @@ function captureLanding(prevCash, opts = {}) {
   cueForLanding(landing)
 }
 
+function maybeShowGazette(prevSeason, skip) {
+  if (!state) return
+  if (skip || state.phase === 'over') {
+    lastSeasonIndex = state.seasonIndex
+    return
+  }
+  if (prevSeason == null || state.seasonIndex === prevSeason) return
+  if (state.seasonIndex === lastSeasonIndex) return
+  lastSeasonIndex = state.seasonIndex
+  const facts = gazetteFacts(state)
+  gazette = { text: gazetteTemplate(facts), facts }
+  const gen = ++gazetteGen
+  polishGazette(facts, currentLang()).then((polished) => {
+    if (gen !== gazetteGen || !gazette || !polished) return
+    gazette = { ...gazette, text: polished }
+    render()
+  }).catch(() => {})
+}
+
 function cueForLanding(item) {
   if (!item || !item.entries) return
   const text = item.entries.map((e) => (typeof e === 'string' ? e : e.text || '')).join(' ')
@@ -414,6 +437,7 @@ function isMyTurn() {
   const actor = actingSeat(state)
   if (state.players[actor]?.bankrupt) return false
   if (landing) return false
+  if (gazette) return false
   if (online()) return !session.spectator && session.you === actor
   if (state.players.some((p) => p.cpu)) {
     return !state.players[actor].cpu
@@ -476,6 +500,9 @@ function leaveSession(opts = {}) {
   diaryPage = 0
   landing = null
   landingQueue = []
+  gazette = null
+  gazetteGen += 1
+  lastSeasonIndex = 0
   cpuBusy = false
   cpuNote = ''
   cpuGuard = 0
@@ -523,6 +550,7 @@ function applySnap(snap, opts = {}) {
     lastRollSeq = snap.rollSeq
     const prevCash = state ? state.players.map((p) => p.cash) : null
     const prevTurn = state ? state.turn : null
+    const prevSeason = state ? state.seasonIndex : null
     const firstLook = !state
     const rematch = !!(state && state.phase === 'over' && snap.state.phase !== 'over')
     state = snap.state
@@ -530,6 +558,9 @@ function applySnap(snap, opts = {}) {
     if (rematch) {
       landing = null
       landingQueue = []
+      gazette = null
+      gazetteGen += 1
+      lastSeasonIndex = 0
       seenLogId = 0
       diaryPage = 0
       wasOver = false
@@ -543,6 +574,7 @@ function applySnap(snap, opts = {}) {
     } else if (firstLook) {
       syncLog()
     } else if (diceChanged && snap.lastDice) {
+      maybeShowGazette(prevSeason, firstLook || rematch)
       rolling = true
       render()
       playCue('dice')
@@ -555,6 +587,7 @@ function applySnap(snap, opts = {}) {
     } else {
       syncLog()
     }
+    maybeShowGazette(prevSeason, firstLook || rematch)
   } else {
     state = null
     screen = 'waiting'
@@ -590,9 +623,14 @@ function scheduleCpu() {
   if (online() || cpuBusy || rolling || !state) return
   if (screen !== 'game' || state.phase === 'over') return
   if (landing) return
+  if (gazette) return
   if (state.players[actingSeat(state)]?.bankrupt) {
     if (state.pending) declineAction(state)
-    else nextTurn(state)
+    else {
+      const prevSeason = state.seasonIndex
+      nextTurn(state)
+      maybeShowGazette(prevSeason)
+    }
     render()
     return
   }
@@ -623,7 +661,11 @@ function cpuStep() {
   if (cpuGuard > 24) {
     cpuNote = (currentPlayer(state)?.name || 'Computer') + ' ends the turn.'
     if (state.phase === 'action') declineAction(state)
-    if (state.phase === 'end' || state.phase === 'roll') nextTurn(state)
+    if (state.phase === 'end' || state.phase === 'roll') {
+      const prevSeason = state.seasonIndex
+      nextTurn(state)
+      maybeShowGazette(prevSeason)
+    }
     cpuGuard = 0
     cpuBusy = false
     render()
@@ -681,8 +723,11 @@ function applyCpuAction(action) {
     declineAction(state)
   } else if (action.type === 'work') {
     ok = openFarmWork(state, action.tileId)
-    if (!ok && state.phase === 'end') nextTurn(state)
-    else if (!ok) declineAction(state)
+    if (!ok && state.phase === 'end') {
+      const prevSeason = state.seasonIndex
+      nextTurn(state)
+      maybeShowGazette(prevSeason)
+    } else if (!ok) declineAction(state)
   } else if (action.type === 'bid') ok = bidAuction(state, action.amount)
   else if (action.type === 'passbid') ok = passAuction(state)
   else if (action.type === 'accept') ok = acceptTrade(state)
@@ -692,11 +737,17 @@ function applyCpuAction(action) {
   else if (action.type === 'labourskip') ok = chooseLabour(state, false)
   else if (action.type === 'skip') declineAction(state)
   else if (action.type === 'endTurn') {
+    const prevSeason = state.seasonIndex
     nextTurn(state)
     cpuNote = ''
     cpuGuard = 0
+    maybeShowGazette(prevSeason)
   } else if (state.phase === 'action') declineAction(state)
-  else if (state.phase === 'end') nextTurn(state)
+  else if (state.phase === 'end') {
+    const prevSeason = state.seasonIndex
+    nextTurn(state)
+    maybeShowGazette(prevSeason)
+  }
 
   if (!ok && action.type !== 'work' && action.type !== 'fci' && action.type !== 'raise' && action.type !== 'giveup' && state.phase === 'action') {
     declineAction(state)
@@ -750,6 +801,7 @@ function gameHtml() {
     landing,
     landingQueue,
     inspectId,
+    gazette,
     hostSeat: room ? room.hostSeat : 0
   })
 }
@@ -824,12 +876,15 @@ function startLocalGame(n, list, opts = {}) {
   inspectId = null
   landing = null
   landingQueue = []
+  gazette = null
+  gazetteGen += 1
   diaryPage = 0
   notice = ''
   wasOver = false
   seenLogId = 0
   rolling = false
   state = createGame(n, list, { ...opts, preset: opts.preset || presetChoice })
+  lastSeasonIndex = state.seasonIndex
   screen = 'game'
   syncLog()
   render()
@@ -1125,6 +1180,14 @@ function bindGame() {
   const again = document.getElementById('again')
   const leave = document.getElementById('leavegame')
   const landok = document.getElementById('landok')
+  const gazetteok = document.getElementById('gazetteok')
+  if (gazetteok) {
+    gazetteok.addEventListener('click', () => {
+      gazette = null
+      gazetteGen += 1
+      render()
+    })
+  }
   if (landok) {
     landok.addEventListener('click', () => {
       landing = landingQueue.shift() || null
@@ -1187,7 +1250,9 @@ function bindGame() {
     end.addEventListener('click', async () => {
       if (!isMyTurn()) return
       if (await netAct({ type: 'endTurn' })) return
+      const prevSeason = state.seasonIndex
       nextTurn(state)
+      maybeShowGazette(prevSeason)
       render()
     })
   }
@@ -1491,6 +1556,7 @@ function onEscape(e) {
     tutorialOn,
     inspectId,
     landing,
+    gazette,
     tradeOpen,
     phase: state && state.phase,
     pending: state && state.pending,
@@ -1505,6 +1571,12 @@ function onEscape(e) {
   }
   if (kind === 'inspect') {
     inspectId = null
+    render()
+    return
+  }
+  if (kind === 'gazette') {
+    gazette = null
+    gazetteGen += 1
     render()
     return
   }

@@ -142,6 +142,22 @@ export function addCpu(sess, difficulty) {
   return post('/api/cpu', { code: sess.code, token: sess.token, difficulty: difficulty || 'normal' })
 }
 
+export async function polishGazette(facts, lang) {
+  try {
+    const res = await fetch(apiUrl('/api/gazette'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: creds(),
+      body: JSON.stringify({ facts, lang })
+    })
+    const data = await res.json().catch(() => null)
+    if (!res.ok || !data || !data.text) return ''
+    return String(data.text)
+  } catch {
+    return ''
+  }
+}
+
 export async function fetchStats() {
   const res = await fetch(apiUrl('/api/stats'), { credentials: creds() })
   const data = await res.json().catch(() => null)

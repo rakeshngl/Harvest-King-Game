@@ -17,6 +17,7 @@ There is no jail. Instead, the board is loaded with agricultural complications: 
 - **Landing pop-up**: when a player lands on a tile, a styled modal shows the tile, its icon, every event it triggered, and the net cash change.
 - **Color-coded farm diary**: gains render green, losses red, with distinct accents for dice rolls, cards, seasons, and crop milestones.
 - **Living economy**: crop prices drift each season, cards shift the market, and infrastructure investments improve your yields and margins.
+- **Village gazette**: after each season wrap, a 2–3 sentence village notice (weather, mandi, who leads). Template first; optional LLM polish if you set `USER_LLM_*`. UI-only — engine logs stay English.
 - **Deterministic rules engine** shared by local and online play, so the same game logic runs everywhere.
 - **English / Hindi / Tamil** via an English | Hindi | Tamil toggle (`localStorage` `hk-lang`). Board tiles, crops, cards, weather, and diary display localize; engine log strings stay English for golden fixtures.
 - **Web Audio cues**: dice rattle, coin, harvest, insolvency, cards, and a win fanfare, synthesized in the browser (no audio assets) with a **Sound on / off** toggle (`localStorage` `hk-mute`). Sound off is a master bus: it also silences the music bed.
@@ -278,13 +279,15 @@ The only dependency is Vite (dev dependency). The server runs on the Node standa
 │   └── icons/          # 192/512 any + maskable, apple-touch, favicon
 ├── server/
 │   ├── index.js        # Session rooms, REST API, SSE sync, action validation
+│   ├── gazette-llm.js  # Optional USER_LLM_* polish for the village gazette
 │   └── visitor.js      # HMAC visitor cookie (hk-vid)
 └── src/
     ├── main.js         # Session, bind, CPU loop, SSE, local record
     ├── chrome.js       # Shell chrome, language, How to farm
     ├── board.js        # Tile buttons, tokens, inspect
     ├── lobby.js        # Lobby, waiting room, tables
-    ├── hud.js          # Sidebar, diary, win modal, farm work
+    ├── hud.js          # Sidebar, diary, win modal, farm work, gazette overlay
+    ├── gazette.js      # Season-wrap gazette facts + template (no engine log)
     ├── view-util.js    # Shared markup helpers
     ├── a11y.js         # Focus trap, reduced motion
     ├── engine.js       # Game rules, farming cycle, cards, seasons, structured log, win logic
@@ -398,7 +401,9 @@ Each online turn has a 90 second clock (`TURN_MS`, seconds). The timer covers th
 
 On SIGTERM/SIGINT the server drains for up to 25 seconds (`DRAIN_MS`): no new rooms, no new joins except resume, no new starts. CPU seats finish the current turn. Then rooms are written to `data/rooms.json` and the process exits.
 
-JSON bodies are capped at 64 KB. Rate limits use `x-forwarded-for` when `TRUST_PROXY` is not `0` (Coolify sits behind a proxy). Set `CORS_ORIGIN` to the Vercel origin in production; it defaults to `*` for local. Optional room passwords are salted scrypt (`scrypt$salt$hash`); unlocked tables stay empty. Visitor cookies are HMAC-signed (`VISITOR_SECRET`, or `data/visitor.secret`). Query/body `visitor` is ignored.
+JSON bodies are capped at 64 KB. Rate limits use `x-forwarded-for` when `TRUST_PROXY` is not `0` (Coolify sits behind a proxy). Create is 8 rooms per IP per 10 minutes; join/watch 20; gazette polish 30. Set `CORS_ORIGIN` to the Vercel origin in production; it defaults to `*` for local. Optional room passwords are salted scrypt (`scrypt$salt$hash`); unlocked tables stay empty. Visitor cookies are HMAC-signed (`VISITOR_SECRET`, or `data/visitor.secret`). Query/body `visitor` is ignored.
+
+Optional village-gazette polish reads `USER_LLM_API_KEY`, `USER_LLM_BASE_URL`, and `USER_LLM_MODEL` from the Coolify box (see `.env.example`). Missing keys, timeout, or a bad reply keep the template. The rewrite never writes `state.log`.
 
 The process writes one JSON object per line to stdout (`ts`, `event`, fields). Tokens are never logged. Coolify can scrape these. `/api/health` is 503 while draining so a load balancer can stop sending new traffic.
 
@@ -436,6 +441,7 @@ Base URL: `/api` (proxied to port 3001).
 | POST | `/api/action` | `{ code, token, action }` | Submit a validated game action for the current turn. Spectators are rejected. |
 | GET | `/api/session` | `?code` + cookie `hk-seat` or header `X-Seat-Token` | Current snapshot (boot / restore). Query `token` is ignored. |
 | GET | `/api/events` | `?code` + cookie `hk-seat` | SSE stream of `snapshot` events. Query `token` is ignored. |
+| POST | `/api/gazette` | `{ facts, lang? }` | Optional LLM rewrite of a season-wrap gazette. Empty `text` if `USER_LLM_API_KEY` / `USER_LLM_BASE_URL` are unset. Never writes `state.log`. |
 
 ### Action types
 

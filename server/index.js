@@ -17,6 +17,7 @@ import { LOAN_STEP, DEFAULT_PRESET } from '../src/data.js'
 import { dailyCode } from '../src/rng.js'
 import { PERSONAS, CPU_NAMES, chooseAction } from '../src/ai.js'
 import { COOKIE as VISITOR_COOKIE, SEAT_COOKIE, SEAT_HEADER, mintId, pack, unpack, parseCookies } from './visitor.js'
+import { polishGazette, llmConfigured } from './gazette-llm.js'
 
 const PORT = Number(process.env.PORT) || 3001
 const rooms = new Map()
@@ -37,6 +38,7 @@ const CPU_MS = 700
 const CPU_ROLL_MS = 1800
 const CREATE_LIMIT = 8
 const JOIN_LIMIT = 20
+const GAZETTE_LIMIT = 30
 const RATE_WINDOW_MS = 10 * 60 * 1000
 const DRAIN_MS = Math.max(3, Number(process.env.DRAIN_MS) || 25) * 1000
 const PROFILE_CAP = 5000
@@ -969,6 +971,27 @@ const server = http.createServer(async (req, res) => {
         streams: streamCount(),
         memory: process.memoryUsage().rss
       })
+      return
+    }
+
+    if (req.method === 'POST' && path === '/api/gazette') {
+      const body = await readBody(req)
+      if (rateLimited(`gazette:${clientIp(req)}`, GAZETTE_LIMIT)) {
+        json(res, 429, { error: 'Gazette is busy. Try again in a moment.' })
+        return
+      }
+      const facts = body && body.facts
+      if (!facts || typeof facts !== 'object') {
+        json(res, 400, { error: 'Missing gazette facts' })
+        return
+      }
+      if (!llmConfigured()) {
+        json(res, 200, { text: '', polished: false })
+        return
+      }
+      const lang = String(body.lang || 'en')
+      const text = await polishGazette(facts, lang)
+      json(res, 200, { text: text || '', polished: !!text })
       return
     }
 
