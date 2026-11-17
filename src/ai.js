@@ -99,28 +99,74 @@ function bestCrop(state, p, tile, knobs) {
   return bestV > -1e8 ? best : null
 }
 
-function farmValue(state, p, tile, knobs) {
+function groupCounts(state, pid, group) {
+  const ids = TILES.filter((t) => t.type === 'farm' && t.group === group).map((t) => t.id)
+  const owned = ids.filter((id) => state.farms[id].owner === pid).length
+  return { ids, owned, remain: ids.length - owned }
+}
+
+function landPotential(state, p, tile, knobs) {
   const persona = personaOf(p)
-  let v = 0
-  const ids = TILES.filter((t) => t.type === 'farm' && t.group === tile.group).map((t) => t.id)
-  const owned = ids.filter((id) => state.farms[id].owner === p.id).length
-  const remain = ids.length - owned
-  if (remain === 1) v += 2400
-  else if (owned > 0) v += 900
-  v += (GROUPS[tile.group]?.rentMult || 1) * 400
+  let v = (GROUPS[tile.group]?.rentMult || 1) * 400
   const crop = bestCrop(state, p, tile, knobs)
   if (crop) v += Math.max(0, cropScore(state, p, tile, crop, knobs) * 0.4)
   if (persona.id === 'landlord') v += 700
   if (persona.id === 'thrifty') v -= tile.price * 0.15
   if (persona.id === 'gambler' && ['orchard', 'spice'].includes(tile.group)) v += 800
   if (knobs.gambled && ['orchard', 'spice', 'cotton'].includes(tile.group)) v += 350
-  if (knobs.lucky && remain === 1) v += 800
+  const { ids } = groupCounts(state, p.id, tile.group)
   const rivals = state.players.filter((o) => !o.cpu && !o.bankrupt)
   rivals.forEach((h) => {
     const hOwn = ids.filter((id) => state.farms[id].owner === h.id).length
     if (hOwn >= ids.length - 1 && knobs.miss === 0) v += 500
   })
   return v
+}
+
+function farmValue(state, p, tile, knobs) {
+  const { owned, remain } = groupCounts(state, p.id, tile.group)
+  let v = landPotential(state, p, tile, knobs)
+  if (remain === 1) v += 2400
+  else if (owned > 0) v += 900
+  if (knobs.lucky && remain === 1) v += 800
+  return v
+}
+
+function standingCropValue(state, pid, tileId) {
+  const f = state.farms[tileId]
+  if (!f || !f.crop) return 0
+  if (f.stage === 'ripe' || (f.stage === 'seeded' && f.growLeft <= 0)) {
+    const q = harvestQuote(state, tileId, 'open', pid)
+    return q ? q.revenue : 0
+  }
+  if (f.stage === 'seeded') return 400
+  if (f.stage === 'prepared') return 200
+  return 0
+}
+
+function lotWorth(state, pid, tileId, knobs) {
+  const t = TILES[tileId]
+  const f = state.farms[tileId]
+  const p = state.players[pid]
+  if (!t || t.type !== 'farm' || !f || !p) return 0
+  if (f.mortgaged) return Math.round(t.price * 0.35)
+  const holder = f.owner === pid
+  const { ids, owned, remain } = groupCounts(state, pid, t.group)
+  let v = Math.round(t.price * 0.5) + landPotential(state, p, t, knobs)
+  if (holder) {
+    if (owned === ids.length) v += 2400
+    else if (owned > 1) v += 900
+  } else {
+    if (remain === 1) v += 2400
+    else if (owned > 0) v += 900
+    if (knobs.lucky && remain === 1) v += 800
+  }
+  v += standingCropValue(state, pid, tileId)
+  if (f.irrigated) v += 800
+  if (f.insured) v += 400
+  if (f.fertility > 1) v += Math.round((f.fertility - 1) * 500)
+  if (p.organic > 0 && (t.group === 'spice' || t.id === 39)) v += 400
+  return Math.max(0, Math.round(v))
 }
 
 function pickWork(state, p, knobs) {
@@ -277,22 +323,11 @@ function tradeReply(state, knobs) {
   const me = state.players[deal.to]
   const them = state.players[deal.from]
   if (!me || !them) return { type: 'reject' }
-  let score = (deal.cashTake || 0) - (deal.cashGive || 0)
-  if (deal.landTake != null) {
-    const t = TILES[deal.landTake]
-    score += t ? t.price * 0.9 : 0
-  }
-  if (deal.landGive != null) {
-    const t = TILES[deal.landGive]
-    score -= t ? t.price * 0.9 : 0
-  }
-  score -= (deal.debtTake || 0) * 0.6
-  score += (deal.debtGive || 0) * 0.4
-  if (deal.landGive != null && TILES[deal.landGive] && groupOwned(state, me.id, TILES[deal.landGive].group) === false) {
-    const ids = TILES.filter((x) => x.type === 'farm' && x.group === TILES[deal.landGive].group)
-    const owned = ids.filter((x) => state.farms[x.id].owner === me.id).length
-    if (owned === ids.length - 1) score += 1800
-  }
+  let score = (deal.cashGive || 0) - (deal.cashTake || 0)
+  if (deal.landGive != null) score += lotWorth(state, me.id, deal.landGive, knobs)
+  if (deal.landTake != null) score -= lotWorth(state, me.id, deal.landTake, knobs)
+  score -= (deal.debtGive || 0) * 0.6
+  score += (deal.debtTake || 0) * 0.4
   const floor = knobs && knobs.lucky ? -400 : knobs && knobs.gambled ? -200 : 0
   return score >= floor ? { type: 'accept' } : { type: 'reject' }
 }
@@ -320,14 +355,15 @@ function tradeOffer(state, p, knobs) {
       if (!f || f.owner !== them.id || f.mortgaged) return
       const want = wantFarm(state, p, t, knobs)
       if (!want) return
+      const worth = lotWorth(state, p.id, t.id, knobs)
       const rate = knobs.lucky && want >= 3 ? 1 : knobs.gambled ? 0.95 : 0.9
       const keep = knobs.gambled ? 0.25 : 0.5
       const maxPay = p.cash - Math.round(knobs.reserve * keep)
-      let pay = Math.floor(t.price * rate / 100) * 100
+      let pay = Math.floor(worth * rate / 100) * 100
       pay = Math.min(pay, Math.floor(Math.max(0, maxPay) / 100) * 100)
-      if (them.cpu) pay = Math.min(pay, Math.floor(t.price * 0.9 / 100) * 100)
+      if (them.cpu) pay = Math.min(pay, Math.floor(worth * 0.9 / 100) * 100)
       if (pay < 100) return
-      const v = want * 1000 + t.price - pay
+      const v = want * 1000 + worth - pay
       if (v > bestV) {
         bestV = v
         best = {

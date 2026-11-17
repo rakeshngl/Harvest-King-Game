@@ -60,3 +60,58 @@ test('chooseAction offers cash for a rival belt closer', () => {
   assert.equal(act.landTake, 3)
   assert.ok(act.cashGive >= 100)
 })
+
+function tradePending(s, extra) {
+  s.phase = 'action'
+  s.pending = {
+    kind: 'trade', from: 1, to: 0,
+    cashGive: 0, cashTake: 0, landGive: null, landTake: null,
+    debtGive: 0, debtTake: 0,
+    ...extra
+  }
+}
+
+test('chooseAction rejects a cheap grab of CPU land', () => {
+  const s = cpuGame('landlord')
+  s.farms[3].owner = 0
+  tradePending(s, { cashGive: 100, landTake: 3 })
+  assert.equal(chooseAction(s, 'hard').type, 'reject')
+})
+
+test('chooseAction accepts fat cash for idle land', () => {
+  const s = cpuGame('landlord')
+  s.farms[3].owner = 0
+  tradePending(s, { cashGive: 12000, landTake: 3 })
+  assert.equal(chooseAction(s, 'hard').type, 'accept')
+})
+
+test('chooseAction accepts a belt closer even without cash', () => {
+  const s = cpuGame('landlord')
+  s.farms[1].owner = 0
+  s.farms[3].owner = 1
+  tradePending(s, { landGive: 3 })
+  assert.equal(chooseAction(s, 'hard').type, 'accept')
+})
+
+test('chooseAction bids more for a ripe irrigated closer', () => {
+  function offer(ripe) {
+    const s = cpuGame('landlord')
+    s.phase = 'end'
+    s.pending = null
+    s.labourUsed = true
+    s.farms[1].owner = 0
+    s.farms[3].owner = 1
+    if (ripe) {
+      s.farms[3].stage = 'ripe'
+      s.farms[3].crop = 'jowar'
+      s.farms[3].irrigated = true
+    }
+    return chooseAction(s, 'hard')
+  }
+  const idle = offer(false)
+  const ripe = offer(true)
+  assert.equal(idle.type, 'offer')
+  assert.equal(ripe.type, 'offer')
+  assert.equal(ripe.landTake, 3)
+  assert.ok(ripe.cashGive > idle.cashGive)
+})

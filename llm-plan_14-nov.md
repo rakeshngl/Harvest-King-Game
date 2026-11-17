@@ -8,7 +8,7 @@ Keys live in the **user** project (`USER_LLM_API_KEY`, `USER_LLM_BASE_URL`, `USE
 
 ### 1. Rival voice on trades (not started)
 
-CPU still picks legal offers, accepts, and rejects from `src/ai.js` list-price arithmetic. An LLM only writes persona-flavoured lines: why Kaveri wants that Baghpat closer, why Malwa turns the deal down. UI chrome, not engine state.
+CPU still picks legal offers, accepts, and rejects from `src/ai.js` (`lotWorth` / harvest quotes, belt, standing crop). An LLM only writes persona-flavoured lines: why Kaveri wants that Baghpat closer, why Malwa turns the deal down. UI chrome, not engine state.
 
 ### 2. Village gazette (this drop)
 
