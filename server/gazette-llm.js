@@ -13,12 +13,18 @@ function clean(text) {
   return s
 }
 
-export async function polishGazette(facts, lang) {
+const PROMPT = {
+  gazette: 'You write a 2-3 sentence village gazette for Harvest King, an Indian farming board game. Use only the given facts. Do not invent numbers, names, or events. Return plain text only.',
+  coach: 'You write one or two short field-note sentences for Harvest King, an Indian farming board game. Advice only from the given facts. Do not invent numbers, names, or events. Do not tell the player a legal move to take. Return plain text only.'
+}
+
+export async function polishGazette(facts, lang, kind) {
   const key = process.env.USER_LLM_API_KEY
   const base = String(process.env.USER_LLM_BASE_URL || '').replace(/\/$/, '')
   const model = process.env.USER_LLM_MODEL || 'deepseek-chat'
   if (!key || !base || !facts) return ''
   const locale = LANGS.has(lang) ? lang : 'en'
+  const role = kind === 'coach' ? 'coach' : 'gazette'
   const url = `${base}/chat/completions`
   const body = {
     model,
@@ -27,7 +33,7 @@ export async function polishGazette(facts, lang) {
     messages: [
       {
         role: 'system',
-        content: 'You write a 2-3 sentence village gazette for Harvest King, an Indian farming board game. Use only the given facts. Do not invent numbers, names, or events. Return plain text only.'
+        content: PROMPT[role]
       },
       {
         role: 'user',

@@ -142,13 +142,13 @@ export function addCpu(sess, difficulty) {
   return post('/api/cpu', { code: sess.code, token: sess.token, difficulty: difficulty || 'normal' })
 }
 
-export async function polishGazette(facts, lang) {
+export async function polishGazette(facts, lang, kind) {
   try {
     const res = await fetch(apiUrl('/api/gazette'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: creds(),
-      body: JSON.stringify({ facts, lang })
+      body: JSON.stringify({ facts, lang, kind: kind || 'gazette' })
     })
     const data = await res.json().catch(() => null)
     if (!res.ok || !data || !data.text) return ''

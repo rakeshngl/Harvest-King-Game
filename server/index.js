@@ -990,7 +990,8 @@ const server = http.createServer(async (req, res) => {
         return
       }
       const lang = String(body.lang || 'en')
-      const text = await polishGazette(facts, lang)
+      const kind = body.kind === 'coach' ? 'coach' : 'gazette'
+      const text = await polishGazette(facts, lang, kind)
       json(res, 200, { text: text || '', polished: !!text })
       return
     }

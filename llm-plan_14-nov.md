@@ -14,9 +14,9 @@ CPU still picks legal offers, accepts, and rejects from `src/ai.js` (`lotWorth` 
 
 After each **season wrap**, show a 2–3 sentence village notice from weather, mandi, and who leads. Template first so play never waits on a model. Optional `POST /api/gazette` rewrites the same facts in EN/HI/TA when keys are set. Dispatch is **UI-only** — it is not appended to `state.log`.
 
-### 3. Post-turn coach (not started)
+### 3. Post-turn coach (this drop)
 
-Optional “why that harvest paid” / “why the auction was a trap” from the last landing. Advice only. Never the referee; never a hidden modifier.
+A field note on **your** landing pop-up: why that harvest paid, why the levy doubled, why the warehouse is a quote not a luck roll. Template first so play never waits on a model. Optional `POST /api/gazette` with `kind: 'coach'` rewrites the same facts. Advice only. Never the referee; never a hidden modifier; never appended to `state.log`. Skip rival landings.
 
 ## Gazette rules
 
@@ -25,6 +25,14 @@ Optional “why that harvest paid” / “why the auction was a trap” from the
 - Fallback: `gazetteTemplate` in `src/gazette.js`. Missing key, timeout, or bad reply → keep the template.
 - Overlay like a landing pop-up (`#gazetteok`). Escape dismisses. CPU and roll wait while it is open, same as landing.
 - Do not persist the dispatch. Do not log API keys.
+
+## Coach rules
+
+- Trigger: your landing pop-up (`landing.pid === mySeat()`). Skip rival landings, rematch, first look, match-over.
+- Facts: topic (harvest / rent / tax / acquire / auction / warehouse / …), tile, weather, crop, pnl, irrigation, pests, belt rent. Numbers come from the engine and the landing diary; the model may not invent them.
+- Fallback: `coachTemplate` in `src/coach.js`. Missing key, timeout, or bad reply → keep the template.
+- Shown as `.land-coach` on the landing modal. Same `#landok` / Escape as the landing.
+- Do not persist the note. Do not write it to `state.log`.
 
 ## Do not do
 

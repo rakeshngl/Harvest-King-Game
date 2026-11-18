@@ -190,6 +190,7 @@ export function landingModal(state, landing, landingQueue) {
         </div>
         <div class="land-events">${landing.entries.map(diaryRow).join('')}</div>
         <div class="land-net ${netCls}">${netTxt}</div>
+        ${landing.coach ? `<p class="land-coach"><span class="coach-tag">${t('coachTag')}</span>${escapeHtml(landing.coach)}</p>` : ''}
          <div class="actions"><button class="primary" id="landok">${landingQueue.length ? t('nextLand', landingQueue.length) : t('continue')}</button></div>
       </div>
     </div>`

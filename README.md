@@ -18,6 +18,7 @@ There is no jail. Instead, the board is loaded with agricultural complications: 
 - **Color-coded farm diary**: gains render green, losses red, with distinct accents for dice rolls, cards, seasons, and crop milestones.
 - **Living economy**: crop prices drift each season, cards shift the market, and infrastructure investments improve your yields and margins.
 - **Village gazette**: after each season wrap, a 2–3 sentence village notice (weather, mandi, who leads). Template first; optional LLM polish if you set `USER_LLM_*`. UI-only — engine logs stay English.
+- **Field note**: on your landing pop-up, a one- or two-sentence coach (why the harvest paid, why the levy doubled). Template first; optional `kind: 'coach'` polish. Advice only — never writes `state.log`.
 - **Deterministic rules engine** shared by local and online play, so the same game logic runs everywhere.
 - **English / Hindi / Tamil** via an English | Hindi | Tamil toggle (`localStorage` `hk-lang`). Board tiles, crops, cards, weather, and diary display localize; engine log strings stay English for golden fixtures.
 - **Web Audio cues**: dice rattle, coin, harvest, insolvency, cards, and a win fanfare, synthesized in the browser (no audio assets) with a **Sound on / off** toggle (`localStorage` `hk-mute`). Sound off is a master bus: it also silences the music bed.
@@ -288,6 +289,7 @@ The only dependency is Vite (dev dependency). The server runs on the Node standa
     ├── lobby.js        # Lobby, waiting room, tables
     ├── hud.js          # Sidebar, diary, win modal, farm work, gazette overlay
     ├── gazette.js      # Season-wrap gazette facts + template (no engine log)
+    ├── coach.js        # Landing field-note facts + template (no engine log)
     ├── view-util.js    # Shared markup helpers
     ├── a11y.js         # Focus trap, reduced motion
     ├── engine.js       # Game rules, farming cycle, cards, seasons, structured log, win logic
@@ -441,7 +443,7 @@ Base URL: `/api` (proxied to port 3001).
 | POST | `/api/action` | `{ code, token, action }` | Submit a validated game action for the current turn. Spectators are rejected. |
 | GET | `/api/session` | `?code` + cookie `hk-seat` or header `X-Seat-Token` | Current snapshot (boot / restore). Query `token` is ignored. |
 | GET | `/api/events` | `?code` + cookie `hk-seat` | SSE stream of `snapshot` events. Query `token` is ignored. |
-| POST | `/api/gazette` | `{ facts, lang? }` | Optional LLM rewrite of a season-wrap gazette. Empty `text` if `USER_LLM_API_KEY` / `USER_LLM_BASE_URL` are unset. Never writes `state.log`. |
+| POST | `/api/gazette` | `{ facts, lang?, kind? }` | Optional LLM rewrite of a season-wrap gazette (`kind` omitted or `gazette`) or a landing field note (`kind: 'coach'`). Empty `text` if `USER_LLM_API_KEY` / `USER_LLM_BASE_URL` are unset. Never writes `state.log`. |
 
 ### Action types
 

@@ -16,6 +16,7 @@ import {
 import { PERSONAS, CPU_NAMES, chooseAction, describeAction } from './ai.js'
 import { t, setLang, currentLang } from './i18n.js'
 import { gazetteFacts, gazetteTemplate } from './gazette.js'
+import { coachFacts, coachTemplate } from './coach.js'
 import { playCue, isMuted, toggleMute, toggleMusic, startMusic, stopMusic, setMusicScene } from './sound.js'
 import { toggleContrast } from './contrast.js'
 import { fmtCount } from './format.js'
@@ -369,11 +370,28 @@ function captureLanding(prevCash, opts = {}) {
     landing = items[0]
     landing.queued = items.length
     cueForLanding(landing)
+    attachCoach(landing)
     return
   }
   landingQueue = []
   landing = items[items.length - 1]
   cueForLanding(landing)
+  attachCoach(landing)
+}
+
+function attachCoach(item) {
+  if (!state || !item) return
+  if (item.pid !== mySeat()) {
+    item.coach = ''
+    return
+  }
+  const facts = coachFacts(state, item)
+  item.coach = coachTemplate(facts)
+  polishGazette(facts, currentLang(), 'coach').then((polished) => {
+    if (landing !== item || !polished) return
+    item.coach = polished
+    render()
+  }).catch(() => {})
 }
 
 function maybeShowGazette(prevSeason, skip) {
@@ -1192,6 +1210,7 @@ function bindGame() {
     landok.addEventListener('click', () => {
       landing = landingQueue.shift() || null
       cueForLanding(landing)
+      attachCoach(landing)
       render()
     })
   }
@@ -1583,6 +1602,7 @@ function onEscape(e) {
   if (kind === 'landing') {
     landing = landingQueue.shift() || null
     cueForLanding(landing)
+    attachCoach(landing)
     render()
     return
   }
